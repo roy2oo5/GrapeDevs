@@ -124,6 +124,13 @@ export function fetchMouInventoryAvailability(skuCode) {
   return request(`/api/inventory/mou-availability?sku_code=${encodeURIComponent(skuCode)}`, {}, true);
 }
 
+export function requestMouInventory(payload) {
+  return request('/api/inventory/mou-availability/request', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, true);
+}
+
 export function saveDailyUsage(payload) {
   return request('/api/data/usage', { method: 'POST', body: JSON.stringify(payload) }, true);
 }

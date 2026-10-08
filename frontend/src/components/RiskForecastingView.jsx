@@ -3,6 +3,7 @@ import {
   fetchInventory,
   fetchInventoryForecast,
   fetchMouInventoryAvailability,
+  requestMouInventory,
 } from '../services/api';
 
 export function RiskForecastingView({ onToast }) {
@@ -14,6 +15,8 @@ export function RiskForecastingView({ onToast }) {
   const [demandForecast, setDemandForecast] = useState(null);
   const [isDemandForecasting, setIsDemandForecasting] = useState(false);
   const [partnerAvailability, setPartnerAvailability] = useState(null);
+  const [mouRequest, setMouRequest] = useState(null);
+  const [isMouRequesting, setIsMouRequesting] = useState(false);
 
   // Modal State for Inter-Hospital MOU Dispatch
   const [mouDialog, setMouDialog] = useState(null); // { title, sku, hospital, route }
@@ -74,6 +77,7 @@ export function RiskForecastingView({ onToast }) {
     try {
       const availability = await fetchMouInventoryAvailability(code);
       setPartnerAvailability(availability);
+      setMouRequest(null);
       setMouDialog({
         title: 'MOU hospital inventory',
         sku,
@@ -82,6 +86,31 @@ export function RiskForecastingView({ onToast }) {
       });
     } catch (error) {
       setForecastError(error.message || 'Could not load MOU hospital inventory.');
+    }
+  };
+
+  const handleRequestMouInventory = async (event, partner) => {
+    event.preventDefault();
+    const quantity = Number(mouRequest?.quantity);
+    if (!quantity || quantity > partner.quantity_shareable) {
+      setForecastError(`Request between 1 and ${partner.quantity_shareable} units.`);
+      return;
+    }
+    setIsMouRequesting(true);
+    try {
+      await requestMouInventory({
+        inventory_batch_id: partner.inventory_batch_id,
+        quantity,
+        urgency: mouRequest.urgency,
+        department: mouRequest.department.trim() || null,
+        notes: mouRequest.notes.trim() || null,
+      });
+      setMouRequest(null);
+      onToast?.(`Request sent to ${partner.hospital_name}. They must approve it.`);
+    } catch (error) {
+      setForecastError(error.message || 'Could not send the MOU inventory request.');
+    } finally {
+      setIsMouRequesting(false);
     }
   };
 
@@ -413,6 +442,56 @@ export function RiskForecastingView({ onToast }) {
                     {partner.quantity_on_hand} on hand; {partner.protected_reserve} reserved for their 14-day demand
                   </span>
                   {partner.expires_on && <span className="text-on-surface-variant">Expires {partner.expires_on}</span>}
+                  {partner.quantity_shareable > 0 && (
+                    mouRequest?.inventory_batch_id === partner.inventory_batch_id ? (
+                      <form onSubmit={(event) => handleRequestMouInventory(event, partner)} className="mt-2 grid gap-2 border-t border-outline/20 pt-2">
+                        <label className="text-xs font-medium text-on-surface">
+                          Quantity
+                          <input
+                            type="number"
+                            min="1"
+                            max={partner.quantity_shareable}
+                            value={mouRequest.quantity}
+                            onChange={(event) => setMouRequest({ ...mouRequest, quantity: event.target.value })}
+                            className="mt-1 w-full rounded-lg border border-outline/30 bg-surface-container-lowest px-2 py-1.5"
+                            required
+                          />
+                        </label>
+                        <label className="text-xs font-medium text-on-surface">
+                          Reason
+                          <textarea
+                            value={mouRequest.notes}
+                            onChange={(event) => setMouRequest({ ...mouRequest, notes: event.target.value })}
+                            className="mt-1 w-full rounded-lg border border-outline/30 bg-surface-container-lowest px-2 py-1.5"
+                            rows="2"
+                            placeholder="Explain the demand or shortage"
+                          />
+                        </label>
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => setMouRequest(null)} className="rounded-lg px-3 py-1.5 text-xs text-on-surface-variant">
+                            Cancel
+                          </button>
+                          <button type="submit" disabled={isMouRequesting} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary disabled:opacity-60">
+                            {isMouRequesting ? 'Sending...' : 'Send request'}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setMouRequest({
+                          inventory_batch_id: partner.inventory_batch_id,
+                          quantity: String(Math.min(1, partner.quantity_shareable)),
+                          urgency: 'normal',
+                          department: '',
+                          notes: '',
+                        })}
+                        className="mt-2 self-start rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary"
+                      >
+                        Request medicine
+                      </button>
+                    )
+                  )}
                 </div>
               ))}
             </div>

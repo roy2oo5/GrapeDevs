@@ -1,14 +1,14 @@
-from datetime import datetime, timezone
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.db.session import get_db
 from app.api.routers.auth import get_current_hospital_admin
-from app.models import Hospital, SurplusListing, TransferAuditEvent, TransferRequest
+from app.models import Hospital, InventoryBatch, SurplusListing, TransferAuditEvent, TransferRequest
+from app.models import MedicineDailyUsage
 from app.schemas import TransferAuditRead, TransferCreate, TransferRead, TransferStatusUpdate
 from app.services.realtime import publish_hospital_event
 
@@ -150,6 +150,37 @@ def update_transfer_status(
                     if listing.status == "filled" and (listing.expires_on is None or listing.expires_on >= datetime.now(timezone.utc).date()):
                         listing.status = "active"
             transfer.quantity = payload.approved_quantity
+    if payload.status == "approved" and transfer.surplus_listing_id is None and transfer.source_hospital_id:
+        source_batch = db.scalar(
+            select(InventoryBatch).where(
+                InventoryBatch.hospital_id == transfer.source_hospital_id,
+                InventoryBatch.sku_code == transfer.sku_code,
+                InventoryBatch.quantity > 0,
+            ).order_by(InventoryBatch.expires_on.asc().nullslast())
+        )
+        requested_quantity = payload.approved_quantity or transfer.quantity
+        if source_batch is None:
+            raise HTTPException(status_code=409, detail="The requested medicine is no longer in the source inventory")
+        recent_usage = db.scalar(
+            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
+                MedicineDailyUsage.hospital_id == source_batch.hospital_id,
+                MedicineDailyUsage.sku_code == source_batch.sku_code,
+                MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=30),
+            )
+        )
+        daily_use = float(recent_usage) if recent_usage is not None else source_batch.average_daily_use
+        days_until_stockout = source_batch.quantity / daily_use if daily_use > 0 else None
+        if days_until_stockout is not None and days_until_stockout <= 3:
+            raise HTTPException(
+                status_code=409,
+                detail="This medicine is now at critical shortage risk and cannot be approved for sharing",
+            )
+        shareable_quantity = max(0, round(source_batch.quantity - (daily_use * 14)))
+        if requested_quantity > shareable_quantity:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Only {shareable_quantity} units can be approved after the source hospital's 14-day reserve",
+            )
     if payload.status in {"rejected", "canceled"} and transfer.surplus_listing_id and previous_status in {"requested", "approved"}:
         listing = db.get(SurplusListing, transfer.surplus_listing_id)
         if listing:

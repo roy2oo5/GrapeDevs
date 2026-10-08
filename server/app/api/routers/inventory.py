@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.api.routers.auth import get_current_hospital_admin
-from app.models import Hospital, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage
+from app.models import Hospital, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage, TransferAuditEvent, TransferRequest
 from app.schemas import (
     HospitalAdminIdentity,
     InventoryBatchCreate,
@@ -15,6 +15,7 @@ from app.schemas import (
     InventoryBatchRead,
     InventoryBatchUpdate,
     InventoryUsageUpdate,
+    MOUInventoryRequestCreate,
 )
 from app.services.geography import is_within_hospital_radius
 from app.services.realtime import publish_hospital_event
@@ -179,7 +180,18 @@ def mou_inventory_availability(
     hospitals = {hospital.id: hospital.name for hospital in partner_hospitals if hospital.id in partner_ids}
     partners = []
     for batch in batches:
-        reserve = batch.average_daily_use * 14
+        recent_usage = db.scalar(
+            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
+                MedicineDailyUsage.hospital_id == batch.hospital_id,
+                MedicineDailyUsage.sku_code == batch.sku_code,
+                MedicineDailyUsage.usage_date >= date.today() - timedelta(days=30),
+            )
+        )
+        daily_use = float(recent_usage) if recent_usage is not None else batch.average_daily_use
+        days_until_stockout = batch.quantity / daily_use if daily_use > 0 else None
+        if days_until_stockout is not None and days_until_stockout <= 3:
+            continue
+        reserve = daily_use * 14
         partners.append(
             {
                 "hospital_id": str(batch.hospital_id),
@@ -190,10 +202,99 @@ def mou_inventory_availability(
                 "average_daily_use": batch.average_daily_use,
                 "protected_reserve": round(reserve, 2),
                 "quantity_shareable": max(0, round(batch.quantity - reserve)),
+                "inventory_batch_id": str(batch.id),
                 "expires_on": batch.expires_on.isoformat() if batch.expires_on else None,
             }
         )
     return {"sku_code": sku_code, "partners": partners}
+
+
+@router.post("/mou-availability/request", status_code=status.HTTP_201_CREATED)
+def request_mou_inventory(
+    payload: MOUInventoryRequestCreate,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    batch = db.get(InventoryBatch, payload.inventory_batch_id)
+    requester = db.get(Hospital, identity.hospital_id)
+    if batch is None or batch.hospital_id == identity.hospital_id:
+        raise HTTPException(status_code=404, detail="MOU inventory batch not found")
+    owner = db.get(Hospital, batch.hospital_id)
+    if owner is None or requester is None or not is_within_hospital_radius(requester, owner):
+        raise HTTPException(status_code=403, detail="MOU inventory is outside the 50 km sharing radius")
+
+    active_mou = db.scalar(
+        select(HospitalAgreement.id).where(
+            HospitalAgreement.status == "active",
+            (
+                ((HospitalAgreement.hospital_id == identity.hospital_id) & (HospitalAgreement.partner_hospital_id == owner.id))
+                | ((HospitalAgreement.hospital_id == owner.id) & (HospitalAgreement.partner_hospital_id == identity.hospital_id))
+            ),
+        )
+    )
+    if active_mou is None:
+        raise HTTPException(status_code=403, detail="An active MOU is required to request this inventory")
+
+    recent_usage = db.scalar(
+        select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
+            MedicineDailyUsage.hospital_id == batch.hospital_id,
+            MedicineDailyUsage.sku_code == batch.sku_code,
+            MedicineDailyUsage.usage_date >= date.today() - timedelta(days=30),
+        )
+    )
+    daily_use = float(recent_usage) if recent_usage is not None else batch.average_daily_use
+    days_until_stockout = batch.quantity / daily_use if daily_use > 0 else None
+    if days_until_stockout is not None and days_until_stockout <= 3:
+        raise HTTPException(
+            status_code=409,
+            detail="This medicine is at critical shortage risk at the supplying hospital and cannot be requested",
+        )
+    protected_reserve = daily_use * 14
+    shareable = max(0, round(batch.quantity - protected_reserve))
+    if payload.quantity > shareable:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only {shareable} units are currently shareable after the owner's 14-day reserve",
+        )
+    duplicate = db.scalar(
+        select(TransferRequest).where(
+            TransferRequest.requesting_hospital_id == identity.hospital_id,
+            TransferRequest.source_hospital_id == owner.id,
+            TransferRequest.sku_code == batch.sku_code,
+            TransferRequest.status.in_(("requested", "approved", "in_transit")),
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(status_code=409, detail="You already have an active request for this medicine")
+
+    transfer = TransferRequest(
+        requesting_hospital_id=identity.hospital_id,
+        source_hospital_id=owner.id,
+        sku_code=batch.sku_code,
+        sku_name=batch.sku_name,
+        quantity=payload.quantity,
+        unit=batch.unit,
+        urgency=payload.urgency,
+        department=payload.department,
+        notes=payload.notes,
+    )
+    db.add(transfer)
+    db.flush()
+    db.add(TransferAuditEvent(
+        transfer_id=transfer.id,
+        actor_hospital_id=identity.hospital_id,
+        from_status=None,
+        to_status="requested",
+        quantity=transfer.quantity,
+    ))
+    db.commit()
+    db.refresh(transfer)
+    publish_hospital_event(
+        {identity.hospital_id, owner.id},
+        "transfers.updated",
+        transfer_id=str(transfer.id),
+    )
+    return {"transfer": transfer, "owner_hospital_name": owner.name}
 
 
 @router.get("/batches", response_model=list[InventoryBatchRead])

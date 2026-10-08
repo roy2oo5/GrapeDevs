@@ -13,6 +13,7 @@ from app.schemas.inventory import (
     InventoryBatchRead,
     InventoryBatchUpdate,
     InventoryUsageUpdate,
+    MOUInventoryRequestCreate,
 )
 from app.schemas.marketplace import (
     SurplusBuyerRead,
@@ -46,6 +47,7 @@ __all__ = [
     "InventoryBatchRead",
     "InventoryBatchUpdate",
     "InventoryUsageUpdate",
+    "MOUInventoryRequestCreate",
 
     "SurplusListingCreate",
     "SurplusListingRead",

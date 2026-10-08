@@ -24,6 +24,14 @@ class InventoryUsageUpdate(BaseModel):
     average_daily_use: float = Field(ge=0, le=1000000)
 
 
+class MOUInventoryRequestCreate(BaseModel):
+    inventory_batch_id: UUID
+    quantity: int = Field(gt=0, le=1000000)
+    urgency: str = Field(default="normal", pattern="^(critical|high|normal)$")
+    department: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=1000)
+
+
 class InventoryBatchRead(InventoryBatchCreate):
     model_config = ConfigDict(from_attributes=True)
 
