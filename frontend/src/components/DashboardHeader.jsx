@@ -130,16 +130,8 @@ export function DashboardHeader({
         </div>
 
         {/* User Profile Info */}
-        <div className="flex items-center gap-space-sm pl-space-sm border-l border-surface-container-high/60">
-          <div className="flex flex-col text-right hidden sm:flex">
-            <span className="font-label-md text-label-md text-on-surface font-semibold leading-tight">
-              {user.name}
-            </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant leading-none">
-              {user.role}
-            </span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm">
+        <div className="flex items-center pl-space-sm border-l border-surface-container-high/60">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm" title="User Profile">
             <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
           </div>
         </div>

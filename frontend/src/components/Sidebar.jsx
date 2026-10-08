@@ -75,26 +75,7 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'M
           <span className="font-label-md text-label-md">System Settings</span>
         </button>
 
-        {/* Node Telemetry Box */}
-        <div className="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-space-xs border border-surface-container-high/60">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-tertiary-container animate-ping"></span>
-              <span className="font-label-sm text-label-sm text-on-surface font-semibold">
-                {activeNode} // Live
-              </span>
-            </div>
-            <span className="px-2 py-0.5 rounded-full bg-surface-container-high font-label-sm text-label-sm text-on-surface-variant font-mono">
-              14ms
-            </span>
-          </div>
-          <div className="flex items-center justify-between pt-1 border-t border-surface-container-high/40">
-            <span className="font-body-sm text-body-sm text-outline">Node Telemetry</span>
-            <span className="font-label-sm text-label-sm text-primary font-semibold">
-              Level 4 Clear
-            </span>
-          </div>
-        </div>
+
 
         {/* Terminal Switcher / Auth Gate */}
         {onOpenAuth && (

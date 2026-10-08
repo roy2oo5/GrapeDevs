@@ -256,7 +256,11 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('In Transit')).toBeInTheDocument();
       expect(screen.getByText('Completed')).toBeInTheDocument();
 
-      // Check default selected transfer details in drawer
+      // Click a transfer card to open drawer
+      const card = screen.getAllByText(/TRX-9402/)[0];
+      fireEvent.click(card);
+
+      // Check selected transfer details in drawer
       expect(screen.getByText('Transfer Details')).toBeInTheDocument();
       expect(screen.getAllByText(/Paracetamol 500mg IV Infusion/).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('AI Epidemiologic Surge Match')).toBeInTheDocument();
@@ -277,6 +281,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
     it('handles approving a transfer and toast callback', () => {
       const handleToast = vi.fn();
       render(<TransfersLogisticsView onToast={handleToast} />);
+
+      const card = screen.getAllByText(/TRX-9402/)[0];
+      fireEvent.click(card);
 
       const approveBtn = screen.getByRole('button', { name: /Approve Transfer & Dispatch/i });
       fireEvent.click(approveBtn);

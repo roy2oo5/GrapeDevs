@@ -300,11 +300,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">
               Inventory Management
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-outline-variant mx-1"></span>
-            <span className="font-label-sm text-label-sm text-outline flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px] text-tertiary">hub</span>
-              MedCare Central Pharmacy Depot
-            </span>
           </div>
 
           <div className="flex items-baseline gap-space-sm mt-1">
@@ -784,13 +779,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-1 text-tertiary font-label-sm text-label-sm font-semibold">
-            <span className="material-symbols-outlined text-[16px]">verified</span>
-            <span>Node Crypt-Signed</span>
-          </div>
-          <span className="font-mono text-outline font-label-sm text-label-sm">#BL-09941-SEC</span>
-        </div>
+
       </div>
     </div>
   );
