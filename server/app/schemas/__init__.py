@@ -14,7 +14,12 @@ from app.schemas.inventory import (
     InventoryBatchUpdate,
     InventoryUsageUpdate,
 )
-from app.schemas.marketplace import SurplusListingCreate, SurplusListingRead, SurplusRequestCreate
+from app.schemas.marketplace import (
+    SurplusBuyerRead,
+    SurplusListingCreate,
+    SurplusListingRead,
+    SurplusRequestCreate,
+)
 from app.schemas.operations import HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
 from app.schemas.transfer import TransferCreate, TransferRead, TransferStatusUpdate
 
@@ -39,6 +44,7 @@ __all__ = [
     "SurplusListingCreate",
     "SurplusListingRead",
     "SurplusRequestCreate",
+    "SurplusBuyerRead",
     "ScenarioRunCreate",
     "ScenarioRunRead",
     "TransferCreate",

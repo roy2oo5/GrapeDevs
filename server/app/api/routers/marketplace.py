@@ -2,23 +2,61 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.api.routers.auth import get_current_hospital_admin
 from app.db.session import get_db
 from app.models import Hospital, InventoryBatch, SurplusListing, TransferRequest
-from app.schemas import HospitalAdminIdentity, SurplusListingCreate, SurplusListingRead, SurplusRequestCreate
+from app.schemas import (
+    HospitalAdminIdentity,
+    SurplusListingCreate,
+    SurplusListingRead,
+    SurplusRequestCreate,
+)
 
 
 router = APIRouter(prefix="/marketplace", tags=["Surplus Marketplace"])
 
 
-def serialize_listing(db: Session, listing: SurplusListing) -> dict:
-    hospital = db.get(Hospital, listing.hospital_id)
+def get_buyers_by_listing(db: Session, listings: list[SurplusListing]) -> dict[UUID, list[dict]]:
+    if not listings:
+        return {}
+    rows = db.execute(
+        select(
+            TransferRequest.surplus_listing_id,
+            Hospital.id,
+            Hospital.name,
+            TransferRequest.quantity,
+            TransferRequest.status,
+        )
+        .join(Hospital, TransferRequest.requesting_hospital_id == Hospital.id)
+        .where(TransferRequest.surplus_listing_id.in_([listing.id for listing in listings]))
+        .order_by(TransferRequest.created_at.desc())
+    )
+    buyers_by_listing: dict[UUID, list[dict]] = {}
+    for listing_id, hospital_id, hospital_name, quantity, transfer_status in rows:
+        buyers_by_listing.setdefault(listing_id, []).append({
+            "hospital_id": hospital_id,
+            "hospital_name": hospital_name,
+            "quantity": quantity,
+            "status": transfer_status,
+        })
+    return buyers_by_listing
+
+
+def serialize_listing(
+    db: Session,
+    listing: SurplusListing,
+    hospital_name: str | None = None,
+    buyers: list[dict] | None = None,
+) -> dict:
+    if hospital_name is None:
+        hospital = db.get(Hospital, listing.hospital_id)
+        hospital_name = hospital.name if hospital else "Unknown hospital"
     return {
         "id": listing.id,
         "hospital_id": listing.hospital_id,
-        "hospital_name": hospital.name if hospital else "Unknown hospital",
+        "hospital_name": hospital_name,
         "inventory_batch_id": listing.inventory_batch_id,
         "sku_code": listing.sku_code,
         "sku_name": listing.sku_name,
@@ -31,6 +69,7 @@ def serialize_listing(db: Session, listing: SurplusListing) -> dict:
         "notes": listing.notes,
         "status": listing.status,
         "created_at": listing.created_at,
+        "buyers": buyers or [],
     }
 
 
@@ -41,14 +80,23 @@ def list_listings(
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
-    statement = select(SurplusListing).where(
-        SurplusListing.status == "active",
-        SurplusListing.hospital_id != identity.hospital_id,
-        SurplusListing.quantity_available >= min_quantity,
-    ).order_by(SurplusListing.expires_on.asc().nullslast(), SurplusListing.created_at.desc())
+    hospital = aliased(Hospital)
+    statement = (
+        select(SurplusListing, hospital.name)
+        .join(hospital, SurplusListing.hospital_id == hospital.id)
+        .where(
+            SurplusListing.status == "active",
+            SurplusListing.hospital_id != identity.hospital_id,
+            SurplusListing.quantity_available >= min_quantity,
+        )
+        .order_by(SurplusListing.expires_on.asc().nullslast(), SurplusListing.created_at.desc())
+    )
     if sku_code:
         statement = statement.where(SurplusListing.sku_code == sku_code)
-    return [serialize_listing(db, listing) for listing in db.scalars(statement)]
+    return [
+        serialize_listing(db, listing, hospital_name)
+        for listing, hospital_name in db.execute(statement)
+    ]
 
 
 @router.get("/mine", response_model=list[SurplusListingRead])
@@ -56,12 +104,18 @@ def list_my_listings(
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
-    listings = db.scalars(
-        select(SurplusListing)
+    hospital = aliased(Hospital)
+    listing_rows = list(db.execute(
+        select(SurplusListing, hospital.name)
+        .join(hospital, SurplusListing.hospital_id == hospital.id)
         .where(SurplusListing.hospital_id == identity.hospital_id)
         .order_by(SurplusListing.created_at.desc())
-    )
-    return [serialize_listing(db, listing) for listing in listings]
+    ))
+    buyers_by_listing = get_buyers_by_listing(db, [listing for listing, _ in listing_rows])
+    return [
+        serialize_listing(db, listing, hospital_name, buyers_by_listing.get(listing.id, []))
+        for listing, hospital_name in listing_rows
+    ]
 
 
 @router.post("/listings", response_model=SurplusListingRead, status_code=status.HTTP_201_CREATED)
@@ -75,6 +129,15 @@ def publish_listing(
         raise HTTPException(status_code=404, detail="Inventory batch not found")
     if payload.quantity > batch.quantity:
         raise HTTPException(status_code=409, detail="Listing quantity exceeds the batch quantity")
+    if (
+        payload.expires_on is not None
+        and batch.expires_on is not None
+        and payload.expires_on > batch.expires_on
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Surplus expiry date cannot be later than the inventory batch expiry date",
+        )
 
     listing = SurplusListing(
         hospital_id=identity.hospital_id,
@@ -85,7 +148,7 @@ def publish_listing(
         quantity_available=payload.quantity,
         unit=batch.unit,
         lot_number=batch.lot_number,
-        expires_on=batch.expires_on,
+        expires_on=payload.expires_on or batch.expires_on,
         storage_regime=batch.storage_regime,
         notes=payload.notes,
     )
@@ -111,6 +174,7 @@ def request_listing(
     transfer = TransferRequest(
         requesting_hospital_id=identity.hospital_id,
         source_hospital_id=listing.hospital_id,
+        surplus_listing_id=listing.id,
         sku_code=listing.sku_code,
         sku_name=listing.sku_name,
         quantity=payload.quantity,

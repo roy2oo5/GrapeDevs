@@ -106,6 +106,7 @@ create table if not exists public.transfer_requests (
     id uuid primary key default gen_random_uuid(),
     requesting_hospital_id uuid references public.hospitals(id) on delete set null,
     source_hospital_id uuid references public.hospitals(id) on delete set null,
+    surplus_listing_id uuid references public.surplus_listings(id) on delete set null,
     sku_code varchar(80),
     sku_name varchar(200) not null,
     quantity integer not null check (quantity > 0),
@@ -123,6 +124,8 @@ create index if not exists ix_transfer_requests_requesting_hospital_id
     on public.transfer_requests (requesting_hospital_id);
 create index if not exists ix_transfer_requests_source_hospital_id
     on public.transfer_requests (source_hospital_id);
+create index if not exists ix_transfer_requests_surplus_listing_id
+    on public.transfer_requests (surplus_listing_id);
 create index if not exists ix_transfer_requests_sku_code on public.transfer_requests (sku_code);
 create index if not exists ix_transfer_requests_status on public.transfer_requests (status);
 create index if not exists ix_transfer_requests_created_at on public.transfer_requests (created_at desc);

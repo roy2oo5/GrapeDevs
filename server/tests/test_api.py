@@ -375,11 +375,17 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
 
     listing_response = client.post(
         "/api/marketplace/listings",
-        json={"inventory_batch_id": batch.json()["id"], "quantity": 50, "notes": "Surplus stock"},
+        json={
+            "inventory_batch_id": batch.json()["id"],
+            "quantity": 50,
+            "expires_on": (date.today() + timedelta(days=20)).isoformat(),
+            "notes": "Surplus stock",
+        },
     )
     assert listing_response.status_code == 201
     listing = listing_response.json()
     assert listing["quantity_available"] == 50
+    assert listing["expires_on"] == (date.today() + timedelta(days=20)).isoformat()
 
     other_hospital = client.post(
         "/api/auth/register",
@@ -409,6 +415,17 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
     assert requested.json()["transfer"]["quantity"] == 20
     assert requested.json()["transfer"]["source_hospital_id"] == listing["hospital_id"]
     assert requested.json()["listing"]["quantity_available"] == 30
+
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="TEST-ADMIN-001",
+        hospital_id=client.test_hospital_id,
+        hospital_name="Test General Hospital",
+    )
+    own_listings = client.get("/api/marketplace/mine")
+    assert own_listings.status_code == 200
+    assert own_listings.json()[0]["buyers"][0]["hospital_name"] == "Other City Hospital"
+    assert own_listings.json()[0]["buyers"][0]["quantity"] == 20
+    assert own_listings.json()[0]["buyers"][0]["status"] == "requested"
 
 
 def test_agreement_create_and_partner_can_accept(authorized_client, client, db_session_factory):

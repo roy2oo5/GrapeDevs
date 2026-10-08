@@ -468,39 +468,113 @@ describe('PulseGrid Control Tower Test Suite', () => {
   });
 
   describe('MOUPartnersView Component (Screen 5)', () => {
-    it('renders marketplace header, KPIs, and surplus cards', () => {
+    it('renders the surplus posting form and nearby hospital listings', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url) => {
+        if (String(url).includes('/api/inventory/batches')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [{
+              id: 'batch-001',
+              sku_name: 'Paracetamol 500mg IV',
+              sku_code: 'IV-PARA-500',
+              quantity: 100,
+              unit: 'vials',
+            }],
+          });
+        }
+        if (String(url).includes('/api/marketplace/mine')) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{
+            id: 'listing-001',
+            sku_name: 'Ceftriaxone 1g',
+            hospital_name: 'Nearby General Hospital',
+            quantity_available: 50,
+            unit: 'vials',
+            storage_regime: 'ambient',
+            expires_on: '2026-12-01',
+          }],
+        });
+      }));
       render(<MOUPartnersView onToast={vi.fn()} />);
 
-      expect(screen.getByText('Safe Surplus Network: Regional MOU Marketplace')).toBeInTheDocument();
-      expect(screen.getByText('41,280 Units')).toBeInTheDocument();
-      expect(screen.getByText('6 Facilities Synced')).toBeInTheDocument();
-      expect(screen.getByText('38 mins')).toBeInTheDocument();
-      expect(screen.getByText('1,840 Vials')).toBeInTheDocument();
-
-      // Check marketplace listings
-      expect(screen.getAllByText(/Paracetamol 500mg IV Infusion/).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('Propofol 10mg/mL Injectable')).toBeInTheDocument();
-      expect(screen.getByText('Ceftriaxone 1g Powder')).toBeInTheDocument();
-      expect(screen.getByText('Enoxaparin Sodium 40mg/0.4mL')).toBeInTheDocument();
-      expect(screen.getByText('Epinephrine 1mg/mL Auto-Injectors')).toBeInTheDocument();
+      expect(screen.getByText('Surplus marketplace')).toBeInTheDocument();
+      expect(screen.getByText('Post your surplus')).toBeInTheDocument();
+      expect(screen.getByText('Nearby hospital surplus')).toBeInTheDocument();
+      expect(await screen.findByText('Ceftriaxone 1g')).toBeInTheDocument();
+      expect(screen.getByText('Nearby General Hospital')).toBeInTheDocument();
     });
 
-    it('opens transfer modal when Request Surplus is clicked', () => {
-      render(<MOUPartnersView onToast={vi.fn()} />);
+    it('posts the selected inventory batch as surplus', async () => {
+      const handleToast = vi.fn();
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (options.method === 'POST') {
+          return Promise.resolve({ ok: true, json: async () => ({ id: 'listing-new' }) });
+        }
+        if (String(url).includes('/api/inventory/batches')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [{
+              id: 'batch-001',
+              sku_name: 'Paracetamol 500mg IV',
+              sku_code: 'IV-PARA-500',
+              quantity: 100,
+              unit: 'vials',
+            }],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }));
+      render(<MOUPartnersView onToast={handleToast} />);
 
-      const requestButtons = screen.getAllByRole('button', { name: /Request Surplus/i });
-      fireEvent.click(requestButtons[0]);
+      await screen.findByRole('option', { name: /Paracetamol 500mg IV/ });
+      fireEvent.change(screen.getByLabelText('Inventory batch'), { target: { value: 'batch-001' } });
+      fireEvent.change(screen.getByLabelText('Quantity to share'), { target: { value: '25' } });
+      fireEvent.change(screen.getByLabelText('Expiry date'), { target: { value: '2027-04-30' } });
+      fireEvent.click(screen.getByRole('button', { name: /Post surplus/i }));
 
-      expect(screen.getByText('Rebalance Requisition')).toBeInTheDocument();
-      expect(screen.getByText('Sign & Dispatch Courier')).toBeInTheDocument();
+      await waitFor(() => expect(handleToast).toHaveBeenCalledWith('Surplus posted for nearby hospitals.'));
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/marketplace/listings'),
+        expect.objectContaining({ method: 'POST' }),
+      );
     });
 
-    it('allows opening and closing Post Surplus Lot modal', () => {
-      render(<MOUPartnersView onToast={vi.fn()} />);
+    it('removes a posted surplus listing', async () => {
+      const handleToast = vi.fn();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (options.method === 'DELETE') {
+          return Promise.resolve({ ok: true, json: async () => null });
+        }
+        if (String(url).includes('/api/marketplace/mine')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [{
+              id: 'listing-owned-001',
+              sku_name: 'Owned surplus',
+              quantity_available: 10,
+              unit: 'vials',
+              status: 'active',
+              buyers: [],
+            }],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }));
+      render(<MOUPartnersView onToast={handleToast} />);
 
-      fireEvent.click(screen.getByRole('button', { name: /Post Surplus Lot/i }));
-      expect(screen.getByText('Post Safe Surplus Lot')).toBeInTheDocument();
-      expect(screen.getByText('Publish Surplus Listing')).toBeInTheDocument();
+      const deleteButton = await screen.findByRole('button', { name: /Delete Owned surplus surplus/i });
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => expect(handleToast).toHaveBeenCalledWith('Surplus listing removed.'));
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/marketplace/listings/listing-owned-001'),
+        expect.objectContaining({ method: 'DELETE' }),
+      );
+      expect(screen.getByText('You have not posted any surplus yet.')).toBeInTheDocument();
     });
   });
 

@@ -25,6 +25,9 @@ class TransferRequest(Base):
     source_hospital_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("hospitals.id", ondelete="SET NULL"), index=True
     )
+    surplus_listing_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("surplus_listings.id", ondelete="SET NULL"), index=True
+    )
     sku_code: Mapped[str | None] = mapped_column(String(80), index=True)
     sku_name: Mapped[str] = mapped_column(String(200), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)

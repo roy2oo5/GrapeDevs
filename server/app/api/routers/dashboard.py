@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,35 +19,30 @@ def dashboard_summary(
 ):
     today = date.today()
     expiry_cutoff = today + timedelta(days=30)
-    total_units = db.scalar(
-        select(func.coalesce(func.sum(InventoryBatch.quantity), 0)).where(
-            InventoryBatch.hospital_id == identity.hospital_id
-        )
-    ) or 0
-    expiring_units = db.scalar(
-        select(func.coalesce(func.sum(InventoryBatch.quantity), 0)).where(
-            InventoryBatch.expires_on >= today,
-            InventoryBatch.expires_on <= expiry_cutoff,
-            InventoryBatch.hospital_id == identity.hospital_id,
-        )
-    ) or 0
-    inventory_count = db.scalar(
-        select(func.count()).select_from(InventoryBatch).where(InventoryBatch.hospital_id == identity.hospital_id)
-    ) or 0
-    surplus_units = db.scalar(
-        select(func.coalesce(func.sum(InventoryBatch.quantity), 0)).where(
-            InventoryBatch.hospital_id == identity.hospital_id,
-            InventoryBatch.average_daily_use > 0,
-            InventoryBatch.quantity > InventoryBatch.average_daily_use * 7,
-        )
-    ) or 0
-    surplus_batches = db.scalar(
-        select(func.count()).select_from(InventoryBatch).where(
-            InventoryBatch.hospital_id == identity.hospital_id,
-            InventoryBatch.average_daily_use > 0,
-            InventoryBatch.quantity > InventoryBatch.average_daily_use * 7,
-        )
-    ) or 0
+    inventory_metrics = db.execute(
+        select(
+            func.coalesce(func.sum(InventoryBatch.quantity), 0),
+            func.coalesce(func.sum(case(
+                ((InventoryBatch.expires_on >= today) & (InventoryBatch.expires_on <= expiry_cutoff),
+                 InventoryBatch.quantity),
+                else_=0,
+            )), 0),
+            func.count(InventoryBatch.id),
+            func.coalesce(func.sum(case(
+                ((InventoryBatch.average_daily_use > 0)
+                 & (InventoryBatch.quantity > InventoryBatch.average_daily_use * 7),
+                 InventoryBatch.quantity),
+                else_=0,
+            )), 0),
+            func.coalesce(func.sum(case(
+                ((InventoryBatch.average_daily_use > 0)
+                 & (InventoryBatch.quantity > InventoryBatch.average_daily_use * 7),
+                 1),
+                else_=0,
+            )), 0),
+        ).where(InventoryBatch.hospital_id == identity.hospital_id)
+    ).one()
+    total_units, expiring_units, inventory_count, surplus_units, surplus_batches = inventory_metrics
     active_transfers = db.scalar(
         select(func.count()).select_from(TransferRequest).where(
             TransferRequest.status.in_(("requested", "approved", "in_transit")),
@@ -55,20 +50,16 @@ def dashboard_summary(
             | (TransferRequest.source_hospital_id == identity.hospital_id),
         )
     ) or 0
-    pending_agreements = db.scalar(
-        select(func.count()).select_from(HospitalAgreement).where(
-            HospitalAgreement.status == "pending",
+    agreement_metrics = db.execute(
+        select(
+            func.coalesce(func.sum(case((HospitalAgreement.status == "pending", 1), else_=0)), 0),
+            func.coalesce(func.sum(case((HospitalAgreement.status == "active", 1), else_=0)), 0),
+        ).where(
             (HospitalAgreement.hospital_id == identity.hospital_id)
             | (HospitalAgreement.partner_hospital_id == identity.hospital_id),
         )
-    ) or 0
-    active_agreements = db.scalar(
-        select(func.count()).select_from(HospitalAgreement).where(
-            HospitalAgreement.status == "active",
-            (HospitalAgreement.hospital_id == identity.hospital_id)
-            | (HospitalAgreement.partner_hospital_id == identity.hospital_id),
-        )
-    ) or 0
+    ).one()
+    pending_agreements, active_agreements = agreement_metrics
     return {
         "inventory_units": total_units,
         "units_expiring_within_30_days": expiring_units,

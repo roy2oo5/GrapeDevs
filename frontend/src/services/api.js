@@ -130,14 +130,7 @@ export function publishSurplusListing(listing) {
   return request('/api/marketplace/listings', { method: 'POST', body: JSON.stringify(listing) }, true);
 }
 
-export function requestSurplusListing(listingId, requisition) {
-  return request(`/api/marketplace/listings/${listingId}/request`, {
-    method: 'POST',
-    body: JSON.stringify(requisition),
-  }, true);
-}
-
-export function withdrawSurplusListing(listingId) {
+export function deleteSurplusListing(listingId) {
   return request(`/api/marketplace/listings/${listingId}`, { method: 'DELETE' }, true);
 }
 
@@ -183,4 +176,3 @@ export async function fetchHealth() {
     throw error;
   }
 }
-

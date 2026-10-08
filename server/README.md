@@ -31,7 +31,7 @@ Copy-Item .env.example .env
 
 Set `AUTH_TOKEN_SECRET` to a random secret of at least 32 characters. If it is unset, the backend derives a separate signing key from `SUPABASE_SECRET_KEY`. Rotating either source invalidates existing access tokens.
 
-Run `python -m scripts.apply_schema` from this directory to migrate existing facility records and create/update the hospital schema. The migration renames tables/columns in place to preserve data. For a new database, execute [`supabase/schema.sql`](supabase/schema.sql) in Supabase SQL Editor. The app intentionally does not mutate production schema at startup. Keep database credentials server-side; never put a service-role key in frontend environment variables. If both the project-root `.env` and `server/.env` exist, the server-local file takes precedence.
+Run `python -m scripts.apply_schema` from this directory to migrate existing facility records and create/update the hospital schema, including the surplus-listing buyer link. If you manage Supabase SQL manually, run [`supabase/migrations/003_surplus_listing_buyers.sql`](supabase/migrations/003_surplus_listing_buyers.sql) once against an existing database, or execute the complete [`supabase/schema.sql`](supabase/schema.sql) for a new database. The app intentionally does not mutate production schema at startup. Keep database credentials server-side; never put a service-role key in frontend environment variables. If both the project-root `.env` and `server/.env` exist, the server-local file takes precedence.
 
 ## MVP routes
 

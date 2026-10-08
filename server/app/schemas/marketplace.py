@@ -7,7 +7,15 @@ from pydantic import BaseModel, Field
 class SurplusListingCreate(BaseModel):
     inventory_batch_id: UUID
     quantity: int = Field(gt=0, le=1000000)
+    expires_on: date | None = None
     notes: str | None = Field(default=None, max_length=1000)
+
+
+class SurplusBuyerRead(BaseModel):
+    hospital_id: UUID
+    hospital_name: str
+    quantity: int
+    status: str
 
 
 class SurplusRequestCreate(BaseModel):
@@ -33,3 +41,4 @@ class SurplusListingRead(BaseModel):
     notes: str | None
     status: str
     created_at: datetime
+    buyers: list[SurplusBuyerRead] = Field(default_factory=list)

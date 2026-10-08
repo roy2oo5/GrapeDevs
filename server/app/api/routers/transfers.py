@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.db.session import get_db
 from app.api.routers.auth import get_current_hospital_admin
@@ -18,17 +18,26 @@ router = APIRouter(
 )
 
 
-def serialize_transfer(db: Session, transfer: TransferRequest) -> dict:
-    requesting_hospital = db.get(Hospital, transfer.requesting_hospital_id) if transfer.requesting_hospital_id else None
-    source_hospital = db.get(Hospital, transfer.source_hospital_id) if transfer.source_hospital_id else None
+def serialize_transfer(
+    db: Session,
+    transfer: TransferRequest,
+    requesting_hospital_name: str | None = None,
+    source_hospital_name: str | None = None,
+) -> dict:
+    if requesting_hospital_name is None and transfer.requesting_hospital_id:
+        requesting_hospital = db.get(Hospital, transfer.requesting_hospital_id)
+        requesting_hospital_name = requesting_hospital.name if requesting_hospital else None
+    if source_hospital_name is None and transfer.source_hospital_id:
+        source_hospital = db.get(Hospital, transfer.source_hospital_id)
+        source_hospital_name = source_hospital.name if source_hospital else None
     fields = (
         "id", "requesting_hospital_id", "source_hospital_id", "sku_code", "sku_name",
         "quantity", "unit", "urgency", "department", "notes", "status", "created_at", "updated_at",
     )
     return {
         **{field: getattr(transfer, field) for field in fields},
-        "requesting_hospital_name": requesting_hospital.name if requesting_hospital else None,
-        "source_hospital_name": source_hospital.name if source_hospital else None,
+        "requesting_hospital_name": requesting_hospital_name,
+        "source_hospital_name": source_hospital_name,
     }
 
 
@@ -61,7 +70,14 @@ def list_transfers(
     db: Session = Depends(get_db),
     identity=Depends(get_current_hospital_admin),
 ):
-    statement = select(TransferRequest).order_by(TransferRequest.created_at.desc())
+    requesting_hospital = aliased(Hospital)
+    source_hospital = aliased(Hospital)
+    statement = (
+        select(TransferRequest, requesting_hospital.name, source_hospital.name)
+        .outerjoin(requesting_hospital, TransferRequest.requesting_hospital_id == requesting_hospital.id)
+        .outerjoin(source_hospital, TransferRequest.source_hospital_id == source_hospital.id)
+        .order_by(TransferRequest.created_at.desc())
+    )
     if hospital_id is not None and hospital_id != identity.hospital_id:
         raise HTTPException(status_code=403, detail="Transfers can only be viewed for your hospital")
     statement = statement.where(
@@ -70,7 +86,10 @@ def list_transfers(
     )
     if status_filter:
         statement = statement.where(TransferRequest.status == status_filter)
-    return [serialize_transfer(db, transfer) for transfer in db.scalars(statement)]
+    return [
+        serialize_transfer(db, transfer, requesting_name, source_name)
+        for transfer, requesting_name, source_name in db.execute(statement)
+    ]
 
 
 @router.patch("/{transfer_id}", response_model=TransferRead)
