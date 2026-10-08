@@ -4,11 +4,10 @@ export function TransfersLogisticsView({ onToast }) {
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
   const [selectedFacility, setSelectedFacility] = useState('All');
   const [selectedPriority, setSelectedPriority] = useState('All');
-  const [selectedRegime, setSelectedRegime] = useState('All');
   const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedTransferId, setSelectedTransferId] = useState('TRX-9402');
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Transfers data model
   const [transfers, setTransfers] = useState([
@@ -20,7 +19,7 @@ export function TransfersLogisticsView({ onToast }) {
       quantity: '500 vials',
       regime: 'Ambient Regulated',
       regimeType: 'ambient',
-      origin: 'MedCare Gen (Depot-B)',
+      origin: 'MedCare General',
       destination: 'North District Clinic',
       distance: '9.4 km',
       eta: '22m',
@@ -76,7 +75,7 @@ export function TransfersLogisticsView({ onToast }) {
       quantity: '600 vials (12 cases)',
       regime: 'Ambient Regulated (15-25°C)',
       regimeType: 'ambient',
-      origin: 'MedCare General (Depot-A)',
+      origin: 'MedCare General',
       destination: 'Valley Trauma Center',
       distance: '18.4 km via I-80 Med Express',
       eta: '38m',
@@ -148,9 +147,9 @@ export function TransfersLogisticsView({ onToast }) {
       steps: [
         { label: 'Proposed by Epi-Forecast Agent', time: 'Oct 28, 07:40', done: true },
         { label: 'MOU Partner Verification', time: 'Oct 28, 07:55', done: true },
-        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 08:05 • Approved by MedCare General Hospital', done: true },
-        { label: 'Cold Chain Courier Dispatch', time: 'Staging on Loading Bay 3', active: true },
-        { label: 'Receipt & Cryptographic Ledgering', time: 'Pending receipt' }
+        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 08:05 • Approved by MedCare Lead', done: true },
+        { label: 'Cold Chain Courier Dispatch', time: 'Staged at Bay 3', active: true },
+        { label: 'Receipt & Cryptographic Ledgering', time: 'Pending' }
       ]
     },
     {
@@ -159,55 +158,55 @@ export function TransfersLogisticsView({ onToast }) {
       skuName: 'Packed Red Blood Cells (O-)',
       subtitle: 'Cold Container Unit CPDA-1',
       quantity: '12 Units',
-      regime: '3.8°C Steady',
+      regime: 'Cold Chain 3.8°C Steady',
       regimeType: 'cold',
       origin: 'Metro Regional Blood Bank',
-      destination: 'MedCare Trauma Bay',
-      distance: 'En Route • 65% Completed',
+      destination: 'MedCare Trauma Unit',
+      distance: '6.2 km',
       eta: '12m',
       courier: 'Van #04 (Rapid Dispatch)',
       score: 99,
       scoreLabel: 'Trauma Code O-Neg',
       scoreType: 'critical',
       timeAgo: 'Live GPS',
-      progress: 65,
-      batch: '#LOT-BLD-9002',
+      batch: '#LOT-00912-B',
       expiry: 'Nov 02, 2024',
-      justification: 'Mass casualty trauma intake at MedCare Gen requested urgent Type O-Neg blood replenishment.',
+      justification: 'Multi-casualty highway collision trauma activation in Emergency Room Bay 4.',
+      progress: 65,
       steps: [
-        { label: 'Proposed by Epi-Forecast Agent', time: 'Oct 28, 07:10', done: true },
-        { label: 'MOU Partner Verification', time: 'Oct 28, 07:15', done: true },
-        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 07:20', done: true },
-        { label: 'Cold Chain Courier Dispatch', time: 'Oct 28, 07:28 • Driver Assigned (Van #04)', done: true },
-        { label: 'Receipt & Cryptographic Ledgering', time: 'ETA 12m • Live Cold-Chain Verified', active: true }
+        { label: 'Emergency Trauma Call Request', time: 'Oct 28, 07:12', done: true },
+        { label: 'Blood Center Rapid Match', time: 'Oct 28, 07:18', done: true },
+        { label: 'Cold-Chain Validation Passed (3.8°C)', time: 'Oct 28, 07:22', done: true },
+        { label: 'En-Route with Live GPS Beacon', time: 'Oct 28, 07:25 • Active', active: true },
+        { label: 'ER Reception & Transfusion Lock', time: 'ETA 12m' }
       ]
     },
     {
       id: 'TRX-9372',
       column: 'completed',
       skuName: 'Remdesivir 100mg Vials',
-      subtitle: 'Lyophilized Powder Infusion',
+      subtitle: 'Lyophilized Powder for Infusion',
       quantity: '180 vials',
       regime: 'Ambient',
       regimeType: 'ambient',
       origin: 'MedCare General',
       destination: "Central Children's",
-      distance: 'Delivered',
+      distance: '12.5 km',
       eta: 'Received 10:14 AM',
-      courier: 'DSCSA Verified',
+      courier: 'Delivered',
       score: 85,
       scoreLabel: 'Pediatric Replenishment',
       scoreType: 'routine',
-      timeAgo: 'Received 10:14 AM',
-      batch: '#LOT-55102-R',
-      expiry: 'Mar 15, 2025',
-      justification: 'Scheduled peer fulfillment completed with cryptographic signatures matching FDA DSCSA.',
+      timeAgo: 'Done',
+      batch: '#LOT-55190-R',
+      expiry: 'Feb 15, 2025',
+      justification: 'Replenished post-outbreak pediatric reserve buffer.',
       steps: [
-        { label: 'Proposed by Epi-Forecast Agent', time: 'Oct 28, 06:10', done: true },
-        { label: 'MOU Partner Verification', time: 'Oct 28, 06:25', done: true },
-        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 06:40', done: true },
-        { label: 'Cold Chain Courier Dispatch', time: 'Oct 28, 07:05', done: true },
-        { label: 'Receipt & Cryptographic Ledgering', time: 'Oct 28, 10:14 • Verified on SHA-256 Ledger', done: true }
+        { label: 'Requisition Dispatched', time: 'Oct 27, 16:30', done: true },
+        { label: 'Bilateral MOU Clearance', time: 'Oct 27, 17:00', done: true },
+        { label: 'Pharmacy Transfer Signed', time: 'Oct 27, 17:45', done: true },
+        { label: 'Transit Completed', time: 'Oct 28, 09:30', done: true },
+        { label: 'Cryptographic Ledger Reconciled', time: 'Oct 28, 10:14', done: true }
       ]
     }
   ]);
@@ -215,12 +214,18 @@ export function TransfersLogisticsView({ onToast }) {
   const selectedTransfer = transfers.find(t => t.id === selectedTransferId) || transfers[0];
 
   const columns = [
-    { id: 'proposed', title: 'Proposed', subtitle: 'AI outbreak forecast and safety buffer rebalancing', totalVal: '540 units', badgeClass: 'bg-surface-container-high text-on-surface-variant' },
-    { id: 'under-review', title: 'Under Review', subtitle: 'Pending clinical director / pharmacy sign-off', totalVal: '390 units', badgeClass: 'bg-primary-fixed text-on-primary-fixed', highlight: true },
-    { id: 'approved', title: 'Approved', subtitle: 'Authorized, awaiting packaging & courier dispatch', totalVal: '410 units', badgeClass: 'bg-surface-container-high text-on-surface-variant' },
-    { id: 'in-transit', title: 'In Transit', subtitle: 'Active cold chain GPS tracking & live telemetry', totalVal: '790 units', badgeClass: 'bg-tertiary-fixed text-on-tertiary-fixed' },
-    { id: 'completed', title: 'Completed', subtitle: 'Reconciled into destination inventory ledger', totalVal: '1,340 units', badgeClass: 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant' }
+    { id: 'proposed', title: 'Proposed', subtitle: 'AI surge forecast', totalVal: '540 units', countBadge: 'bg-surface-container-high text-on-surface-variant' },
+    { id: 'under-review', title: 'Under Review', subtitle: 'Pending director sign-off', totalVal: '390 units', countBadge: 'bg-primary text-on-primary', highlight: true },
+    { id: 'approved', title: 'Approved', subtitle: 'Awaiting courier dispatch', totalVal: '410 units', countBadge: 'bg-surface-container-high text-on-surface-variant' },
+    { id: 'in-transit', title: 'In Transit', subtitle: 'Active cold chain GPS', totalVal: '790 units', countBadge: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+    { id: 'completed', title: 'Completed', subtitle: 'Reconciled to ledger', totalVal: '1,340 units', countBadge: 'bg-surface-container-high text-on-surface-variant' }
   ];
+
+  const filteredTransfers = transfers.filter(t => {
+    if (selectedFacility !== 'All' && t.origin !== selectedFacility && t.destination !== selectedFacility) return false;
+    if (selectedPriority !== 'All' && t.scoreType !== selectedPriority) return false;
+    return true;
+  });
 
   const handleApproveTransfer = (id) => {
     setTransfers(prev =>
@@ -247,98 +252,168 @@ export function TransfersLogisticsView({ onToast }) {
   };
 
   return (
-    <div className="flex flex-col w-full relative animate-fadeIn">
-      {/* Top Ambient Glass Radiance Overlay */}
-      <div className="absolute -top-10 left-1/3 w-96 h-96 bg-primary-fixed/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
-      <div className="absolute top-48 right-10 w-80 h-80 bg-tertiary-fixed/15 rounded-full blur-3xl pointer-events-none -z-10"></div>
-
-      {/* Breadcrumb & Control Bar Header */}
-      <div className="flex flex-col gap-space-sm mb-space-lg">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
-          <span>Clinical Operations</span>
-          <span className="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-          <span>Transfers &amp; Logistics</span>
-          <span className="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-          <span className="text-primary font-semibold">Regional Redistribution Hub</span>
+    <div className="flex flex-col w-full pb-16 animate-fadeIn space-y-6">
+      {/* 1. TOP HEADER & PRIMARY ACTIONS */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+            <span className="text-primary font-bold">Clinical Operations</span>
+            <span className="text-outline text-xs">/</span>
+            <span className="font-semibold text-on-surface-variant">Transfers &amp; Logistics</span>
+            <span className="text-outline text-xs">/</span>
+            <span className="text-primary font-semibold">Regional Redistribution Hub</span>
+          </div>
+          <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-bold">
+            Redistribution Hub: Stock Movement &amp; MOU Logistics
+          </h1>
+          <p className="font-body-md text-body-md text-on-surface-variant max-w-3xl leading-relaxed">
+            Autonomous and peer-to-peer hospital stock rebalancing across Metropolitan District 4 mutual-aid facilities.
+          </p>
         </div>
 
-        {/* Title and Primary Actions Strip */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">
-          <div>
-            <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-bold">
-              Redistribution Hub: Stock Movement &amp; MOU Logistics
-            </h1>
-            <p className="font-body-md text-body-md text-on-surface-variant mt-0.5 max-w-4xl">
-              Autonomous and peer-to-peer hospital stock rebalancing across Metropolitan District 4 mutual-aid facilities.
-            </p>
+        {/* Action Controls */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* View Switcher */}
+          <div className="flex items-center p-1 rounded-xl bg-surface-container-high shadow-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('kanban')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-label-md text-label-md transition-all cursor-pointer ${
+                viewMode === 'kanban'
+                  ? 'bg-surface-container-lowest text-on-surface shadow-xs font-semibold'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[16px] ${viewMode === 'kanban' ? 'text-primary' : 'text-outline'}`}>view_kanban</span>
+              <span>Kanban Board</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-label-md text-label-md transition-all cursor-pointer ${
+                viewMode === 'list'
+                  ? 'bg-surface-container-lowest text-on-surface shadow-xs font-semibold'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[16px] ${viewMode === 'list' ? 'text-primary' : 'text-outline'}`}>format_list_bulleted</span>
+              <span>List View</span>
+            </button>
           </div>
 
-          {/* Controls & Quick Actions */}
-          <div className="flex flex-wrap items-center gap-space-sm">
-            {/* View Switcher Segmented Control */}
-            <div className="flex items-center p-1 rounded-xl bg-surface-container-high shadow-sm">
-              <button
-                type="button"
-                onClick={() => setViewMode('kanban')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-label-md text-label-md transition-all cursor-pointer ${
-                  viewMode === 'kanban'
-                    ? 'bg-surface-container-lowest text-on-surface shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[16px] ${viewMode === 'kanban' ? 'text-primary' : 'text-outline'}`}>view_kanban</span>
-                <span>Kanban Board</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-label-md text-label-md transition-colors cursor-pointer ${
-                  viewMode === 'list'
-                    ? 'bg-surface-container-lowest text-on-surface shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[16px] ${viewMode === 'list' ? 'text-primary' : 'text-outline'}`}>format_list_bulleted</span>
-                <span>List View</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-xs hover:bg-surface-container-high transition-all cursor-pointer border border-surface-container-high/60"
+          >
+            <span className="material-symbols-outlined text-[18px] text-outline">ios_share</span>
+            <span>Export Manifest</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsInitiateModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md shadow-md hover:bg-primary-container transition-all active:scale-95 cursor-pointer font-semibold"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>Initiate Transfer</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. OPERATIONAL KPI RIBBON */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Metric 1 */}
+        <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-xs border border-surface-container-high/60 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">Active Reallocations</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">18 Transfers</span>
+              </div>
             </div>
+            <div className="w-10 h-10 rounded-xl bg-primary-fixed/40 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-[22px]">swap_horiz</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-surface-container flex items-center justify-between text-xs text-on-surface-variant">
+            <span>Total Volume</span>
+            <span className="font-semibold text-on-surface font-mono">2,485 Units</span>
+          </div>
+        </div>
 
-            {/* Export Action */}
-            <button
-              type="button"
-              onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-space-md py-2.5 rounded-xl bg-surface-container-lowest text-on-surface font-label-lg text-label-lg shadow-sm hover:bg-surface-container-low transition-all cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px] text-outline">ios_share</span>
-              <span>Export Manifest</span>
-            </button>
+        {/* Metric 2 */}
+        <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-xs border border-surface-container-high/60 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">In Transit Now</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">6 Convoys</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-tertiary-fixed/40 flex items-center justify-center text-tertiary">
+              <span className="material-symbols-outlined text-[22px]">local_shipping</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-surface-container flex items-center justify-between text-xs text-on-surface-variant">
+            <span>Schedule Health</span>
+            <span className="font-semibold text-tertiary flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> 100% On Schedule
+            </span>
+          </div>
+        </div>
 
-            {/* Primary Initiate Transfer Button */}
-            <button
-              type="button"
-              onClick={() => setIsInitiateModalOpen(true)}
-              className="flex items-center gap-2 px-space-lg py-2.5 rounded-xl bg-primary-container text-on-primary font-label-lg text-label-lg shadow-[0_4px_14px_rgba(0,123,185,0.35)] hover:bg-primary transition-all active:scale-[0.99] cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              <span>Initiate Emergency Transfer</span>
-            </button>
+        {/* Metric 3 */}
+        <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-xs border border-surface-container-high/60 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">Avg Fulfillment Time</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">48 mins</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-secondary-fixed flex items-center justify-center text-secondary">
+              <span className="material-symbols-outlined text-[22px]">timer</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-surface-container flex items-center justify-between text-xs text-on-surface-variant">
+            <span>District SLA (&lt; 90m)</span>
+            <span className="font-semibold text-primary font-mono">-42m Delta</span>
+          </div>
+        </div>
+
+        {/* Metric 4 */}
+        <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-xs border border-surface-container-high/60 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">Prevented Stockouts</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">12 Units</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-error-container/60 flex items-center justify-center text-error">
+              <span className="material-symbols-outlined text-[22px]">shield</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-surface-container flex items-center justify-between text-xs text-on-surface-variant">
+            <span>Critical Patients Protected</span>
+            <span className="font-semibold text-on-surface">1,240 Patients</span>
           </div>
         </div>
       </div>
 
-      {/* Operational Filter Strip */}
-      <div className="flex flex-wrap items-center justify-between gap-space-sm p-space-sm rounded-xl bg-surface-container-low mb-space-lg">
-        <div className="flex flex-wrap items-center gap-space-xs">
-          <span className="px-space-sm font-label-sm text-label-sm text-outline uppercase tracking-wider">Filters:</span>
+      {/* 3. OPERATIONAL FILTER STRIP */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-surface-container-low border border-surface-container-high/40">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-2 text-xs font-semibold text-outline uppercase tracking-wider">Filters:</span>
 
-          {/* Facility Filter Chip */}
+          {/* Facility Filter */}
           <div className="relative">
             <select
               value={selectedFacility}
               onChange={(e) => setSelectedFacility(e.target.value)}
               aria-label="Filter transfers by facility"
-              className="appearance-none flex items-center gap-1.5 pl-8 pr-7 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm cursor-pointer hover:bg-surface-container-high transition-colors border-none outline-none"
+              className="appearance-none flex items-center gap-1.5 pl-8 pr-7 py-1.5 rounded-xl bg-surface-container-lowest text-on-surface text-xs font-medium shadow-xs cursor-pointer hover:bg-surface-container-high transition-colors border border-surface-container-high/60 outline-none"
             >
               <option value="All">Facility: All 6 Centers</option>
               <option value="MedCare General">MedCare General</option>
@@ -348,537 +423,399 @@ export function TransfersLogisticsView({ onToast }) {
               <option value="Central Children's">Central Children's</option>
               <option value="Highland Memorial">Highland Memorial</option>
             </select>
-            <span className="material-symbols-outlined text-[16px] text-primary absolute left-2.5 top-2 pointer-events-none">domain</span>
-            <span className="material-symbols-outlined text-[14px] text-outline absolute right-2 top-2.5 pointer-events-none">expand_more</span>
+            <span className="material-symbols-outlined text-[15px] text-primary absolute left-2.5 top-2 pointer-events-none">domain</span>
+            <span className="material-symbols-outlined text-[14px] text-outline absolute right-2 top-2 pointer-events-none">expand_more</span>
           </div>
 
-          {/* Priority Filter Chip */}
+          {/* Priority Filter */}
           <div className="relative">
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
               aria-label="Filter transfers by priority level"
-              className="appearance-none flex items-center gap-1.5 pl-8 pr-7 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm cursor-pointer hover:bg-surface-container-high transition-colors border-none outline-none"
+              className="appearance-none flex items-center gap-1.5 pl-8 pr-7 py-1.5 rounded-xl bg-surface-container-lowest text-on-surface text-xs font-medium shadow-xs cursor-pointer hover:bg-surface-container-high transition-colors border border-surface-container-high/60 outline-none"
             >
               <option value="All">Priority: All Levels</option>
               <option value="critical">Critical Surge (&gt;90)</option>
               <option value="routine">Routine Rebalance</option>
             </select>
-            <span className="material-symbols-outlined text-[16px] text-error absolute left-2.5 top-2 pointer-events-none">flag</span>
-            <span className="material-symbols-outlined text-[14px] text-outline absolute right-2 top-2.5 pointer-events-none">expand_more</span>
+            <span className="material-symbols-outlined text-[15px] text-error absolute left-2.5 top-2 pointer-events-none">flag</span>
+            <span className="material-symbols-outlined text-[14px] text-outline absolute right-2 top-2 pointer-events-none">expand_more</span>
           </div>
+        </div>
 
-          {/* Storage Temp Filter Chip */}
-          <div className="relative">
-            <select
-              value={selectedRegime}
-              onChange={(e) => setSelectedRegime(e.target.value)}
-              aria-label="Filter transfers by storage regime"
-              className="appearance-none flex items-center gap-1.5 pl-8 pr-7 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md text-label-md shadow-sm cursor-pointer hover:bg-surface-container-high transition-colors border-none outline-none"
-            >
-              <option value="All">Regime: Cold Chain &amp; Ambient</option>
-              <option value="cold">Cold Chain (2-8°C / Frozen)</option>
-              <option value="ambient">Ambient Regulated (15-25°C)</option>
-            </select>
-            <span className="material-symbols-outlined text-[16px] text-primary-container absolute left-2.5 top-2 pointer-events-none">ac_unit</span>
-            <span className="material-symbols-outlined text-[14px] text-outline absolute right-2 top-2.5 pointer-events-none">expand_more</span>
-          </div>
-
-          {/* Active Filter Pill Counter */}
-          <span className="ml-2 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-fixed font-label-sm text-label-sm font-semibold">
-            {transfers.length} Active Manifests
+        <div className="flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold">
+            {filteredTransfers.length} Active Manifests
           </span>
         </div>
-
-        {/* Right mini-tools */}
-        <div className="flex items-center gap-space-sm px-2">
-          <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
-            <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-            <span>Auto-Sync: 30s</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => onToast && onToast('Transfers ledger synchronized across District 4 node mesh.')}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-on-surface shadow-sm cursor-pointer"
-            title="Refresh Ledger"
-          >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
-          </button>
-        </div>
       </div>
 
-      {/* Operational KPI Ribbon */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-md mb-space-xl">
-        {/* Metric 1: Active Reallocations */}
-        <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Active Reallocations</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">18 Transfers</span>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-primary-fixed/50 flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[22px]">swap_horiz</span>
-            </div>
-          </div>
-          <div className="mt-space-sm pt-space-xs flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-md text-label-md text-primary font-semibold">Total Quantity: 2,485 units</span>
-            <span className="font-label-sm text-label-sm text-tertiary flex items-center gap-0.5">
-              <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +3 Today
-            </span>
-          </div>
-        </div>
+      {/* 4. WORKSPACE CONTAINER */}
+      {viewMode === 'kanban' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start w-full">
+          {columns.map((col) => {
+            const colTransfers = filteredTransfers.filter((t) => t.column === col.id);
+            const count = colTransfers.length;
 
-        {/* Metric 2: In Transit Convoys */}
-        <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">In Transit Now</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">6 Convoys</span>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-secondary-fixed/50 flex items-center justify-center text-secondary">
-              <span className="material-symbols-outlined text-[22px]">local_shipping</span>
-            </div>
-          </div>
-          <div className="mt-space-sm pt-space-xs flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-md text-label-md text-on-surface-variant">Active Couriers En Route</span>
-            <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed/40 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">
-              100% On Schedule
-            </span>
-          </div>
-        </div>
-
-        {/* Metric 3: Fulfillment SLA */}
-        <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Avg Fulfillment Time</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">48 mins</span>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-tertiary-fixed/50 flex items-center justify-center text-tertiary">
-              <span className="material-symbols-outlined text-[22px]">timer</span>
-            </div>
-          </div>
-          <div className="mt-space-sm pt-space-xs flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-md text-label-md text-outline">District 4 SLA &lt; 90 mins</span>
-            <span className="font-label-sm text-label-sm text-tertiary font-semibold flex items-center gap-0.5">
-              <span className="material-symbols-outlined text-[14px]">speed</span> -42m Delta
-            </span>
-          </div>
-        </div>
-
-        {/* Metric 4: Prevented Stockouts */}
-        <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Prevented Stockouts</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="font-headline-lg text-headline-lg font-bold text-on-surface">12 Units</span>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-error-container/60 flex items-center justify-center text-error">
-              <span className="material-symbols-outlined text-[22px]">shield</span>
-            </div>
-          </div>
-          <div className="mt-space-sm pt-space-xs flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-md text-label-md text-on-surface-variant">Protected This Week</span>
-            <span className="font-label-sm text-label-sm text-on-surface font-semibold">1,240 Critical Patients</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Workspace Container: Kanban Columns + Detail Drawer Side-by-Side Canvas */}
-      <div className="relative w-full flex items-start gap-space-md">
-        {/* Kanban Board Mode */}
-        {viewMode === 'kanban' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-space-md flex-1 min-w-0">
-            {columns.map(col => {
-              const colTransfers = transfers.filter(t => t.column === col.id);
-              const count = colTransfers.length;
-
-              return (
-                <div
-                  key={col.id}
-                  className={`flex flex-col gap-space-sm bg-surface-container-low/70 p-space-sm rounded-2xl min-h-[720px] ${
-                    col.highlight ? 'ring-2 ring-primary/20' : ''
-                  }`}
-                >
-                  {/* Column Header */}
-                  <div className="flex items-center justify-between px-2 py-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-label-lg text-label-lg text-on-surface font-semibold">{col.title}</span>
-                      <span className={`px-2 py-0.5 rounded-full font-label-sm text-label-sm font-semibold ${col.badgeClass}`}>
-                        {count}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="font-label-sm text-label-sm text-outline font-semibold">{col.totalVal}</span>
-                      <button type="button" className="w-6 h-6 flex items-center justify-center rounded text-outline hover:text-on-surface">
-                        <span className="material-symbols-outlined text-[16px]">more_horiz</span>
-                      </button>
-                    </div>
+            return (
+              <div
+                key={col.id}
+                className={`flex flex-col gap-3 bg-surface-container-low/60 p-3.5 rounded-2xl min-h-[640px] border ${
+                  col.highlight ? 'border-primary/40 ring-1 ring-primary/20' : 'border-surface-container-high/50'
+                }`}
+              >
+                {/* Column Header */}
+                <div className="flex items-center justify-between pb-1 border-b border-surface-container-high/40">
+                  <div className="flex items-center gap-2">
+                    <span className="font-label-md text-label-md text-on-surface font-bold">{col.title}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${col.countBadge}`}>
+                      {count}
+                    </span>
                   </div>
-
-                  <div className="px-2 pb-1">
-                    <p className="font-label-sm text-label-sm text-outline leading-tight">{col.subtitle}</p>
-                  </div>
-
-                  {/* Cards List */}
-                  <div className="flex flex-col gap-space-sm flex-1">
-                    {colTransfers.map(item => {
-                      const isSelected = selectedTransferId === item.id;
-                      return (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedTransferId(item.id);
-                            setIsDrawerOpen(true);
-                          }}
-                          className={`p-space-md rounded-xl bg-surface-container-lowest transition-all cursor-pointer flex flex-col gap-2.5 relative ${
-                            isSelected
-                              ? 'shadow-[0_4px_16px_rgba(0,123,185,0.18)] ring-2 ring-primary'
-                              : 'shadow-[0_2px_10px_rgba(15,23,42,0.04)] hover:shadow-md'
-                          }`}
-                        >
-                          {isSelected && (
-                            <div className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold shadow-sm flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[12px]">visibility</span> Selected
-                            </div>
-                          )}
-
-                          <div className="flex items-center justify-between mt-0.5">
-                            <span className="font-label-sm text-label-sm font-bold text-primary">#{item.id}</span>
-                            {item.timeAgo === 'Live GPS' ? (
-                              <span className="flex items-center gap-1 font-label-sm text-label-sm text-tertiary font-semibold">
-                                <span className="w-2 h-2 rounded-full bg-tertiary animate-ping"></span> GPS Live
-                              </span>
-                            ) : item.column === 'completed' ? (
-                              <span className="flex items-center gap-1 font-label-sm text-label-sm text-tertiary font-semibold">
-                                <span className="material-symbols-outlined text-[14px]">check_circle</span> Reconciled
-                              </span>
-                            ) : (
-                              <span className="font-label-sm text-label-sm text-outline">{item.timeAgo}</span>
-                            )}
-                          </div>
-
-                          {/* Score Pill */}
-                          <div
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit font-label-sm text-label-sm font-semibold ${
-                              item.scoreType === 'critical'
-                                ? 'bg-error-container text-on-error-container'
-                                : 'bg-secondary-container text-on-secondary-fixed-variant'
-                            }`}
-                          >
-                            {item.scoreType === 'critical' && <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>}
-                            <span>Score: {item.score} // {item.scoreLabel}</span>
-                          </div>
-
-                          <div>
-                            <h4 className="font-label-lg text-label-lg text-on-surface font-bold leading-snug">{item.skuName}</h4>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">{item.subtitle}</p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-surface-container-high font-label-sm text-label-sm font-semibold text-on-surface">
-                              {item.quantity}
-                            </span>
-                            {item.regimeType === 'cold' ? (
-                              <span className="px-2 py-0.5 rounded bg-primary-fixed/40 font-label-sm text-label-sm text-on-primary-fixed flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[12px]">ac_unit</span> {item.regime}
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded bg-secondary-fixed/50 font-label-sm text-label-sm text-on-secondary-fixed">
-                                {item.regime}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Live Progress Bar for In-Transit */}
-                          {item.progress && (
-                            <div className="flex flex-col gap-1 mt-1">
-                              <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
-                                <span>En Route • {item.progress}% Completed</span>
-                                <span className="font-semibold text-on-surface">ETA {item.eta}</span>
-                              </div>
-                              <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
-                                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${item.progress}%` }}></div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Route Graphic */}
-                          <div className="p-2 rounded-lg bg-surface-container-low flex flex-col gap-1 text-on-surface-variant font-label-sm text-label-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="truncate font-semibold text-on-surface">{item.origin}</span>
-                              <span className="material-symbols-outlined text-[14px] text-primary shrink-0 px-1">arrow_forward</span>
-                              <span className="truncate text-on-surface">{item.destination}</span>
-                            </div>
-                          </div>
-
-                          {/* Metadata Strip */}
-                          <div className="flex items-center justify-between pt-1 text-outline font-label-sm text-label-sm">
-                            <span>{item.distance} • ETA {item.eta}</span>
-                            <span className="font-semibold text-on-surface-variant">{item.courier}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <span className="text-[11px] font-semibold text-outline font-mono">{col.totalVal}</span>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* List View Mode */
-          <div className="flex-1 bg-surface-container-lowest rounded-2xl p-space-md shadow-sm border border-surface-container-high overflow-x-auto">
-            <table className="w-full text-left border-collapse font-body-sm text-body-sm">
-              <thead>
-                <tr className="border-b border-surface-container-high text-outline uppercase font-label-sm text-[11px] tracking-wider">
-                  <th className="py-3 px-4">Manifest ID</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">SKU / Item</th>
-                  <th className="py-3 px-4">Quantity</th>
-                  <th className="py-3 px-4">Origin ➔ Destination</th>
-                  <th className="py-3 px-4">Regime</th>
-                  <th className="py-3 px-4">Courier / Telemetry</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-container-high/60">
-                {transfers.map(item => (
-                  <tr
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedTransferId(item.id);
-                      setIsDrawerOpen(true);
-                    }}
-                    className={`hover:bg-surface-container-low/80 cursor-pointer transition-colors ${
-                      selectedTransferId === item.id ? 'bg-primary-fixed/10 font-medium' : ''
-                    }`}
-                  >
-                    <td className="py-3 px-4 font-mono font-bold text-primary">#{item.id}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase bg-surface-container-high text-on-surface">
-                        {item.column.replace('-', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-on-surface">{item.skuName}</div>
-                      <div className="text-outline text-xs">{item.subtitle}</div>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-on-surface">{item.quantity}</td>
-                    <td className="py-3 px-4 text-xs">
-                      <div>{item.origin}</div>
-                      <div className="text-primary font-medium">➔ {item.destination}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded bg-surface-container-high text-xs font-medium">
-                        {item.regime}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-outline">{item.courier}</td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
+
+                <p className="text-[11px] text-on-surface-variant leading-tight">{col.subtitle}</p>
+
+                {/* Cards Container */}
+                <div className="flex flex-col gap-3 flex-1">
+                  {colTransfers.map((item) => {
+                    const isSelected = selectedTransferId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
                           setSelectedTransferId(item.id);
                           setIsDrawerOpen(true);
                         }}
-                        className="px-3 py-1 rounded-lg bg-surface-container text-primary hover:bg-primary hover:text-on-primary text-xs font-semibold transition-all cursor-pointer"
+                        className={`p-3.5 rounded-xl bg-surface-container-lowest transition-all cursor-pointer flex flex-col gap-2.5 relative border ${
+                          isSelected
+                            ? 'border-primary shadow-md ring-2 ring-primary/20'
+                            : 'border-surface-container-high/60 shadow-xs hover:shadow-md hover:border-primary/40'
+                        }`}
                       >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        {/* Top ID & Live status */}
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs font-bold text-primary">#{item.id}</span>
+                          {item.timeAgo === 'Live GPS' ? (
+                            <span className="flex items-center gap-1 text-[11px] text-tertiary font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-ping"></span> GPS Live
+                            </span>
+                          ) : item.column === 'completed' ? (
+                            <span className="flex items-center gap-1 text-[11px] text-tertiary font-semibold">
+                              <span className="material-symbols-outlined text-[13px]">check_circle</span> Done
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-outline">{item.timeAgo}</span>
+                          )}
+                        </div>
 
-        {/* SIDE DRAWER: Transfer Details Modal/Drawer */}
-        {isDrawerOpen && selectedTransfer && (
-          <div className="w-full xl:w-[430px] shrink-0 bg-surface-container-lowest rounded-2xl shadow-[0_12px_40px_rgba(15,23,42,0.12)] p-space-lg flex flex-col gap-space-md sticky top-20 border-l border-primary/10 animate-fadeIn">
-            {/* Drawer Header Bar */}
-            <div className="flex items-start justify-between pb-space-sm">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Transfer Manifest</span>
-                  <span className="px-2 py-0.5 rounded bg-primary-fixed text-primary font-mono font-bold text-label-sm">#{selectedTransfer.id}</span>
+                        {/* Title & Specs */}
+                        <div>
+                          <h4 className="font-label-md text-label-md text-on-surface font-bold leading-snug">{item.skuName}</h4>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="px-2 py-0.5 rounded bg-surface-container-high text-[11px] font-semibold text-on-surface">
+                              {item.quantity}
+                            </span>
+                            {item.regimeType === 'cold' ? (
+                              <span className="px-1.5 py-0.5 rounded bg-primary-fixed/40 text-[10px] text-on-primary-fixed flex items-center gap-0.5 font-semibold">
+                                <span className="material-symbols-outlined text-[11px]">ac_unit</span> Cold Chain
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded bg-secondary-fixed/50 text-[10px] text-on-secondary-fixed font-semibold">
+                                Ambient
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Progress Bar if in transit */}
+                        {item.progress && (
+                          <div className="flex flex-col gap-1 py-0.5">
+                            <div className="flex justify-between text-[11px] text-on-surface-variant">
+                              <span>{item.progress}% Completed</span>
+                              <span className="font-semibold text-on-surface">ETA {item.eta}</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-surface-container-high overflow-hidden">
+                              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${item.progress}%` }}></div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Route Indicator */}
+                        <div className="p-2 rounded-lg bg-surface-container-low flex items-center justify-between text-[11px] text-on-surface-variant border border-surface-container-high/40">
+                          <span className="truncate max-w-[44%] font-medium text-on-surface">{item.origin.split('(')[0].trim()}</span>
+                          <span className="material-symbols-outlined text-[13px] text-primary shrink-0">arrow_forward</span>
+                          <span className="truncate max-w-[44%] font-medium text-on-surface">{item.destination.split('(')[0].trim()}</span>
+                        </div>
+
+                        {/* Card Footer: Priority / ETA */}
+                        <div className="flex items-center justify-between text-[11px] pt-0.5">
+                          <span className={`text-[11px] font-bold ${item.scoreType === 'critical' ? 'text-error' : 'text-outline font-medium'}`}>
+                            {item.scoreLabel}
+                          </span>
+                          <span className="text-outline font-medium">{item.distance} • {item.eta}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface mt-1">Transfer Details</h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(false)}
-                className="w-8 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* LIST VIEW TABLE */
+        <div className="w-full bg-surface-container-lowest rounded-2xl shadow-xs border border-surface-container-high/60 overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-surface-container bg-surface-container-low/60 text-outline font-label-sm text-label-sm uppercase tracking-wider">
+                <th className="py-3.5 px-4 font-semibold">Manifest ID</th>
+                <th className="py-3.5 px-4 font-semibold">Medication SKU</th>
+                <th className="py-3.5 px-4 font-semibold">Origin ➔ Destination</th>
+                <th className="py-3.5 px-4 font-semibold">Volume</th>
+                <th className="py-3.5 px-4 font-semibold">Status Stage</th>
+                <th className="py-3.5 px-4 font-semibold">Urgency</th>
+                <th className="py-3.5 px-4 text-right font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-container/60 font-body-sm text-body-sm">
+              {filteredTransfers.map((item) => (
+                <tr
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedTransferId(item.id);
+                    setIsDrawerOpen(true);
+                  }}
+                  className="hover:bg-surface-container-low/40 transition-colors cursor-pointer"
+                >
+                  <td className="py-3.5 px-4 font-mono font-bold text-primary">#{item.id}</td>
+                  <td className="py-3.5 px-4 font-semibold text-on-surface">{item.skuName}</td>
+                  <td className="py-3.5 px-4 text-on-surface-variant">
+                    {item.origin} <span className="text-primary font-bold">➔</span> {item.destination}
+                  </td>
+                  <td className="py-3.5 px-4 font-semibold text-on-surface">{item.quantity}</td>
+                  <td className="py-3.5 px-4">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant capitalize">
+                      {item.column.replace('-', ' ')}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span className={`text-xs font-bold ${item.scoreType === 'critical' ? 'text-error' : 'text-outline font-medium'}`}>
+                      {item.scoreLabel}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTransferId(item.id);
+                        setIsDrawerOpen(true);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-primary hover:text-on-primary text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-            {/* Status Indicator Pill Strip */}
-            <div className="flex items-center justify-between p-space-sm rounded-xl bg-primary-fixed/20">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
-                <span className="font-label-md text-label-md font-bold text-on-primary-fixed uppercase">
-                  {selectedTransfer.column === 'under-review' ? 'UNDER REVIEW • ACTION REQUIRED' : selectedTransfer.column.replace('-', ' ')}
-                </span>
-              </div>
-              <span className="font-label-sm text-label-sm text-primary font-semibold">SLA: 18m left</span>
-            </div>
+      {/* 5. SLIDE-OVER DETAIL DRAWER (OFFCANVAS) */}
+      {isDrawerOpen && selectedTransfer && (
+        <div className="fixed inset-0 z-50 overflow-hidden animate-fadeIn">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity cursor-pointer"
+            onClick={() => setIsDrawerOpen(false)}
+          ></div>
 
-            {/* SKU & Batch Specifics Card */}
-            <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-xs">
-              <span className="font-label-sm text-label-sm uppercase text-outline font-semibold">Stock Item Specification</span>
-              <h4 className="font-label-lg text-label-lg font-bold text-on-surface">{selectedTransfer.skuName}</h4>
-              <div className="grid grid-cols-2 gap-2 mt-2 pt-2 text-label-sm font-label-sm">
+          {/* Drawer Panel */}
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-lg bg-surface-container-lowest shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto border-l border-surface-container-high animate-slideInRight">
+              {/* Header */}
+              <div className="flex items-start justify-between pb-3 border-b border-surface-container">
                 <div>
-                  <span className="text-outline block">Volume:</span>
-                  <span className="text-on-surface font-semibold">{selectedTransfer.quantity}</span>
-                </div>
-                <div>
-                  <span className="text-outline block">Batch Lot:</span>
-                  <span className="font-mono text-on-surface font-semibold">{selectedTransfer.batch}</span>
-                </div>
-                <div>
-                  <span className="text-outline block">Expiry:</span>
-                  <span className="text-on-surface font-semibold">{selectedTransfer.expiry}</span>
-                </div>
-                <div>
-                  <span className="text-outline block">Storage Regime:</span>
-                  <span className="text-on-surface font-semibold">{selectedTransfer.regime}</span>
-                </div>
-              </div>
-              <div className="mt-2 pt-2 flex flex-col gap-1 text-label-sm font-label-sm">
-                <div className="flex items-center gap-2 text-on-surface">
-                  <span className="w-2 h-2 rounded-full bg-primary shrink-0"></span>
-                  <span className="text-outline">Origin:</span>
-                  <span className="font-semibold truncate">{selectedTransfer.origin}</span>
-                </div>
-                <div className="flex items-center gap-2 text-on-surface">
-                  <span className="w-2 h-2 rounded-full bg-tertiary shrink-0"></span>
-                  <span className="text-outline">Destination:</span>
-                  <span className="font-semibold truncate">{selectedTransfer.destination}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Algorithmic Clinical Justification Banner */}
-            <div className="p-space-md rounded-xl bg-secondary-container/40 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-on-secondary-fixed">
-                <span className="material-symbols-outlined text-[18px] text-primary">neurology</span>
-                <span className="font-label-md text-label-md font-bold">AI Epidemiologic Surge Match</span>
-              </div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                {selectedTransfer.justification}
-              </p>
-              {selectedTransfer.impact && (
-                <div className="flex items-center gap-1.5 pt-1 text-tertiary font-label-sm text-label-sm font-semibold">
-                  <span className="material-symbols-outlined text-[16px]">verified</span>
-                  <span>{selectedTransfer.impact}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Logistics & Corridor Telemetry Snapshot */}
-            <div className="p-space-sm rounded-xl bg-surface-container-high/40 flex items-center justify-between text-label-sm font-label-sm">
-              <div>
-                <span className="text-outline block">Route &amp; Corridor:</span>
-                <span className="text-on-surface font-semibold truncate block max-w-[130px]">{selectedTransfer.distance}</span>
-              </div>
-              <div>
-                <span className="text-outline block">Courier:</span>
-                <span className="text-on-surface font-semibold truncate block max-w-[110px]">{selectedTransfer.courier}</span>
-              </div>
-              <div>
-                <span className="text-outline block">Transit Dispatch:</span>
-                <span className="text-primary font-semibold">MOU Pool Verified</span>
-              </div>
-            </div>
-
-            {/* Audit Trail / Stepper Component */}
-            <div className="flex flex-col gap-space-xs mt-1">
-              <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Verification Ledger Steps</span>
-              <div className="flex flex-col gap-3 relative mt-2 pl-4">
-                {/* Continuous Timeline Vertical Guide */}
-                <div className="absolute left-1.5 top-2 bottom-3 w-0.5 bg-surface-container-high"></div>
-
-                {selectedTransfer.steps.map((step, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-start gap-3 relative ${
-                      step.done ? '' : step.active ? '' : 'opacity-60'
-                    }`}
-                  >
-                    {step.done ? (
-                      <span className="w-3.5 h-3.5 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center shrink-0 ring-4 ring-surface-container-lowest -ml-2 z-10">
-                        <span className="material-symbols-outlined text-[10px]">check</span>
-                      </span>
-                    ) : step.active ? (
-                      <span className="w-3.5 h-3.5 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0 ring-4 ring-surface-container-lowest -ml-2 z-10">
-                        <span className="w-1.5 h-1.5 rounded-full bg-surface-container-lowest"></span>
-                      </span>
-                    ) : (
-                      <span className="w-3.5 h-3.5 rounded-full bg-outline-variant shrink-0 ring-4 ring-surface-container-lowest -ml-2 z-10"></span>
-                    )}
-
-                    <div className="flex flex-col">
-                      <span className={`font-label-sm text-label-sm ${step.active ? 'text-primary font-bold' : 'text-on-surface font-semibold'}`}>
-                        {step.label}
-                      </span>
-                      <span className="font-body-sm text-body-sm text-outline">
-                        {step.time}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-wider text-outline font-semibold">Transfer Manifest</span>
+                    <span className="px-2 py-0.5 rounded bg-primary-fixed text-primary font-mono font-bold text-xs">#{selectedTransfer.id}</span>
                   </div>
-                ))}
+                  <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface mt-1">Transfer Details</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(false)}
+                  aria-label="Close details"
+                  className="w-8 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              {/* Status Alert */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-primary-fixed/20 border border-primary/20">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                  <span className="text-xs font-bold text-on-primary-fixed uppercase tracking-wider">
+                    {selectedTransfer.column === 'under-review' ? 'UNDER REVIEW • ACTION REQUIRED' : selectedTransfer.column.replace('-', ' ')}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold text-primary">SLA: 18m left</span>
+              </div>
+
+              {/* SKU & Batch Specifics */}
+              <div className="p-4 rounded-xl bg-surface-container-low flex flex-col gap-2 border border-surface-container-high/60">
+                <span className="text-xs uppercase text-outline font-bold">Stock Item Specification</span>
+                <h4 className="font-bold text-on-surface text-base">{selectedTransfer.skuName}</h4>
+                <div className="grid grid-cols-2 gap-2 mt-1 pt-2 text-xs border-t border-surface-container-high/50">
+                  <div>
+                    <span className="text-outline block">Volume:</span>
+                    <span className="text-on-surface font-semibold">{selectedTransfer.quantity}</span>
+                  </div>
+                  <div>
+                    <span className="text-outline block">Batch Lot:</span>
+                    <span className="font-mono text-on-surface font-semibold">{selectedTransfer.batch}</span>
+                  </div>
+                  <div>
+                    <span className="text-outline block">Expiry:</span>
+                    <span className="text-on-surface font-semibold">{selectedTransfer.expiry}</span>
+                  </div>
+                  <div>
+                    <span className="text-outline block">Storage Regime:</span>
+                    <span className="text-on-surface font-semibold">{selectedTransfer.regime}</span>
+                  </div>
+                </div>
+                <div className="mt-1 pt-2 flex flex-col gap-1 text-xs border-t border-surface-container-high/50">
+                  <div className="flex items-center gap-2 text-on-surface">
+                    <span className="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+                    <span className="text-outline">Origin:</span>
+                    <span className="font-semibold truncate">{selectedTransfer.origin}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-on-surface">
+                    <span className="w-2 h-2 rounded-full bg-tertiary shrink-0"></span>
+                    <span className="text-outline">Destination:</span>
+                    <span className="font-semibold truncate">{selectedTransfer.destination}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Surge Justification */}
+              <div className="p-4 rounded-xl bg-secondary-container/30 flex flex-col gap-2 border border-secondary-container/60">
+                <div className="flex items-center gap-2 text-on-secondary-fixed">
+                  <span className="material-symbols-outlined text-[18px] text-primary">neurology</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">AI Epidemiologic Surge Match</span>
+                </div>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  {selectedTransfer.justification}
+                </p>
+                {selectedTransfer.impact && (
+                  <div className="flex items-center gap-1.5 pt-1 text-tertiary text-xs font-semibold">
+                    <span className="material-symbols-outlined text-[15px]">verified</span>
+                    <span>{selectedTransfer.impact}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Corridor Telemetry */}
+              <div className="p-3 rounded-xl bg-surface-container-high/40 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-outline block">Route:</span>
+                  <span className="text-on-surface font-semibold">{selectedTransfer.distance}</span>
+                </div>
+                <div>
+                  <span className="text-outline block">Courier:</span>
+                  <span className="text-on-surface font-semibold">{selectedTransfer.courier}</span>
+                </div>
+                <div>
+                  <span className="text-outline block">Dispatch Pool:</span>
+                  <span className="text-primary font-semibold">MOU Verified</span>
+                </div>
+              </div>
+
+              {/* Stepper */}
+              <div className="flex flex-col gap-2 mt-1">
+                <span className="text-xs uppercase tracking-wider text-outline font-bold">Verification Ledger Steps</span>
+                <div className="flex flex-col gap-3 relative mt-1 pl-4">
+                  <div className="absolute left-1.5 top-2 bottom-3 w-0.5 bg-surface-container-high"></div>
+
+                  {selectedTransfer.steps.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-3 relative ${
+                        step.done ? '' : step.active ? '' : 'opacity-60'
+                      }`}
+                    >
+                      {step.done ? (
+                        <span className="w-3.5 h-3.5 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center shrink-0 ring-4 ring-surface-container-lowest -ml-2 z-10">
+                          <span className="material-symbols-outlined text-[10px]">check</span>
+                        </span>
+                      ) : step.active ? (
+                        <span className="w-3.5 h-3.5 rounded-full bg-primary text-on-primary flex items-center justify-center shrink-0 ring-4 ring-surface-container-lowest -ml-2 z-10">
+                          <span className="w-1.5 h-1.5 rounded-full bg-surface-container-lowest"></span>
+                        </span>
+                      ) : (
+                        <span className="w-3.5 h-3.5 rounded-full bg-outline-variant shrink-0 ring-4 ring-surface-container-lowest -ml-2 z-10"></span>
+                      )}
+
+                      <div className="flex flex-col">
+                        <span className={`text-xs ${step.active ? 'text-primary font-bold' : 'text-on-surface font-semibold'}`}>
+                          {step.label}
+                        </span>
+                        <span className="text-[11px] text-outline">
+                          {step.time}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-auto pt-4 flex flex-col gap-2 border-t border-surface-container">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleApproveTransfer(selectedTransfer.id);
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-md hover:bg-primary-container transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">verified_user</span>
+                  <span>Approve Transfer &amp; Dispatch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleRejectTransfer(selectedTransfer.id);
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-semibold text-xs hover:bg-error-container hover:text-on-error-container transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">cancel</span>
+                  <span>Reject / Request Modification</span>
+                </button>
               </div>
             </div>
-
-            {/* Bottom Sticky Action Buttons */}
-            <div className="mt-space-sm pt-space-md flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => handleApproveTransfer(selectedTransfer.id)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-on-primary font-label-lg text-label-lg shadow-[0_4px_16px_rgba(0,97,148,0.35)] hover:bg-primary-container transition-all active:scale-[0.99] cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">verified_user</span>
-                <span>Approve Transfer &amp; Dispatch</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRejectTransfer(selectedTransfer.id)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-label-md text-label-md hover:bg-error-container hover:text-on-error-container transition-all cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-                <span>Reject / Request Modification</span>
-              </button>
-              <p className="font-body-sm text-body-sm text-outline text-center mt-1">
-                Action will be cryptographically logged to District 4 Healthcare Shared Ledger.
-              </p>
-            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* INITIATE EMERGENCY TRANSFER MODAL */}
       {isInitiateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="bg-surface-container-lowest rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-surface-container-high space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b border-surface-container">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
                   <span className="material-symbols-outlined text-[22px]">add_circle</span>
                 </div>
                 <div>
-                  <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Initiate Emergency Transfer</h3>
+                  <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Initiate Transfer</h3>
                   <p className="text-xs text-secondary">District 4 Mutual Aid Redistribution</p>
                 </div>
               </div>
@@ -894,127 +831,122 @@ export function TransfersLogisticsView({ onToast }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                const form = e.target;
+                const newTrx = {
+                  id: `TRX-${Math.floor(1000 + Math.random() * 9000)}`,
+                  column: 'under-review',
+                  skuName: form.sku.value,
+                  subtitle: 'Manual Requisition',
+                  quantity: form.quantity.value,
+                  regime: form.regime.value,
+                  regimeType: form.regime.value.toLowerCase().includes('cold') ? 'cold' : 'ambient',
+                  origin: 'MedCare General',
+                  destination: form.destination.value,
+                  distance: '14.2 km',
+                  eta: '30m',
+                  courier: 'Staged Courier',
+                  score: 90,
+                  scoreLabel: 'Urgent Borrow',
+                  scoreType: 'critical',
+                  timeAgo: 'Just now',
+                  batch: '#LOT-NEW-01',
+                  expiry: 'Dec 2025',
+                  justification: form.reason.value || 'Clinical emergency request under regional MOU framework.',
+                  steps: [
+                    { label: 'Manual Requisition Created', time: 'Just now', done: true },
+                    { label: 'Director Authorization', time: 'Awaiting', active: true },
+                    { label: 'Dispatch', time: 'Pending' }
+                  ]
+                };
+                setTransfers((prev) => [newTrx, ...prev]);
                 setIsInitiateModalOpen(false);
-                if (onToast) onToast('Emergency Transfer Request Broadcast to District 4 Coordinators!');
+                if (onToast) onToast(`Transfer ${newTrx.id} created successfully!`);
               }}
-              className="space-y-3 pt-2"
+              className="space-y-4 pt-2"
             >
               <div>
-                <label className="block text-xs font-semibold text-outline uppercase mb-1">Target SKU / Medication</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Paracetamol 500mg IV or Packed RBC (O-)"
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
-                />
+                <label className="block text-xs font-semibold text-on-surface mb-1">Medication SKU</label>
+                <select name="sku" required className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface">
+                  <option value="Paracetamol 500mg IV Infusion">Paracetamol 500mg IV Infusion</option>
+                  <option value="Propofol 10mg/mL Emulsion">Propofol 10mg/mL Emulsion</option>
+                  <option value="Ceftriaxone 1g Powder">Ceftriaxone 1g Powder</option>
+                  <option value="Packed Red Blood Cells (O-)">Packed Red Blood Cells (O-)</option>
+                  <option value="Norepinephrine 4mg/4mL">Norepinephrine 4mg/4mL</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Quantity Needed</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 500 vials"
-                    className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
-                  />
+                  <label className="block text-xs font-semibold text-on-surface mb-1">Quantity</label>
+                  <input name="quantity" type="text" required placeholder="e.g. 200 vials" className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Destination Hospital</label>
-                  <select className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary">
-                    <option>Valley Trauma Center</option>
-                    <option>MedCare General</option>
-                    <option>North District Clinic</option>
-                    <option>Central Children's Hospital</option>
+                  <label className="block text-xs font-semibold text-on-surface mb-1">Storage Regime</label>
+                  <select name="regime" className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface">
+                    <option value="Ambient Regulated">Ambient Regulated</option>
+                    <option value="Cold Chain 2-8°C">Cold Chain 2-8°C</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-outline uppercase mb-1">Clinical Urgency Justification</label>
-                <textarea
-                  rows="3"
-                  required
-                  placeholder="State clinical rationale (surge index, active mass-casualty code, zero-stockout ETA)..."
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary resize-none"
-                ></textarea>
+                <label className="block text-xs font-semibold text-on-surface mb-1">Destination Facility</label>
+                <select name="destination" required className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface">
+                  <option value="Valley Trauma Center">Valley Trauma Center</option>
+                  <option value="St. Jude Regional">St. Jude Regional</option>
+                  <option value="North District Clinic">North District Clinic</option>
+                  <option value="Central Children's">Central Children's</option>
+                  <option value="Highland Memorial">Highland Memorial</option>
+                </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsInitiateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-secondary text-sm font-semibold hover:bg-surface-container cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold shadow-md hover:bg-primary-container transition-all cursor-pointer"
-                >
-                  Dispatch Request
-                </button>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface mb-1">Clinical Justification</label>
+                <textarea name="reason" rows="2" placeholder="State reason for emergency stock requisition..." className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface"></textarea>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-surface-container">
+                <button type="button" onClick={() => setIsInitiateModalOpen(false)} className="px-4 py-2 rounded-xl text-xs font-medium text-outline hover:text-on-surface">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container shadow-md">Create Transfer</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* EXPORT MANIFEST MODAL */}
+      {/* EXPORT MODAL */}
       {isExportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="bg-surface-container-lowest rounded-3xl max-w-md w-full p-6 shadow-2xl border border-surface-container-high space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-tertiary-fixed text-tertiary flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[22px]">ios_share</span>
-                </div>
-                <div>
-                  <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Export Transfer Manifest</h3>
-                  <p className="text-xs text-secondary">DSCSA Title 21 CFR Part 11 Certified</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsExportModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-outline cursor-pointer"
-              >
+            <div className="flex items-center justify-between pb-2 border-b border-surface-container">
+              <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Export Transfer Manifest</h3>
+              <button type="button" onClick={() => setIsExportModalOpen(false)} className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-outline cursor-pointer">
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
-
-            <p className="text-sm text-on-surface-variant">
-              Generate a cryptographically signed PDF / CSV manifest containing chain-of-custody signatures, lot serializations, and cold-chain temperature telemetry logs for FDA compliance.
-            </p>
-
-            <div className="space-y-2 pt-2">
-              <label className="flex items-center gap-2 p-3 rounded-xl bg-surface-container-low cursor-pointer">
-                <input type="radio" name="exportFormat" defaultChecked className="text-primary focus:ring-0" />
-                <span className="text-xs font-semibold text-on-surface">Cryptographic PDF Manifest (with QR chain-of-custody)</span>
-              </label>
-              <label className="flex items-center gap-2 p-3 rounded-xl bg-surface-container-low cursor-pointer">
-                <input type="radio" name="exportFormat" className="text-primary focus:ring-0" />
-                <span className="text-xs font-semibold text-on-surface">CSV Data Ledger (DSCSA Interoperability Schema)</span>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3">
+            <p className="text-xs text-secondary">Export cryptographic transfer ledger verified under DSCSA Title 21 CFR Part 11.</p>
+            <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => setIsExportModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-secondary text-sm font-semibold hover:bg-surface-container cursor-pointer"
+                onClick={() => {
+                  setIsExportModalOpen(false);
+                  if (onToast) onToast('Transfer manifest exported as CSV.');
+                }}
+                className="w-full p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-xs font-semibold text-on-surface flex items-center justify-between transition-colors cursor-pointer border border-surface-container-high"
               >
-                Close
+                <span>Export as CSV (.csv)</span>
+                <span className="material-symbols-outlined text-primary text-[18px]">download</span>
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setIsExportModalOpen(false);
-                  if (onToast) onToast('Transfer Manifest PDF Generated & Signed!');
+                  if (onToast) onToast('Transfer manifest exported as Signed PDF.');
                 }}
-                className="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold shadow-md hover:bg-primary-container transition-all cursor-pointer"
+                className="w-full p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-xs font-semibold text-on-surface flex items-center justify-between transition-colors cursor-pointer border border-surface-container-high"
               >
-                Download Manifest
+                <span>Export as Signed PDF (.pdf)</span>
+                <span className="material-symbols-outlined text-primary text-[18px]">picture_as_pdf</span>
               </button>
             </div>
           </div>

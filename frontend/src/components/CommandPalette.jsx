@@ -58,9 +58,14 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
             placeholder="Type a SKU name, facility, or system command..."
             className="flex-1 bg-transparent text-on-surface font-body-lg text-body-lg focus:outline-none placeholder:text-outline"
           />
-          <span className="px-2 py-0.5 rounded bg-surface-container-high text-[11px] font-mono text-outline">
-            ESC to close
-          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close search"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
         </div>
 
         {/* Results List */}

@@ -102,7 +102,7 @@ export default function App() {
             />
 
             {/* Main Content Area */}
-            <main className="w-full pt-16 min-h-screen bg-surface px-space-lg py-space-lg flex-1">
+            <main className="w-full pt-[5.25rem] min-h-screen bg-surface px-space-lg pb-space-xl flex-1">
               {currentView === 'dashboard' ? (
                 <DashboardView
                   onToast={addToast}

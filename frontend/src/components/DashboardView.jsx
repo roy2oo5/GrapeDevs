@@ -63,9 +63,6 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
     }, 280);
   };
 
-  const handleSyncTelemetry = () => {
-    if (onToast) onToast('District 4 Telemetry Synced with 5 Node Centers (14ms)');
-  };
 
   // Filter attention cards
   const attentionCards = [
@@ -128,15 +125,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
         {/* 1. DASHBOARD HEADER & QUICK FILTERS */}
         <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-space-lg mb-space-xl">
           <div className="flex flex-col max-w-3xl">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm text-label-sm font-semibold tracking-wider uppercase border border-primary/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
-                MedCare General Hospital
-              </span>
-              <span className="font-label-sm text-label-sm text-outline font-mono">
-                TX-HASH: 90F2-SURGE-OCT
-              </span>
-            </div>
+
             <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
               Executive Command Console
             </h1>
@@ -435,9 +424,6 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
                         {alert.badge}
                       </span>
                     </div>
-                    <span className="font-body-sm text-body-sm text-outline font-mono">
-                      {alert.code}
-                    </span>
                   </div>
 
                   <div>
@@ -625,40 +611,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
           </section>
         </div>
 
-        {/* 4. BOTTOM TELEMETRY STATUS BAR */}
-        <footer className="mt-space-xl p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col md:flex-row items-center justify-between gap-space-md border border-surface-container-high/40">
-          <div className="flex items-center gap-space-md flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-tertiary animate-pulse"></span>
-              <span className="font-label-sm text-label-sm text-on-surface font-semibold uppercase tracking-wider">
-                MOU Network Live Telemetry
-              </span>
-            </div>
-            <span className="hidden sm:inline text-outline">•</span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">
-              Last Rebalancing Pulse: <strong className="text-on-surface">32 seconds ago</strong>
-            </span>
-            <span className="hidden sm:inline text-outline">•</span>
-            <span className="font-body-sm text-body-sm text-outline">
-              Surveillance Engine: <strong className="text-on-surface">Epi-Forecast v4.1</strong>
-            </span>
-          </div>
 
-          <div className="flex items-center gap-space-md text-on-surface-variant">
-            <div className="flex items-center gap-1 font-mono text-body-sm">
-              <span className="text-outline">Sync Status:</span>
-              <span className="text-tertiary font-semibold">OPTIMAL (99.98%)</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleSyncTelemetry}
-              className="p-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-colors text-on-surface cursor-pointer border border-surface-container-high/60"
-              title="Force Telemetry Sync"
-            >
-              <span className="material-symbols-outlined text-[18px]">sync</span>
-            </button>
-          </div>
-        </footer>
       </div>
     </div>
   );
