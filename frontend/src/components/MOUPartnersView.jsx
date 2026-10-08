@@ -38,7 +38,7 @@ export function MOUPartnersView({ onToast }) {
       expiration: 'Nov 24, 2024',
       daysRemaining: 27,
       isNearExpiry: true,
-      costNote: '$65 courier cost pre-covered by District Pool',
+      costNote: 'Courier pre-covered by District Pool',
       isRestricted: false,
       batchLot: '#LOT-99214-A',
       tempStatus: 'Ambient OK'
@@ -258,7 +258,7 @@ export function MOUPartnersView({ onToast }) {
             </div>
           </div>
           <div className="mt-space-md flex flex-col">
-            <span className="font-headline-lg text-headline-lg text-on-surface leading-tight">$412,800</span>
+            <span className="font-headline-lg text-headline-lg text-on-surface leading-tight">41,280 Units</span>
             <div className="flex items-center gap-1.5 mt-1 font-body-sm text-body-sm text-on-surface-variant">
               <span className="font-semibold text-primary">48 SKU listings</span>
               <span>across verified nodes</span>
@@ -309,7 +309,7 @@ export function MOUPartnersView({ onToast }) {
             </div>
           </div>
           <div className="mt-space-md flex flex-col">
-            <span className="font-headline-lg text-headline-lg text-on-surface leading-tight">$84,200</span>
+            <span className="font-headline-lg text-headline-lg text-on-surface leading-tight">1,840 Vials</span>
             <div className="flex items-center gap-1.5 mt-1 font-body-sm text-body-sm text-tertiary">
               <span className="font-semibold">1,840 vials saved</span>
               <span className="text-on-surface-variant font-normal">from destruction</span>
@@ -587,22 +587,22 @@ export function MOUPartnersView({ onToast }) {
                     <span className="font-semibold text-on-surface truncate">{item.offeringNode}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-outline">Distance &amp; ETA</span>
-                    <span className="font-medium text-primary">{item.distanceEta}</span>
+                    <span className="text-outline">Batch Number</span>
+                    <span className="font-semibold text-on-surface font-mono">{item.batchLot}</span>
                   </div>
                 </div>
 
                 {/* Inventory Metrics */}
                 <div className="grid grid-cols-2 gap-space-sm pt-space-xs">
                   <div className="flex flex-col bg-surface-container-low/50 p-space-sm rounded-lg">
-                    <span className="font-label-sm text-label-sm text-outline">Lot Quantity</span>
-                    <span className="font-headline-sm text-headline-sm text-on-surface">
+                    <span className="font-label-sm text-label-sm text-outline font-semibold">Quantity Available</span>
+                    <span className="font-headline-sm text-headline-sm text-on-surface font-bold">
                       {item.lotQuantity} <span className="font-label-sm text-label-sm text-on-surface-variant font-normal">{item.unit}</span>
                     </span>
                     <span className="font-body-sm text-body-sm text-outline">{item.packageInfo}</span>
                   </div>
                   <div className="flex flex-col bg-surface-container-low/50 p-space-sm rounded-lg">
-                    <span className="font-label-sm text-label-sm text-outline">Expiration</span>
+                    <span className="font-label-sm text-label-sm text-outline font-semibold">Expiry Date</span>
                     <span className="font-label-lg text-label-lg text-on-surface font-semibold">{item.expiration}</span>
                     <span className={`font-body-sm text-body-sm font-medium ${item.isNearExpiry ? 'text-error' : 'text-outline'}`}>
                       {item.daysRemaining} days remaining
@@ -610,7 +610,7 @@ export function MOUPartnersView({ onToast }) {
                   </div>
                 </div>
 
-                {/* Transit Info */}
+                {/* Network Protocol Info */}
                 <div className="flex items-center gap-1.5 text-outline font-body-sm text-body-sm">
                   <span className="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
                   <span>{item.costNote}</span>
@@ -632,9 +632,9 @@ export function MOUPartnersView({ onToast }) {
                 <button
                   type="button"
                   onClick={() => handleRequestTransfer(item)}
-                  className="px-space-md py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                  className="px-space-md py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer font-semibold"
                 >
-                  Request Transfer
+                  Request Surplus
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
               </div>

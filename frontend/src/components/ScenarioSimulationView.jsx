@@ -178,11 +178,11 @@ export function ScenarioSimulationView({ onToast }) {
 
             {/* Knobs & Sliders */}
             <div className="flex flex-col gap-space-md pt-space-xs">
-              {/* Slider 1: Demand Multiplier */}
+              {/* Slider 1: Outbreak Case Surge Multiplier */}
               <div className="flex flex-col gap-2 p-space-sm rounded-xl bg-surface-container-low/60">
                 <div className="flex items-center justify-between">
-                  <span className="font-label-md text-label-md text-on-surface font-semibold">Respiratory Demand Multiplier</span>
-                  <span className="font-headline-sm text-headline-sm text-primary font-semibold">{multiplier.toFixed(1)}x</span>
+                  <span className="font-label-md text-label-md text-on-surface font-semibold">"What-If" Case Surge (e.g. +20% Dengue)</span>
+                  <span className="font-headline-sm text-headline-sm text-primary font-semibold">+{Math.round((multiplier - 1) * 100)}% Surge</span>
                 </div>
                 <input
                   type="range"
@@ -194,11 +194,11 @@ export function ScenarioSimulationView({ onToast }) {
                   className="w-full accent-primary cursor-pointer"
                 />
                 <div className="flex justify-between items-center text-outline font-label-sm text-label-sm">
-                  <span>1.0x Normal</span>
-                  <span>3.5x Catastrophic</span>
+                  <span>+0% Normal</span>
+                  <span>+250% Epidemic Surge</span>
                 </div>
                 <span className="font-body-sm text-body-sm text-outline leading-tight">
-                  Calculated from syndromic triage intake at 4 regional ER facilities.
+                  Simulates immediate impact on hospital inventory levels &amp; predicts critical shortages across network hospitals.
                 </span>
               </div>
 
@@ -330,7 +330,7 @@ export function ScenarioSimulationView({ onToast }) {
                 </div>
                 <div className="flex justify-between items-center text-outline font-body-sm text-body-sm">
                   <span>Projected Deficit:</span>
-                  <span className="font-semibold text-on-surface">$32,400</span>
+                  <span className="font-semibold text-on-surface">324 Units</span>
                 </div>
               </div>
             </div>
@@ -355,7 +355,7 @@ export function ScenarioSimulationView({ onToast }) {
                 </div>
                 <div className="flex justify-between items-center text-outline font-body-sm text-body-sm">
                   <span>Network Gap Deficit:</span>
-                  <span className="font-semibold text-error">$248,500</span>
+                  <span className="font-semibold text-error">2,485 Units</span>
                 </div>
               </div>
             </div>
@@ -585,7 +585,7 @@ export function ScenarioSimulationView({ onToast }) {
                       </span>
                       <span className="font-body-sm text-body-sm text-outline">•</span>
                       <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-                        $115 Courier • 28 min ETA
+                        District Courier • 28 min ETA
                       </span>
                     </div>
                   </div>
@@ -632,7 +632,7 @@ export function ScenarioSimulationView({ onToast }) {
                       </span>
                       <span className="font-body-sm text-body-sm text-outline">•</span>
                       <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-                        $0 Internal Depo • Ready in 6h
+                        Internal Depo • Ready in 6h
                       </span>
                     </div>
                   </div>
@@ -679,7 +679,7 @@ export function ScenarioSimulationView({ onToast }) {
                       </span>
                       <span className="font-body-sm text-body-sm text-outline">•</span>
                       <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-                        $140 Courier • 45 min ETA
+                        CryoCourier • 45 min ETA
                       </span>
                     </div>
                   </div>

@@ -211,26 +211,64 @@ export function HospitalSettingsView({ onToast }) {
             <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">Calibration Modules</span>
           </div>
 
-          {/* Tab 1: User Management */}
+          {/* Tab 1: Hospital Profile */}
           <button
             type="button"
-            onClick={() => setActiveModule('user-management')}
+            onClick={() => setActiveModule('hospital-profile')}
             className={`group flex items-start gap-space-sm p-space-sm rounded-xl text-left transition-colors cursor-pointer ${
-              activeModule === 'user-management'
+              activeModule === 'hospital-profile'
                 ? 'bg-primary-container text-on-primary-container shadow-md font-semibold'
                 : 'hover:bg-surface-container-high text-on-surface-variant'
             }`}
           >
             <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-outline group-hover:text-on-surface">
-              <span className="material-symbols-outlined text-[20px]">group</span>
+              <span className="material-symbols-outlined text-[20px]">local_hospital</span>
             </div>
             <div className="flex flex-col flex-1 min-w-0">
-              <span className="font-label-lg text-label-lg text-on-surface">User Management</span>
-              <span className="font-body-sm text-body-sm text-outline truncate">Roles, RBAC &amp; 2FA Tokens</span>
+              <span className="font-label-lg text-label-lg text-on-surface">Hospital Profile</span>
+              <span className="font-body-sm text-body-sm text-outline truncate">License #, Contact, Facility Tier</span>
             </div>
           </button>
 
-          {/* Tab 2: Supply Chain Rules (ACTIVE by default) */}
+          {/* Tab 2: Network Preferences */}
+          <button
+            type="button"
+            onClick={() => setActiveModule('network-preferences')}
+            className={`group flex items-start gap-space-sm p-space-sm rounded-xl text-left transition-colors cursor-pointer ${
+              activeModule === 'network-preferences'
+                ? 'bg-primary-container text-on-primary-container shadow-md font-semibold'
+                : 'hover:bg-surface-container-high text-on-surface-variant'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-outline group-hover:text-on-surface">
+              <span className="material-symbols-outlined text-[20px]">handshake</span>
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="font-label-lg text-label-lg text-on-surface">Network Preferences</span>
+              <span className="font-body-sm text-body-sm text-outline truncate">Auto-Approve Requests, Sharing</span>
+            </div>
+          </button>
+
+          {/* Tab 3: Notification Settings */}
+          <button
+            type="button"
+            onClick={() => setActiveModule('notification-settings')}
+            className={`group flex items-start gap-space-sm p-space-sm rounded-xl text-left transition-colors cursor-pointer ${
+              activeModule === 'notification-settings'
+                ? 'bg-primary-container text-on-primary-container shadow-md font-semibold'
+                : 'hover:bg-surface-container-high text-on-surface-variant'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-outline group-hover:text-on-surface">
+              <span className="material-symbols-outlined text-[20px]">notifications_active</span>
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="font-label-lg text-label-lg text-on-surface">Notification Alerts</span>
+              <span className="font-body-sm text-body-sm text-outline truncate">Surplus Alerts &amp; Expiry Warnings</span>
+            </div>
+          </button>
+
+          {/* Tab 4: Supply Chain Rules */}
           <button
             type="button"
             onClick={() => setActiveModule('supply-chain-rules')}
@@ -252,45 +290,7 @@ export function HospitalSettingsView({ onToast }) {
                   <span className="px-1.5 py-0.5 rounded-full bg-surface-container-lowest text-primary font-label-sm text-[10px] leading-tight font-bold">Modified</span>
                 )}
               </div>
-              <span className={`font-body-sm text-body-sm truncate ${activeModule === 'supply-chain-rules' ? 'text-on-primary-container/80' : 'text-outline'}`}>ML Triggers, Lead Times &amp; Thresholds</span>
-            </div>
-          </button>
-
-          {/* Tab 3: Hospital Metrics */}
-          <button
-            type="button"
-            onClick={() => setActiveModule('hospital-metrics')}
-            className={`group flex items-start gap-space-sm p-space-sm rounded-xl text-left transition-colors cursor-pointer ${
-              activeModule === 'hospital-metrics'
-                ? 'bg-primary-container text-on-primary-container shadow-md font-semibold'
-                : 'hover:bg-surface-container-high text-on-surface-variant'
-            }`}
-          >
-            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-outline group-hover:text-on-surface">
-              <span className="material-symbols-outlined text-[20px]">local_hospital</span>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="font-label-lg text-label-lg text-on-surface">Hospital Metrics</span>
-              <span className="font-body-sm text-body-sm text-outline truncate">Bed Capacity, ICU Surge Multipliers</span>
-            </div>
-          </button>
-
-          {/* Tab 4: API & Integrations */}
-          <button
-            type="button"
-            onClick={() => setActiveModule('api-integrations')}
-            className={`group flex items-start gap-space-sm p-space-sm rounded-xl text-left transition-colors cursor-pointer ${
-              activeModule === 'api-integrations'
-                ? 'bg-primary-container text-on-primary-container shadow-md font-semibold'
-                : 'hover:bg-surface-container-high text-on-surface-variant'
-            }`}
-          >
-            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-outline group-hover:text-on-surface">
-              <span className="material-symbols-outlined text-[20px]">api</span>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="font-label-lg text-label-lg text-on-surface">API &amp; Integrations</span>
-              <span className="font-body-sm text-body-sm text-outline truncate">EHR Webhooks, DSCSA Ledger API</span>
+              <span className={`font-body-sm text-body-sm truncate ${activeModule === 'supply-chain-rules' ? 'text-on-primary-container/80' : 'text-outline'}`}>ML Triggers &amp; Thresholds</span>
             </div>
           </button>
 
@@ -357,331 +357,494 @@ export function HospitalSettingsView({ onToast }) {
             </div>
           </div>
 
-          {/* Section Title & Advanced Search / Filters */}
-          <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
-              <div className="flex flex-col">
-                <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                  Machine Learning &amp; Operational Parameters per Medicine
-                </h2>
-                <p className="font-body-sm text-body-sm text-outline">
-                  Tune baseline supplier lead times, buffer thresholds, and crisis priority overrides used by the predictive outage model.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={resetToDefaults}
-                className="inline-flex items-center gap-1.5 px-space-md py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface-variant font-label-md text-label-md shadow-sm self-start md:self-auto cursor-pointer font-semibold"
-              >
-                <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-                Reset to ML Recommended Defaults
-              </button>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-space-sm pt-space-xs">
-              {/* Text Search Filter */}
-              <div className="sm:col-span-6 lg:col-span-5 flex items-center gap-space-sm px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-surface-container-high/60">
-                <span className="material-symbols-outlined text-[20px] text-outline">search</span>
-                <input
-                  className="bg-transparent border-0 outline-none w-full font-body-sm text-body-sm placeholder:text-outline text-on-surface"
-                  placeholder="Filter medication, SKU, ATC code..."
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+          {/* 1. HOSPITAL PROFILE MODULE */}
+          {activeModule === 'hospital-profile' && (
+            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
+              <div className="flex items-center gap-space-sm pb-space-sm border-b border-surface-container-low">
+                <span className="material-symbols-outlined text-primary text-[24px]">local_hospital</span>
+                <div className="flex flex-col">
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">Hospital Profile &amp; Facility Metadata</h2>
+                  <p className="font-body-sm text-body-sm text-outline">Manage health system identification, DEA license verification, and facility classification.</p>
+                </div>
               </div>
 
-              {/* Category Selector */}
-              <div className="sm:col-span-3 lg:col-span-4 relative">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm border-none outline-none cursor-pointer"
-                >
-                  <option value="All">All Therapeutic Classes</option>
-                  <option value="Analgesics">Analgesics</option>
-                  <option value="Antibiotics">Antibiotics</option>
-                  <option value="Anesthetics">Anesthetics</option>
-                  <option value="Anticoagulants">Anticoagulants</option>
-                  <option value="Emergency Resus">Emergency Resus</option>
-                  <option value="IV Fluids">IV Fluids</option>
-                </select>
-                <span className="material-symbols-outlined text-[18px] text-outline absolute left-3 top-3 pointer-events-none">category</span>
-                <span className="material-symbols-outlined text-[18px] text-outline absolute right-3 top-3 pointer-events-none">expand_more</span>
-              </div>
-
-              {/* Priority Filter */}
-              <div className="sm:col-span-3 lg:col-span-3 relative">
-                <select
-                  value={selectedPriority}
-                  onChange={(e) => setSelectedPriority(e.target.value)}
-                  className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm border-none outline-none cursor-pointer"
-                >
-                  <option value="All">All Criticality</option>
-                  <option value="High">High</option>
-                  <option value="Med">Med</option>
-                  <option value="Low">Low</option>
-                </select>
-                <span className="material-symbols-outlined text-[18px] text-outline absolute left-3 top-3 pointer-events-none">filter_list</span>
-                <span className="material-symbols-outlined text-[18px] text-outline absolute right-3 top-3 pointer-events-none">expand_more</span>
-              </div>
-            </div>
-
-            {/* Responsive Configuration Table */}
-            <div className="overflow-x-auto -mx-space-lg px-space-lg pt-space-sm">
-              <table className="w-full text-left border-collapse min-w-[920px]">
-                <thead>
-                  <tr className="bg-surface-container-low/70 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
-                    <th className="py-3 px-space-md rounded-l-xl">Medicine Formulation &amp; Identifiers</th>
-                    <th className="py-3 px-space-md text-center">AI Lead Time vs Adjusted</th>
-                    <th className="py-3 px-space-md text-center">Reorder Trigger</th>
-                    <th className="py-3 px-space-md text-center">Dynamic Buffer</th>
-                    <th className="py-3 px-space-md text-center">Criticality Override</th>
-                    <th className="py-3 px-space-md rounded-r-xl">Model Impact Indicator</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y-0 text-on-surface font-body-sm text-body-sm">
-                  {filteredMeds.map((med) => (
-                    <tr key={med.id} className="hover:bg-surface-container-low/50 transition-colors border-b border-surface-container-high/40">
-                      <td className="py-space-md px-space-md">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <span className="font-label-lg text-label-lg text-on-surface font-semibold leading-tight">{med.name}</span>
-                            {med.coldChain && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-primary-fixed text-primary font-label-sm text-[10px]">
-                                <span className="material-symbols-outlined text-[11px]">ac_unit</span> Cold Chain
-                              </span>
-                            )}
-                            {med.badge && (
-                              <span className="px-1.5 py-0.2 rounded bg-error-container text-error font-label-sm text-[10px] font-semibold">
-                                {med.badge}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 pt-1 font-body-sm text-outline">
-                            <span className="font-mono text-[11px] bg-surface-container-high px-1.5 py-0.5 rounded">SKU: {med.id}</span>
-                            <span>•</span>
-                            <span className="font-mono text-[11px]">ATC: {med.atc}</span>
-                            {med.coldChain && (
-                              <>
-                                <span>•</span>
-                                <span className="font-mono text-[11px] text-primary">{med.coldChain}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-space-md px-space-md">
-                        <div className="flex items-center justify-center gap-2">
-                          {med.adjustedDays !== med.aiLeadDays && (
-                            <span className="text-outline line-through text-[11px]">{med.aiLeadDays}d</span>
-                          )}
-                          <div className="flex items-center bg-surface-container-low rounded-lg p-1 shadow-inner">
-                            <button
-                              type="button"
-                              onClick={() => updateAdjustedDays(med.id, -1)}
-                              className="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container-high text-on-surface text-sm font-bold transition-colors cursor-pointer"
-                            >
-                              −
-                            </button>
-                            <input
-                              className={`w-8 text-center bg-transparent border-0 outline-none font-semibold font-mono text-body-sm ${
-                                med.adjustedDays !== med.aiLeadDays ? 'text-primary' : 'text-on-surface'
-                              }`}
-                              type="text"
-                              value={med.adjustedDays}
-                              readOnly
-                            />
-                            <button
-                              type="button"
-                              onClick={() => updateAdjustedDays(med.id, 1)}
-                              className="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container-high text-on-surface text-sm font-bold transition-colors cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <span className="text-outline text-[11px]">Days</span>
-                        </div>
-                      </td>
-                      <td className="py-space-md px-space-md">
-                        <div className="flex items-center justify-center">
-                          <div className="flex items-center bg-surface-container-low rounded-lg px-2.5 py-1 shadow-inner">
-                            <input
-                              className="w-14 text-center bg-transparent border-0 outline-none font-mono font-semibold text-on-surface text-body-sm"
-                              type="text"
-                              value={med.reorderUnits}
-                              onChange={(e) => updateReorderUnits(med.id, e.target.value)}
-                            />
-                            <span className="text-outline text-[11px] ml-1">Units</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-space-md px-space-md text-center">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-label-sm font-semibold">
-                          {med.bufferDays} Days Buffer
-                        </span>
-                      </td>
-                      <td className="py-space-md px-space-md text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold ${
-                          med.criticality === 'High'
-                            ? 'bg-error-container text-error'
-                            : med.criticality === 'Med'
-                            ? 'bg-secondary-container text-on-secondary-container'
-                            : 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            med.criticality === 'High' ? 'bg-error' : med.criticality === 'Med' ? 'bg-secondary' : 'bg-tertiary'
-                          }`}></span>
-                          {med.criticality}
-                          <span className="material-symbols-outlined text-[14px]">unfold_more</span>
-                        </span>
-                      </td>
-                      <td className="py-space-md px-space-md">
-                        <div className="flex items-center gap-1.5">
-                          {med.impactType === 'warning' && (
-                            <>
-                              <span className="material-symbols-outlined text-[16px] text-error">speed</span>
-                              <span className="font-body-sm text-[12px] font-medium leading-tight text-error">{med.impactText}</span>
-                            </>
-                          )}
-                          {med.impactType === 'success' && (
-                            <>
-                              <span className="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
-                              <span className="font-body-sm text-[12px] leading-tight text-on-surface-variant">{med.impactText}</span>
-                            </>
-                          )}
-                          {med.impactType === 'info' && (
-                            <>
-                              <span className="material-symbols-outlined text-[16px] text-primary">thermostat</span>
-                              <span className="font-body-sm text-[12px] leading-tight font-medium text-primary">{med.impactText}</span>
-                            </>
-                          )}
-                          {med.impactType === 'neutral' && (
-                            <>
-                              <span className="material-symbols-outlined text-[16px] text-outline">horizontal_rule</span>
-                              <span className="font-body-sm text-[12px] leading-tight text-outline">{med.impactText}</span>
-                            </>
-                          )}
-                          {med.impactType === 'locked' && (
-                            <>
-                              <span className="material-symbols-outlined text-[16px] text-error">lock</span>
-                              <span className="font-body-sm text-[12px] leading-tight font-medium text-error">{med.impactText}</span>
-                            </>
-                          )}
-                          {med.impactType === 'bulk' && (
-                            <>
-                              <span className="material-symbols-outlined text-[16px] text-tertiary">inventory</span>
-                              <span className="font-body-sm text-[12px] leading-tight text-on-surface-variant">{med.impactText}</span>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Secondary Configuration Card: Global Sensitivity Multipliers */}
-          <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-space-sm">
-                <span className="material-symbols-outlined text-primary text-[22px]">vital_signs</span>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                  Global Algorithmic Sensitivity Multipliers
-                </h3>
-              </div>
-              <p className="font-body-sm text-body-sm text-outline mt-0.5">
-                Parametric tolerances dictating synthetic alert sensitivity, automated routing probability, and sensor ping frequency.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md pt-space-xs">
-              {/* Sensitivity Multiplier 1 */}
-              <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between gap-space-md">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Shortage Window Trigger</span>
-                    <span className="px-2 py-0.5 rounded bg-primary text-on-primary font-mono font-semibold text-[11px]">{shortageWindow} Hours</span>
-                  </div>
-                  <p className="font-body-sm text-body-sm text-outline">Advance notification lead margin before critical stock depletion threshold is crossed.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-label-md text-label-md text-on-surface font-semibold">Hospital Name</label>
+                  <input
+                    type="text"
+                    defaultValue="MedCare General Hospital"
+                    className="px-space-md py-2.5 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface font-body-md text-body-md outline-none"
+                  />
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <label className="font-label-md text-label-md text-on-surface font-semibold">License Number (DEA / State Pharmacy Board)</label>
                   <input
-                    type="range"
-                    min="24"
-                    max="168"
-                    value={shortageWindow}
-                    onChange={(e) => {
-                      setShortageWindow(parseInt(e.target.value, 10));
-                      setUnsavedChanges(prev => prev + 1);
-                    }}
-                    className="w-full accent-primary h-1.5 bg-surface-container-highest rounded-lg cursor-pointer"
+                    type="text"
+                    defaultValue="DEA-MC-9081245-A"
+                    className="px-space-md py-2.5 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface font-mono font-body-md text-body-md outline-none"
                   />
-                  <div className="flex justify-between font-label-sm text-[10px] text-outline">
-                    <span>24h (Urgent)</span>
-                    <span>72h (Standard)</span>
-                    <span>168h (7d Extended)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sensitivity Multiplier 2 */}
-              <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between gap-space-md">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Automated Mutual-Aid Confidence</span>
-                    <span className="px-2 py-0.5 rounded bg-tertiary text-on-tertiary font-mono font-semibold text-[11px]">&gt; {confidenceThreshold}% Conf.</span>
-                  </div>
-                  <p className="font-body-sm text-body-sm text-outline">Minimum predictive certitude required before auto-dispatching regional inter-facility transfer requests.</p>
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <label className="font-label-md text-label-md text-on-surface font-semibold">Contact Person &amp; Role</label>
                   <input
-                    type="range"
-                    min="50"
-                    max="99"
-                    value={confidenceThreshold}
-                    onChange={(e) => {
-                      setConfidenceThreshold(parseInt(e.target.value, 10));
-                      setUnsavedChanges(prev => prev + 1);
-                    }}
-                    className="w-full accent-tertiary h-1.5 bg-surface-container-highest rounded-lg cursor-pointer"
+                    type="text"
+                    defaultValue="Dr. Sarah Lin (Chief Pharmacy Logistics)"
+                    className="px-space-md py-2.5 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface font-body-md text-body-md outline-none"
                   />
-                  <div className="flex justify-between font-label-sm text-[10px] text-outline">
-                    <span>50% (Permissive)</span>
-                    <span>85% (Conservative)</span>
-                    <span>99% (Deterministic)</span>
-                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-label-md text-label-md text-on-surface font-semibold">Facility Tier &amp; Classification</label>
+                  <select defaultValue="Tier-1 Trauma Center & Regional Hub" className="px-space-md py-2.5 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface font-body-md text-body-md outline-none cursor-pointer">
+                    <option>Tier-1 Trauma Center &amp; Regional Hub</option>
+                    <option>Tier-2 Regional Acute Hospital</option>
+                    <option>Tier-3 Community &amp; Outpatient Clinic</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Sensitivity Multiplier 3 */}
-              <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between gap-space-md">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Cold Chain Heartbeat</span>
-                    <span className="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface font-mono font-semibold text-[11px]">5 Minutes</span>
-                  </div>
-                  <p className="font-body-sm text-body-sm text-outline">BLE / Cellular temperature probe sampling frequency across static and mobile depot points.</p>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => onToast && onToast('Hospital Profile updated successfully.')}
+                  className="px-space-md py-2 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-semibold cursor-pointer shadow-sm"
+                >
+                  Save Hospital Profile
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2. NETWORK PREFERENCES MODULE */}
+          {activeModule === 'network-preferences' && (
+            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
+              <div className="flex items-center gap-space-sm pb-space-sm border-b border-surface-container-low">
+                <span className="material-symbols-outlined text-primary text-[24px]">handshake</span>
+                <div className="flex flex-col">
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">Network Preferences &amp; Mutual-Aid Sharing</h2>
+                  <p className="font-body-sm text-body-sm text-outline">Configure automated redistribution rules and surplus sharing parameters.</p>
                 </div>
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-tertiary"></span>
-                    <span className="font-label-sm text-label-sm text-on-surface font-medium">1,248 Connected IoT Probes</span>
+              </div>
+
+              <div className="flex flex-col gap-space-md">
+                {/* Preference 1: Auto-approve small surplus requests */}
+                <div className="p-space-md rounded-xl bg-surface-container-low flex items-center justify-between gap-space-md border border-surface-container-high/60">
+                  <div className="flex flex-col">
+                    <span className="font-label-lg text-label-lg text-on-surface font-bold">Auto-Approve Small Surplus Requests (&lt; 100 units)</span>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                      Automatically grant incoming surplus transfer requisitions from verified MOU partner hospitals when requested quantity is under 100 units.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      defaultChecked={true}
+                      onChange={(e) => onToast && onToast(`Auto-approve small requests: ${e.target.checked ? 'ENABLED' : 'DISABLED'}`)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+
+                {/* Preference 2: Surplus Visibility */}
+                <div className="p-space-md rounded-xl bg-surface-container-low flex items-center justify-between gap-space-md border border-surface-container-high/60">
+                  <div className="flex flex-col">
+                    <span className="font-label-lg text-label-lg text-on-surface font-bold">Broadcast Surplus to Regional Network</span>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                      Publish active surplus stock nearing expiry (30 days) to all verified network health nodes in District 4.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      defaultChecked={true}
+                      onChange={(e) => onToast && onToast(`Surplus Broadcast: ${e.target.checked ? 'ENABLED' : 'DISABLED'}`)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. NOTIFICATION SETTINGS MODULE */}
+          {activeModule === 'notification-settings' && (
+            <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
+              <div className="flex items-center gap-space-sm pb-space-sm border-b border-surface-container-low">
+                <span className="material-symbols-outlined text-primary text-[24px]">notifications_active</span>
+                <div className="flex flex-col">
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">Notification &amp; Alert Channels</h2>
+                  <p className="font-body-sm text-body-sm text-outline">Manage alerts for incoming surplus offers, expiry warnings, and shortage predictions.</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-space-md">
+                <div className="p-space-md rounded-xl bg-surface-container-low flex items-center justify-between gap-space-md border border-surface-container-high/60">
+                  <div className="flex flex-col">
+                    <span className="font-label-lg text-label-lg text-on-surface font-bold">Incoming Surplus Alerts</span>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Real-time alerts when partner hospitals list surplus items matching your reorder needs.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" defaultChecked={true} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary"></div>
+                  </label>
+                </div>
+
+                <div className="p-space-md rounded-xl bg-surface-container-low flex items-center justify-between gap-space-md border border-surface-container-high/60">
+                  <div className="flex flex-col">
+                    <span className="font-label-lg text-label-lg text-on-surface font-bold">Expiry Warnings (&lt; 30 Days)</span>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Automated warnings when local inventory batches cross the 30-day expiry horizon.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" defaultChecked={true} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary"></div>
+                  </label>
+                </div>
+
+                <div className="p-space-md rounded-xl bg-surface-container-low flex items-center justify-between gap-space-md border border-surface-container-high/60">
+                  <div className="flex flex-col">
+                    <span className="font-label-lg text-label-lg text-on-surface font-bold">Predictive Shortage Risk Notifications</span>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">High-priority alerts generated by AI demand forecasting algorithms.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" defaultChecked={true} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. SUPPLY CHAIN RULES MODULE */}
+          {activeModule === 'supply-chain-rules' && (
+            <>
+              <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+                  <div className="flex flex-col">
+                    <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">
+                      Machine Learning &amp; Operational Parameters per Medicine
+                    </h2>
+                    <p className="font-body-sm text-body-sm text-outline">
+                      Tune baseline supplier lead times, buffer thresholds, and crisis priority overrides used by the predictive outage model.
+                    </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsMQTTModalOpen(true)}
-                    className="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-sm text-label-sm text-primary transition-colors cursor-pointer font-semibold"
+                    onClick={resetToDefaults}
+                    className="inline-flex items-center gap-1.5 px-space-md py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface-variant font-label-md text-label-md shadow-sm self-start md:self-auto cursor-pointer font-semibold"
                   >
-                    Configure MQTT
+                    <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                    Reset to ML Recommended Defaults
                   </button>
                 </div>
+
+                {/* Filter Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-space-sm pt-space-xs">
+                  {/* Text Search Filter */}
+                  <div className="sm:col-span-6 lg:col-span-5 flex items-center gap-space-sm px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-surface-container-high/60">
+                    <span className="material-symbols-outlined text-[20px] text-outline">search</span>
+                    <input
+                      className="bg-transparent border-0 outline-none w-full font-body-sm text-body-sm placeholder:text-outline text-on-surface"
+                      placeholder="Filter medication, SKU, ATC code..."
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Category Selector */}
+                  <div className="sm:col-span-3 lg:col-span-4 relative">
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm border-none outline-none cursor-pointer"
+                    >
+                      <option value="All">All Therapeutic Classes</option>
+                      <option value="Analgesics">Analgesics</option>
+                      <option value="Antibiotics">Antibiotics</option>
+                      <option value="Anesthetics">Anesthetics</option>
+                      <option value="Anticoagulants">Anticoagulants</option>
+                      <option value="Emergency Resus">Emergency Resus</option>
+                      <option value="IV Fluids">IV Fluids</option>
+                    </select>
+                    <span className="material-symbols-outlined text-[18px] text-outline absolute left-3 top-3 pointer-events-none">category</span>
+                    <span className="material-symbols-outlined text-[18px] text-outline absolute right-3 top-3 pointer-events-none">expand_more</span>
+                  </div>
+
+                  {/* Priority Filter */}
+                  <div className="sm:col-span-3 lg:col-span-3 relative">
+                    <select
+                      value={selectedPriority}
+                      onChange={(e) => setSelectedPriority(e.target.value)}
+                      className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm border-none outline-none cursor-pointer"
+                    >
+                      <option value="All">All Criticality</option>
+                      <option value="High">High</option>
+                      <option value="Med">Med</option>
+                      <option value="Low">Low</option>
+                    </select>
+                    <span className="material-symbols-outlined text-[18px] text-outline absolute left-3 top-3 pointer-events-none">filter_list</span>
+                    <span className="material-symbols-outlined text-[18px] text-outline absolute right-3 top-3 pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+
+                {/* Responsive Configuration Table */}
+                <div className="overflow-x-auto -mx-space-lg px-space-lg pt-space-sm">
+                  <table className="w-full text-left border-collapse min-w-[920px]">
+                    <thead>
+                      <tr className="bg-surface-container-low/70 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+                        <th className="py-3 px-space-md rounded-l-xl">Medicine Formulation &amp; Identifiers</th>
+                        <th className="py-3 px-space-md text-center">AI Lead Time vs Adjusted</th>
+                        <th className="py-3 px-space-md text-center">Reorder Trigger</th>
+                        <th className="py-3 px-space-md text-center">Dynamic Buffer</th>
+                        <th className="py-3 px-space-md text-center">Criticality Override</th>
+                        <th className="py-3 px-space-md rounded-r-xl">Model Impact Indicator</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y-0 text-on-surface font-body-sm text-body-sm">
+                      {filteredMeds.map((med) => (
+                        <tr key={med.id} className="hover:bg-surface-container-low/50 transition-colors border-b border-surface-container-high/40">
+                          <td className="py-space-md px-space-md">
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <span className="font-label-lg text-label-lg text-on-surface font-semibold leading-tight">{med.name}</span>
+                                {med.coldChain && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-primary-fixed text-primary font-label-sm text-[10px]">
+                                    <span className="material-symbols-outlined text-[11px]">ac_unit</span> Cold Chain
+                                  </span>
+                                )}
+                                {med.badge && (
+                                  <span className="px-1.5 py-0.2 rounded bg-error-container text-error font-label-sm text-[10px] font-semibold">
+                                    {med.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 pt-1 font-body-sm text-outline">
+                                <span className="font-mono text-[11px] bg-surface-container-high px-1.5 py-0.5 rounded">SKU: {med.id}</span>
+                                <span>•</span>
+                                <span className="font-mono text-[11px]">ATC: {med.atc}</span>
+                                {med.coldChain && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-mono text-[11px] text-primary">{med.coldChain}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-space-md px-space-md">
+                            <div className="flex items-center justify-center gap-2">
+                              {med.adjustedDays !== med.aiLeadDays && (
+                                <span className="text-outline line-through text-[11px]">{med.aiLeadDays}d</span>
+                              )}
+                              <div className="flex items-center bg-surface-container-low rounded-lg p-1 shadow-inner">
+                                <button
+                                  type="button"
+                                  onClick={() => updateAdjustedDays(med.id, -1)}
+                                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container-high text-on-surface text-sm font-bold transition-colors cursor-pointer"
+                                >
+                                  −
+                                </button>
+                                <input
+                                  className={`w-8 text-center bg-transparent border-0 outline-none font-semibold font-mono text-body-sm ${
+                                    med.adjustedDays !== med.aiLeadDays ? 'text-primary' : 'text-on-surface'
+                                  }`}
+                                  type="text"
+                                  value={med.adjustedDays}
+                                  readOnly
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateAdjustedDays(med.id, 1)}
+                                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container-high text-on-surface text-sm font-bold transition-colors cursor-pointer"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <span className="text-outline text-[11px]">Days</span>
+                            </div>
+                          </td>
+                          <td className="py-space-md px-space-md">
+                            <div className="flex items-center justify-center">
+                              <div className="flex items-center bg-surface-container-low rounded-lg px-2.5 py-1 shadow-inner">
+                                <input
+                                  className="w-14 text-center bg-transparent border-0 outline-none font-mono font-semibold text-on-surface text-body-sm"
+                                  type="text"
+                                  value={med.reorderUnits}
+                                  onChange={(e) => updateReorderUnits(med.id, e.target.value)}
+                                />
+                                <span className="text-outline text-[11px] ml-1">Units</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-space-md px-space-md text-center">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-label-sm font-semibold">
+                              {med.bufferDays} Days Buffer
+                            </span>
+                          </td>
+                          <td className="py-space-md px-space-md text-center">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold ${
+                              med.criticality === 'High'
+                                ? 'bg-error-container text-error'
+                                : med.criticality === 'Med'
+                                ? 'bg-secondary-container text-on-secondary-container'
+                                : 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                med.criticality === 'High' ? 'bg-error' : med.criticality === 'Med' ? 'bg-secondary' : 'bg-tertiary'
+                              }`}></span>
+                              {med.criticality}
+                              <span className="material-symbols-outlined text-[14px]">unfold_more</span>
+                            </span>
+                          </td>
+                          <td className="py-space-md px-space-md">
+                            <div className="flex items-center gap-1.5">
+                              {med.impactType === 'warning' && (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] text-error">speed</span>
+                                  <span className="font-body-sm text-[12px] font-medium leading-tight text-error">{med.impactText}</span>
+                                </>
+                              )}
+                              {med.impactType === 'success' && (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
+                                  <span className="font-body-sm text-[12px] leading-tight text-on-surface-variant">{med.impactText}</span>
+                                </>
+                              )}
+                              {med.impactType === 'info' && (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] text-primary">thermostat</span>
+                                  <span className="font-body-sm text-[12px] leading-tight font-medium text-primary">{med.impactText}</span>
+                                </>
+                              )}
+                              {med.impactType === 'neutral' && (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] text-outline">horizontal_rule</span>
+                                  <span className="font-body-sm text-[12px] leading-tight text-outline">{med.impactText}</span>
+                                </>
+                              )}
+                              {med.impactType === 'locked' && (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] text-error">lock</span>
+                                  <span className="font-body-sm text-[12px] leading-tight font-medium text-error">{med.impactText}</span>
+                                </>
+                              )}
+                              {med.impactType === 'bulk' && (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] text-tertiary">inventory</span>
+                                  <span className="font-body-sm text-[12px] leading-tight text-on-surface-variant">{med.impactText}</span>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </div>
+
+              {/* Secondary Configuration Card: Global Sensitivity Multipliers */}
+              <div className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md border border-surface-container">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-space-sm">
+                    <span className="material-symbols-outlined text-primary text-[22px]">vital_signs</span>
+                    <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">
+                      Global Algorithmic Sensitivity Multipliers
+                    </h3>
+                  </div>
+                  <p className="font-body-sm text-body-sm text-outline mt-0.5">
+                    Parametric tolerances dictating synthetic alert sensitivity, automated routing probability, and sensor ping frequency.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md pt-space-xs">
+                  {/* Sensitivity Multiplier 1 */}
+                  <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between gap-space-md">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-label-md text-label-md text-on-surface font-semibold">Shortage Window Trigger</span>
+                        <span className="px-2 py-0.5 rounded bg-primary text-on-primary font-mono font-semibold text-[11px]">{shortageWindow} Hours</span>
+                      </div>
+                      <p className="font-body-sm text-body-sm text-outline">Advance notification lead margin before critical stock depletion threshold is crossed.</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <input
+                        type="range"
+                        min="24"
+                        max="168"
+                        value={shortageWindow}
+                        onChange={(e) => {
+                          setShortageWindow(parseInt(e.target.value, 10));
+                          setUnsavedChanges(prev => prev + 1);
+                        }}
+                        className="w-full accent-primary h-1.5 bg-surface-container-highest rounded-lg cursor-pointer"
+                      />
+                      <div className="flex justify-between font-label-sm text-[10px] text-outline">
+                        <span>24h (Urgent)</span>
+                        <span>72h (Standard)</span>
+                        <span>168h (7d Extended)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sensitivity Multiplier 2 */}
+                  <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between gap-space-md">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-label-md text-label-md text-on-surface font-semibold">Automated Mutual-Aid Confidence</span>
+                        <span className="px-2 py-0.5 rounded bg-tertiary text-on-tertiary font-mono font-semibold text-[11px]">&gt; {confidenceThreshold}% Conf.</span>
+                      </div>
+                      <p className="font-body-sm text-body-sm text-outline">Minimum predictive certitude required before auto-dispatching regional inter-facility transfer requests.</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <input
+                        type="range"
+                        min="50"
+                        max="99"
+                        value={confidenceThreshold}
+                        onChange={(e) => {
+                          setConfidenceThreshold(parseInt(e.target.value, 10));
+                          setUnsavedChanges(prev => prev + 1);
+                        }}
+                        className="w-full accent-tertiary h-1.5 bg-surface-container-highest rounded-lg cursor-pointer"
+                      />
+                      <div className="flex justify-between font-label-sm text-[10px] text-outline">
+                        <span>50% (Permissive)</span>
+                        <span>85% (Conservative)</span>
+                        <span>99% (Deterministic)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sensitivity Multiplier 3 */}
+                  <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between gap-space-md">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-label-md text-label-md text-on-surface font-semibold">Cold Chain Heartbeat</span>
+                        <span className="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface font-mono font-semibold text-[11px]">5 Minutes</span>
+                      </div>
+                      <p className="font-body-sm text-body-sm text-outline">BLE / Cellular temperature probe sampling frequency across static and mobile depot points.</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-tertiary"></span>
+                        <span className="font-label-sm text-label-sm text-on-surface font-medium">1,248 Connected IoT Probes</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsMQTTModalOpen(true)}
+                        className="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-sm text-label-sm text-primary transition-colors cursor-pointer font-semibold"
+                      >
+                        Configure MQTT
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="h-16"></div>
         </div>

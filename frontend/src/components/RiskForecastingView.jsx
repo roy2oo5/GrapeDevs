@@ -26,7 +26,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       title: 'Inter-Facility Shortage Mitigator',
       sku,
       facility,
-      route: 'Tier-1 Priority Courier (Est. 38 mins)'
+      route: 'Direct Hospital Handoff'
     });
   };
 
@@ -34,15 +34,15 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
     setMouDialog({
       title: 'Expiry Redistribution Matcher',
       sku: `${med} (${lot})`,
-      facility: `Matched Regional Partner • Val: ${val}`,
-      route: 'Cold-Chain Rebalance Unit (Est. 45 mins)'
+      facility: `Matched Regional Partner • Stock: ${val}`,
+      route: 'Peer Redistribution Protocol'
     });
   };
 
   const handleConfirmDispatch = () => {
     const sku = mouDialog?.sku;
     setMouDialog(null);
-    if (onToast) onToast(`Smart Courier automated dispatch token generated for ${sku}. Manifest transmitted to Regional District 4 Hub.`);
+    if (onToast) onToast(`Transfer request token generated for ${sku}. Requisition sent to Regional District 4 Hub.`);
   };
 
   // Shortage table data
@@ -63,7 +63,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       actionText: 'Initiate Borrow',
       actionClass: 'bg-error text-on-error hover:opacity-90',
       category: 'under3',
-      facilityMatch: 'St. Jude Health Hub (4.2km)'
+      facilityMatch: 'St. Jude Health Hub'
     },
     {
       id: 2,
@@ -81,7 +81,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       actionText: 'Route Stock',
       actionClass: 'bg-surface-container-high text-on-surface hover:bg-primary-container hover:text-on-primary-container',
       category: 'under3',
-      facilityMatch: 'Valley Trauma Center (6.8km)'
+      facilityMatch: 'Valley Trauma Center'
     },
     {
       id: 3,
@@ -137,7 +137,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       detail: '40mg/0.4mL Pre-filled',
       days: '18 Days',
       daysColor: 'bg-error',
-      value: '$14,200',
+      value: '1,420 units',
       note: '2 Facilities Seeking',
       noteColor: 'text-tertiary'
     },
@@ -148,7 +148,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       detail: '250ml Liquid Gas',
       days: '26 Days',
       daysColor: 'bg-primary',
-      value: '$9,850',
+      value: '985 units',
       note: 'High OR Demand @ St. Jude',
       noteColor: 'text-primary'
     },
@@ -159,7 +159,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       detail: 'Powder Vial',
       days: '34 Days',
       daysColor: 'bg-outline',
-      value: '$8,120',
+      value: '812 units',
       note: 'County Clinic Match',
       noteColor: 'text-on-surface-variant'
     },
@@ -170,7 +170,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
       detail: 'Vial Solution',
       days: '42 Days',
       daysColor: 'bg-outline',
-      value: '$6,250',
+      value: '625 units',
       note: 'Inter-Network Swap',
       noteColor: 'text-on-surface-variant'
     }
@@ -341,7 +341,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
                 Projected Expiry At Risk
               </span>
               <span className="font-headline-lg text-headline-lg text-on-surface font-bold mt-1 tracking-tight">
-                $38,420
+                3,842 units
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-secondary-container/60 flex items-center justify-center text-primary">
@@ -769,7 +769,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
                   <span className="material-symbols-outlined text-primary text-[22px]">published_with_changes</span>
                   <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Expiry Risks</h3>
                   <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-fixed font-label-sm text-label-sm font-semibold">
-                    $38.4K At-Risk Capital
+                    3,842 At-Risk Units
                   </span>
                 </div>
                 <span className="font-body-sm text-body-sm text-on-surface-variant">
@@ -790,7 +790,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
                     <th className="py-2.5 px-3 rounded-l-lg">Batch / RFID</th>
                     <th className="py-2.5 px-2">Medicine Detail</th>
                     <th className="py-2.5 px-2">Expiry Horizon</th>
-                    <th className="py-2.5 px-2">At-Risk Value</th>
+                    <th className="py-2.5 px-2">At-Risk Quantity</th>
                     <th className="py-2.5 px-3 text-right rounded-r-lg">Peer Redistribution</th>
                   </tr>
                 </thead>

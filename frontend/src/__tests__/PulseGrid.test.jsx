@@ -202,10 +202,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       );
 
       expect(screen.getByText('Executive Command Console')).toBeInTheDocument();
-      expect(screen.getByText('$1.24M')).toBeInTheDocument();
-      expect(screen.getByText('$45.8K')).toBeInTheDocument();
-      expect(screen.getByText('3 Items')).toBeInTheDocument();
-      expect(screen.getByText('5 Partners')).toBeInTheDocument();
+      expect(screen.getByText('1.24M Units')).toBeInTheDocument();
+      expect(screen.getByText('45,800 Units')).toBeInTheDocument();
+      expect(screen.getByText('18 Requests')).toBeInTheDocument();
+      expect(screen.getByText('5 Pending MOUs')).toBeInTheDocument();
 
       expect(screen.getByText('Paracetamol 500mg IV Infusion (100ml)')).toBeInTheDocument();
       expect(screen.getByText('Propofol 10mg/mL Injectable Emulsion (20ml)')).toBeInTheDocument();
@@ -294,10 +294,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<MOUPartnersView onToast={vi.fn()} />);
 
       expect(screen.getByText('Safe Surplus Network: Regional MOU Marketplace')).toBeInTheDocument();
-      expect(screen.getByText('$412,800')).toBeInTheDocument();
+      expect(screen.getByText('41,280 Units')).toBeInTheDocument();
       expect(screen.getByText('6 Facilities Synced')).toBeInTheDocument();
       expect(screen.getByText('38 mins')).toBeInTheDocument();
-      expect(screen.getByText('$84,200')).toBeInTheDocument();
+      expect(screen.getByText('1,840 Vials')).toBeInTheDocument();
 
       // Check marketplace listings
       expect(screen.getAllByText(/Paracetamol 500mg IV Infusion/).length).toBeGreaterThanOrEqual(1);
@@ -307,10 +307,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('Epinephrine 1mg/mL Auto-Injectors')).toBeInTheDocument();
     });
 
-    it('opens transfer modal when Request Transfer is clicked', () => {
+    it('opens transfer modal when Request Surplus is clicked', () => {
       render(<MOUPartnersView onToast={vi.fn()} />);
 
-      const requestButtons = screen.getAllByRole('button', { name: /Request Transfer/i });
+      const requestButtons = screen.getAllByRole('button', { name: /Request Surplus/i });
       fireEvent.click(requestButtons[0]);
 
       expect(screen.getByText('Rebalance Requisition')).toBeInTheDocument();
@@ -332,7 +332,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       expect(screen.getByText('Collaboration & MOU Management')).toBeInTheDocument();
       expect(screen.getByText('6 Hospitals')).toBeInTheDocument();
-      expect(screen.getByText('$840,200')).toBeInTheDocument();
+      expect(screen.getByText('8,400 Units')).toBeInTheDocument();
       expect(screen.getByText('1 Agreement')).toBeInTheDocument();
       expect(screen.getByText('18 Months')).toBeInTheDocument();
 
@@ -377,7 +377,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       expect(screen.getByText('Scenario Simulation Engine & Stress Testing')).toBeInTheDocument();
       expect(screen.getByText('Simulation Parameters')).toBeInTheDocument();
-      expect(screen.getByText('Respiratory Demand Multiplier')).toBeInTheDocument();
+      expect(screen.getByText(/"What-If" Case Surge/i)).toBeInTheDocument();
       expect(screen.getByText('Supplier Delay / Port Chokehold')).toBeInTheDocument();
 
       // Check Comparative Delta Cards
@@ -396,10 +396,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       const handleToast = vi.fn();
       render(<ScenarioSimulationView onToast={handleToast} />);
 
-      const runSimBtn = screen.getByRole('button', { name: /Run Stochastic Simulation/i });
-      fireEvent.click(runSimBtn);
+      const resetBtn = screen.getByRole('button', { name: /Reset Defaults/i });
+      fireEvent.click(resetBtn);
 
-      expect(screen.getByText(/Running 10,000 MCMC Runs/i)).toBeInTheDocument();
+      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('Reset simulation parameters'));
     });
 
     it('handles approving all prescriptive mitigation actions', () => {
@@ -420,10 +420,13 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       expect(screen.getByText('Settings & Hospital Configuration')).toBeInTheDocument();
       expect(screen.getByText('MedCare General Hospital (Node #MC-01)')).toBeInTheDocument();
-      expect(screen.getByText('User Management')).toBeInTheDocument();
+      expect(screen.getByText('Hospital Profile')).toBeInTheDocument();
+      expect(screen.getByText('Network Preferences')).toBeInTheDocument();
+      expect(screen.getByText('Notification Alerts')).toBeInTheDocument();
       expect(screen.getByText('Supply Chain Rules')).toBeInTheDocument();
-      expect(screen.getByText('Hospital Metrics')).toBeInTheDocument();
-      expect(screen.getByText('API & Integrations')).toBeInTheDocument();
+
+      // Switch to Supply Chain Rules tab
+      fireEvent.click(screen.getByText('Supply Chain Rules'));
 
       // Check table items
       expect(screen.getByText('Paracetamol 500mg IV Infusion')).toBeInTheDocument();
@@ -433,11 +436,13 @@ describe('PulseGrid Control Tower Test Suite', () => {
       // Check sensitivity sliders & actions
       expect(screen.getByText('Global Algorithmic Sensitivity Multipliers')).toBeInTheDocument();
       expect(screen.getByText('Shortage Window Trigger')).toBeInTheDocument();
-      expect(screen.getByText('Save & Deploy Changes')).toBeInTheDocument();
     });
 
     it('allows opening MQTT IoT Broker modal', () => {
       render(<HospitalSettingsView onToast={vi.fn()} />);
+
+      // Switch to Supply Chain Rules tab to find Configure MQTT button
+      fireEvent.click(screen.getByText('Supply Chain Rules'));
 
       fireEvent.click(screen.getByRole('button', { name: /Configure MQTT/i }));
       expect(screen.getByText('MQTT IoT Broker Settings')).toBeInTheDocument();
@@ -448,10 +453,19 @@ describe('PulseGrid Control Tower Test Suite', () => {
       const handleToast = vi.fn();
       render(<HospitalSettingsView onToast={handleToast} />);
 
-      const deployBtn = screen.getByRole('button', { name: /Save & Deploy Changes/i });
-      fireEvent.click(deployBtn);
+      // Make a change first in Supply Chain Rules tab so unsavedChanges > 0
+      fireEvent.click(screen.getByText('Supply Chain Rules'));
+      const reorderInputs = screen.getAllByRole('textbox');
+      if (reorderInputs.length > 1) {
+        fireEvent.change(reorderInputs[1], { target: { value: '500' } });
+      }
 
-      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('deployed'));
+      // Click Hospital Profile save button
+      fireEvent.click(screen.getByText('Hospital Profile'));
+      const saveBtn = screen.getByRole('button', { name: /Save Hospital Profile/i });
+      fireEvent.click(saveBtn);
+
+      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('updated'));
     });
   });
 

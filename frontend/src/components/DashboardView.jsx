@@ -207,31 +207,30 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
 
         {/* 2. TOP ROW (KPI CONTROL CARDS - 4 Grid) */}
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md mb-space-xl">
-          {/* Card 1: Total Stock Value */}
+          {/* Card 1: Total Surplus Items in Network */}
           <div className="relative bg-surface-container-lowest p-space-lg rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden border border-surface-container-high/40">
             <div className="flex items-center justify-between mb-space-md">
               <span className="font-label-md text-label-md text-on-surface-variant font-semibold uppercase tracking-wider">
-                Total Stock Value
+                Total Surplus Items in Network
               </span>
               <span className="p-2 rounded-lg bg-surface-container-low text-primary flex items-center justify-center">
-                <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+                <span className="material-symbols-outlined text-[20px]">inventory_2</span>
               </span>
             </div>
             <div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">
-                  $1.24M
+                  1,420 Items
                 </span>
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-tertiary-fixed/30 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">
                   <span className="material-symbols-outlined text-[14px]">trending_up</span>
-                  +3.2%
+                  1.24M Units
                 </span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                vs 30-day baseline • 1,420 Active SKUs monitored across 4 primary depot units
+                Available for redistribution across 6 network hospital nodes
               </p>
             </div>
-            {/* Sparkline Vector Minimal */}
             <div className="mt-space-md pt-space-xs">
               <svg className="w-full h-8 text-primary overflow-visible" fill="none" viewBox="0 0 160 30">
                 <path
@@ -251,94 +250,91 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             </div>
           </div>
 
-          {/* Card 2: Value at Risk */}
+          {/* Card 2: Items Nearing Expiry (30 days) */}
           <div className="relative bg-surface-container-lowest p-space-lg rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden border border-surface-container-high/40">
             <div className="flex items-center justify-between mb-space-md">
               <span className="font-label-md text-label-md text-on-surface-variant font-semibold uppercase tracking-wider">
-                Value at Risk
+                Items Nearing Expiry (30 days)
               </span>
               <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-fixed font-label-sm text-label-sm font-semibold">
-                Expiring &lt; 45 Days
+                Exp: MM/YYYY
               </span>
             </div>
             <div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-headline-xl text-headline-xl font-bold tracking-tight text-amber-700">
-                  $45.8K
+                  45,800 Units
                 </span>
-                <span className="font-label-sm text-label-sm text-outline font-medium">14 SKUs Flagged</span>
+                <span className="font-label-sm text-label-sm text-outline font-medium">14 Batches</span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                Prioritized for immediate algorithmic re-routing or intra-network swaps
+                Flagged for zero-wastage peer redistribution prior to expiration
               </p>
             </div>
-            {/* Risk Visual Urgency Bar */}
             <div className="mt-space-md flex flex-col gap-1.5">
               <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant font-medium">
-                <span>Network Health Ratio</span>
-                <span className="font-semibold text-on-surface">68% / 32% Critical</span>
+                <span>Network Redistribution Rate</span>
+                <span className="font-semibold text-on-surface">88% Saved</span>
               </div>
               <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden flex">
-                <div className="h-full bg-primary-container" style={{ width: '68%' }}></div>
-                <div className="h-full bg-amber-500" style={{ width: '32%' }}></div>
+                <div className="h-full bg-tertiary" style={{ width: '88%' }}></div>
+                <div className="h-full bg-amber-500" style={{ width: '12%' }}></div>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Critical Shortages */}
+          {/* Card 3: Active Transfer Requests */}
           <div className="relative bg-surface-container-lowest p-space-lg rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden border border-surface-container-high/40">
             <div className="flex items-center justify-between mb-space-md">
               <span className="font-label-md text-label-md text-on-surface-variant font-semibold uppercase tracking-wider">
-                Critical Shortages
+                Active Transfer Requests
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-semibold">
-                Stockout &lt; Lead Time
+              <span className="px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm font-semibold">
+                Peer-to-Peer
               </span>
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="font-headline-xl text-headline-xl text-error font-bold tracking-tight">
-                  3 Items
+                <span className="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">
+                  18 Requests
                 </span>
                 <span className="flex h-3 w-3 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-error"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
                 </span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                2 automated emergency borrows created under regional MOU health compact
+                Active peer handoff &amp; redistribution workflows in progress
               </p>
             </div>
             <div className="mt-space-md p-2.5 rounded-lg bg-surface-container-low flex items-center justify-between text-on-surface-variant">
-              <span className="font-body-sm text-body-sm font-medium">Urgent Burn Protocol</span>
+              <span className="font-body-sm text-body-sm font-medium">Urgency Status</span>
               <span className="font-label-sm text-label-sm text-error font-semibold uppercase tracking-wider">
-                Phase II Alert
+                3 Critical
               </span>
             </div>
           </div>
 
-          {/* Card 4: Active MOUs & Regional Network */}
+          {/* Card 4: Pending MOUs */}
           <div className="relative bg-surface-container-lowest p-space-lg rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden border border-surface-container-high/40">
             <div className="flex items-center justify-between mb-space-md">
               <span className="font-label-md text-label-md text-on-surface-variant font-semibold uppercase tracking-wider">
-                Active MOUs &amp; Network
+                Pending MOUs
               </span>
               <span className="px-2 py-0.5 rounded-full bg-tertiary-fixed/40 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">
-                100% Interoperable
+                Governance
               </span>
             </div>
             <div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">
-                  5 Partners
+                  5 Pending MOUs
                 </span>
-                <span className="font-label-sm text-label-sm text-outline font-medium">Transit: ~42m</span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                Metropolitan Health District 4 telemetry feeds synchronous
+                Awaiting clinical director sign-off &amp; mutual agreement terms
               </p>
             </div>
-            {/* Partner Initials Stack */}
             <div className="mt-space-md flex items-center justify-between">
               <div className="flex -space-x-2 overflow-hidden">
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold shadow-xs ring-2 ring-surface-container-lowest" title="St. Jude Regional">
@@ -358,7 +354,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
                 </span>
               </div>
               <span className="font-label-sm text-label-sm text-primary font-semibold">
-                District 4 Live
+                District 4 Network
               </span>
             </div>
           </div>

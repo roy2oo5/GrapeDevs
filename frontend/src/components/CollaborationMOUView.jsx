@@ -39,9 +39,7 @@ export function CollaborationMOUView({ onToast }) {
       marketplaceSync: 'Safe-Marketplace Synced',
       dscsaVerified: true,
       fipsSigned: true,
-      distance: '4.8 miles',
-      transitTime: '12 min',
-      settlement: 'Zero Balance',
+      agreementType: 'Zero-Cost Surplus Redistribution',
       jurisdiction: 'State DHS-4 (Gov Exec Order 21-A)'
     },
     {
@@ -56,9 +54,7 @@ export function CollaborationMOUView({ onToast }) {
       marketplaceSync: 'Restricted Staging',
       dscsaVerified: true,
       fipsSigned: false,
-      distance: '12.4 miles',
-      transitTime: '22 min',
-      settlement: 'Escrow Pool ($45k)',
+      agreementType: 'Pending Mutual Agreement',
       jurisdiction: 'State DHS-4'
     },
     {
@@ -72,9 +68,7 @@ export function CollaborationMOUView({ onToast }) {
       marketplaceSync: 'Clinic Outpatient Fast-Swap',
       dscsaVerified: true,
       fipsSigned: true,
-      distance: '8.6 miles',
-      transitTime: '16 min',
-      settlement: 'Zero Balance',
+      agreementType: 'Zero-Cost Surplus Redistribution',
       jurisdiction: 'State DHS-4'
     },
     {
@@ -88,9 +82,7 @@ export function CollaborationMOUView({ onToast }) {
       marketplaceSync: 'Tier-1 Mutual Aid',
       dscsaVerified: true,
       fipsSigned: true,
-      distance: '24.5 miles',
-      transitTime: '42 min',
-      settlement: 'Zero Balance',
+      agreementType: 'Zero-Cost Surplus Redistribution',
       jurisdiction: 'State DHS-4'
     },
     {
@@ -104,9 +96,7 @@ export function CollaborationMOUView({ onToast }) {
       marketplaceSync: 'Archived / Re-negotiation Staged',
       dscsaVerified: true,
       fipsSigned: true,
-      distance: '31.0 miles',
-      transitTime: '55 min',
-      settlement: 'Settled Closed Ledger',
+      agreementType: 'Archived Agreement',
       jurisdiction: 'Federal Biosecurity Reserve'
     }
   ]);
@@ -260,11 +250,11 @@ export function CollaborationMOUView({ onToast }) {
         <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div className="flex items-start justify-between">
             <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Network Shared Velocity</span>
-              <span className="font-headline-lg text-headline-lg text-primary mt-1 font-bold">$840,200</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Network Shared Volume</span>
+              <span className="font-headline-lg text-headline-lg text-primary mt-1 font-bold">8,400 Units</span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[22px]">payments</span>
+              <span className="material-symbols-outlined text-[22px]">swap_horizontal_circle</span>
             </div>
           </div>
           <div className="mt-space-sm pt-2 flex items-center justify-between border-t border-surface-container-low text-on-surface-variant font-body-sm text-body-sm">
@@ -455,22 +445,51 @@ export function CollaborationMOUView({ onToast }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onToast && onToast(`Executed Legal PDF generated for ${selectedMOU.facilityName}`)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
-                  <span className="hidden sm:inline">Executed Legal PDF</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onToast && onToast(`Configuration updates saved for ${selectedMOU.id}!`)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">save</span>
-                  <span>Save Changes</span>
-                </button>
+                {selectedMOU.status === 'pending' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAgreements(prev => prev.map(a => a.id === selectedMOU.id ? { ...a, status: 'active' } : a));
+                        if (onToast) onToast(`MOU Terms Accepted for ${selectedMOU.facilityName}! Collaboration active.`);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-tertiary hover:bg-tertiary/90 text-on-tertiary font-label-md text-label-md transition-colors shadow-sm cursor-pointer font-bold"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                      <span>Accept Terms</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAgreements(prev => prev.map(a => a.id === selectedMOU.id ? { ...a, status: 'archived' } : a));
+                        if (onToast) onToast(`Collaboration request rejected for ${selectedMOU.facilityName}.`);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-error-container hover:bg-error text-on-error-container hover:text-on-error font-label-md text-label-md transition-colors shadow-sm cursor-pointer font-bold"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">cancel</span>
+                      <span>Reject Collaboration</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onToast && onToast(`Executed Legal Terms PDF generated for ${selectedMOU.facilityName}`)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+                      <span className="hidden sm:inline">Terms &amp; Conditions</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onToast && onToast(`Configuration updates saved for ${selectedMOU.id}!`)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">save</span>
+                      <span>Save Changes</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

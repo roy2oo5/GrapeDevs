@@ -24,7 +24,7 @@ export function TransfersLogisticsView({ onToast }) {
       destination: 'North District Clinic',
       distance: '9.4 km',
       eta: '22m',
-      courier: 'District Courier ($70)',
+      courier: 'District Courier',
       score: 98,
       scoreLabel: 'Critical Surge',
       scoreType: 'critical',
@@ -52,7 +52,7 @@ export function TransfersLogisticsView({ onToast }) {
       destination: 'MedCare General',
       distance: '18.1 km',
       eta: '45m',
-      courier: 'CryoTransit ($140)',
+      courier: 'CryoTransit',
       score: 72,
       scoreLabel: 'Routine Rebalance',
       scoreType: 'routine',
@@ -80,7 +80,7 @@ export function TransfersLogisticsView({ onToast }) {
       destination: 'Valley Trauma Center (ICU Dept)',
       distance: '18.4 km via I-80 Med Express',
       eta: '38m',
-      courier: 'CryoExpress ($115)',
+      courier: 'CryoExpress',
       score: 94,
       scoreLabel: 'Surge Defense',
       scoreType: 'critical',
@@ -109,7 +109,7 @@ export function TransfersLogisticsView({ onToast }) {
       destination: 'MedCare General',
       distance: '12.5 km',
       eta: '30m',
-      courier: 'District Courier ($85)',
+      courier: 'District Courier',
       score: 89,
       scoreLabel: 'Critical Shortage',
       scoreType: 'critical',
@@ -215,11 +215,11 @@ export function TransfersLogisticsView({ onToast }) {
   const selectedTransfer = transfers.find(t => t.id === selectedTransferId) || transfers[0];
 
   const columns = [
-    { id: 'proposed', title: 'Proposed', subtitle: 'AI outbreak forecast and safety buffer rebalancing', totalVal: '$54.2k', badgeClass: 'bg-surface-container-high text-on-surface-variant' },
-    { id: 'under-review', title: 'Under Review', subtitle: 'Pending clinical director / pharmacy sign-off', totalVal: '$38.9k', badgeClass: 'bg-primary-fixed text-on-primary-fixed', highlight: true },
-    { id: 'approved', title: 'Approved', subtitle: 'Authorized, awaiting packaging & courier dispatch', totalVal: '$41.0k', badgeClass: 'bg-surface-container-high text-on-surface-variant' },
-    { id: 'in-transit', title: 'In Transit', subtitle: 'Active cold chain GPS tracking & live telemetry', totalVal: '$79.4k', badgeClass: 'bg-tertiary-fixed text-on-tertiary-fixed' },
-    { id: 'completed', title: 'Completed', subtitle: 'Reconciled into destination inventory ledger', totalVal: '$134.0k', badgeClass: 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant' }
+    { id: 'proposed', title: 'Proposed', subtitle: 'AI outbreak forecast and safety buffer rebalancing', totalVal: '540 units', badgeClass: 'bg-surface-container-high text-on-surface-variant' },
+    { id: 'under-review', title: 'Under Review', subtitle: 'Pending clinical director / pharmacy sign-off', totalVal: '390 units', badgeClass: 'bg-primary-fixed text-on-primary-fixed', highlight: true },
+    { id: 'approved', title: 'Approved', subtitle: 'Authorized, awaiting packaging & courier dispatch', totalVal: '410 units', badgeClass: 'bg-surface-container-high text-on-surface-variant' },
+    { id: 'in-transit', title: 'In Transit', subtitle: 'Active cold chain GPS tracking & live telemetry', totalVal: '790 units', badgeClass: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+    { id: 'completed', title: 'Completed', subtitle: 'Reconciled into destination inventory ledger', totalVal: '1,340 units', badgeClass: 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant' }
   ];
 
   const handleApproveTransfer = (id) => {
@@ -423,7 +423,7 @@ export function TransfersLogisticsView({ onToast }) {
             </div>
           </div>
           <div className="mt-space-sm pt-space-xs flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-md text-label-md text-primary font-semibold">Total Value: $248,500</span>
+            <span className="font-label-md text-label-md text-primary font-semibold">Total Quantity: 2,485 units</span>
             <span className="font-label-sm text-label-sm text-tertiary flex items-center gap-0.5">
               <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +3 Today
             </span>
@@ -798,8 +798,8 @@ export function TransfersLogisticsView({ onToast }) {
                 <span className="text-on-surface font-semibold truncate block max-w-[110px]">{selectedTransfer.courier}</span>
               </div>
               <div>
-                <span className="text-outline block">Transit Cost:</span>
-                <span className="text-primary font-semibold">$115.00 (MOU Pool)</span>
+                <span className="text-outline block">Transit Dispatch:</span>
+                <span className="text-primary font-semibold">MOU Pool Verified</span>
               </div>
             </div>
 
