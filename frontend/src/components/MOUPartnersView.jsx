@@ -52,7 +52,7 @@ export function MOUPartnersView({ onToast }) {
       telemetryBadge: '3.4°C Telemetry OK',
       storageRegime: 'Cold Chain (2–8°C Monitored)',
       regimeType: 'cold',
-      offeringNode: 'Valley Trauma Center (Surgical)',
+      offeringNode: 'Valley Trauma Center',
       distanceKm: 18.2,
       distanceEta: '18.2 km (~35 mins staged)',
       lotQuantity: 220,

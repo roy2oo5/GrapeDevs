@@ -1,15 +1,13 @@
 import React from 'react';
 
-export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'SEC-09' }) {
+export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'MedCare Hub' }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'grid_view' },
     { id: 'inventory-and-skus', label: 'Inventory & SKUs', icon: 'inventory_2' },
     { id: 'outbreak-surveillance', label: 'Outbreak Surveillance', icon: 'coronavirus' },
-    { id: 'scenario-simulation-engine', label: 'Scenario Simulation', icon: 'psychology' },
     { id: 'transfers-and-logistics', label: 'Transfers & Logistics', icon: 'local_shipping' },
     { id: 'mou-partners', label: 'Surplus Marketplace', icon: 'storefront' },
     { id: 'facility-network', label: 'Collaboration & MOUs', icon: 'handshake' },
-    { id: 'audit-and-compliance', label: 'Audit & Compliance', icon: 'verified_user' },
   ];
 
   return (

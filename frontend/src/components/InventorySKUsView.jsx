@@ -303,7 +303,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             <span className="w-1.5 h-1.5 rounded-full bg-outline-variant mx-1"></span>
             <span className="font-label-sm text-label-sm text-outline flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px] text-tertiary">hub</span>
-              MedCare Central Pharmacy Depot • Node Alpha
+              MedCare Central Pharmacy Depot
             </span>
           </div>
 
@@ -330,19 +330,11 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             <span className="material-symbols-outlined text-[18px] text-outline">description</span>
             <span>Export Stock Manifest</span>
           </button>
-          <button
-            type="button"
-            onClick={() => onToast && onToast('Opening Inbound Shipment Intake Console')}
-            className="flex items-center gap-2 px-space-md py-2.5 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary transition-all font-label-md text-label-md shadow-sm hover:shadow-[0_0_16px_rgba(0,123,185,0.35)] active:scale-95 font-semibold cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            <span>Receive Inbound Shipment</span>
-          </button>
         </div>
       </div>
 
       {/* Summary KPI Cards Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md pb-space-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pb-space-lg">
         {/* Card 1 */}
         <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-container-high/40">
           <div className="flex items-center justify-between pb-space-sm">
@@ -386,49 +378,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             <span className="font-body-sm text-body-sm text-on-surface-variant">Telemetry online (100%)</span>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary-container to-transparent opacity-40"></div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-container-high/40">
-          <div className="flex items-center justify-between pb-space-sm">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">
-              Inbound in Transit
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-secondary">
-              <span className="material-symbols-outlined text-[18px]">local_shipping</span>
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-headline-lg text-headline-lg text-on-surface font-bold">4,850</span>
-            <span className="font-label-sm text-label-sm text-outline">Units En Route</span>
-          </div>
-          <div className="flex items-center gap-1.5 pt-space-xs mt-2">
-            <span className="material-symbols-outlined text-outline text-[16px]">alt_route</span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">3 Verified Freight Carriers</span>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-secondary to-transparent opacity-40"></div>
-        </div>
-
-        {/* Card 4 */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-container-high/40">
-          <div className="flex items-center justify-between pb-space-sm">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">
-              Quarantined / Lot Hold
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-error">
-              <span className="material-symbols-outlined text-[18px]">gavel</span>
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-headline-lg text-headline-lg text-error font-bold">140</span>
-            <span className="font-label-sm text-label-sm text-outline">Units Restricted</span>
-          </div>
-          <div className="flex items-center gap-1.5 pt-space-xs mt-2">
-            <span className="w-2 h-2 rounded-full bg-error animate-ping"></span>
-            <span className="font-body-sm text-body-sm text-error font-semibold">2 Batches</span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">Pending Lab Clearance</span>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-error to-transparent opacity-40"></div>
         </div>
       </div>
 
@@ -701,17 +650,14 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                                     RFID Tagged • ISO 13485 Verified
                                   </span>
                                 </div>
-
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-left">
                                     <thead>
                                       <tr className="text-outline font-label-sm text-label-sm uppercase tracking-wider bg-surface-container-low/60 rounded-lg">
                                         <th className="py-2.5 px-3 rounded-l-lg font-semibold">Batch / RFID Tag</th>
-                                        <th className="py-2.5 px-3 font-semibold">Location / Bin</th>
                                         <th className="py-2.5 px-3 font-semibold">Quantity on Hand</th>
                                         <th className="py-2.5 px-3 font-semibold">Manufacturing &amp; Expiry</th>
-                                        <th className="py-2.5 px-3 font-semibold">Lot State</th>
-                                        <th className="py-2.5 px-3 rounded-r-lg text-right font-semibold">Immediate Pharmacist Action</th>
+                                        <th className="py-2.5 px-3 rounded-r-lg font-semibold">Lot State</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-surface-container-low">
@@ -732,11 +678,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                                             </div>
                                           </td>
                                           <td className="py-3 px-3">
-                                            <span className="px-2 py-0.5 rounded bg-surface-container-high font-label-sm text-label-sm font-mono text-on-surface font-semibold">
-                                              {lot.bin}
-                                            </span>
-                                          </td>
-                                          <td className="py-3 px-3">
                                             <span className="font-label-md text-label-md text-on-surface font-bold">{lot.qty}</span>
                                           </td>
                                           <td className="py-3 px-3">
@@ -751,46 +692,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                                               {lot.stateIcon && <span className="material-symbols-outlined text-[13px]">{lot.stateIcon}</span>}
                                               {lot.stateLabel}
                                             </span>
-                                          </td>
-                                          <td className="py-3 px-3 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                              {lot.state === 'usable' && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => handleQuarantineLot(lot.id, lot.code)}
-                                                  className="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-colors active:scale-95 cursor-pointer font-medium"
-                                                >
-                                                  Quarantine
-                                                </button>
-                                              )}
-                                              {lot.state === 'quarantined' && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => handleReleaseLot(lot.id, lot.code)}
-                                                  className="px-2.5 py-1 rounded-lg bg-tertiary-fixed-dim/40 hover:bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-sm text-label-sm transition-colors active:scale-95 font-semibold cursor-pointer"
-                                                >
-                                                  Release to Usable
-                                                </button>
-                                              )}
-                                              {lot.state !== 'damaged' && !lot.destroyed && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => handleMarkDamaged(lot.id, lot.code)}
-                                                  className="px-2.5 py-1 rounded-lg bg-error-container/40 hover:bg-error-container text-error font-label-sm text-label-sm transition-colors active:scale-95 cursor-pointer font-medium"
-                                                >
-                                                  Mark Damaged
-                                                </button>
-                                              )}
-                                              {(lot.state === 'damaged' || lot.id === 'lot-3') && !lot.destroyed && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => handleLogDestruction(lot.id, lot.code)}
-                                                  className="px-3 py-1 rounded-lg bg-surface-container hover:bg-error hover:text-on-error text-on-surface font-label-sm text-label-sm transition-colors active:scale-95 cursor-pointer font-medium"
-                                                >
-                                                  Log Destruction
-                                                </button>
-                                              )}
-                                            </div>
                                           </td>
                                         </tr>
                                       ))}

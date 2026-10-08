@@ -22,8 +22,8 @@ export default function App() {
   // Modals & Interactive States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [actionModal, setActionModal] = useState(null); // { type, payload }
-  const [authModalType, setAuthModalType] = useState(null); // 'reset' | 'sso' | 'terms' | 'audit' | 'telemetry' | 'diagnostics'
-  const [user, setUser] = useState({ name: 'Dr. Sarah Lin', role: 'Chief Pharmacy Logistics' });
+  const [authModalType, setAuthModalType] = useState(null); // 'reset' | 'sso' | 'terms' | 'telemetry' | 'diagnostics'
+  const [user, setUser] = useState({ name: 'MedCare General Hospital', role: 'Regional Redistribution Hub' });
 
   // Toasts
   const [toasts, setToasts] = useState([]);
@@ -53,8 +53,8 @@ export default function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser({
-      name: userData.email.split('@')[0].replace('.', ' '),
-      role: userData.role || 'Chief Pharmacy Logistics'
+      name: userData.facility || 'MedCare General Hospital',
+      role: userData.role || 'Regional Redistribution Hub'
     });
     setAppMode('dashboard');
     addToast(`Authenticated as ${userData.email}. Welcome to Executive Command Console.`);
@@ -65,10 +65,8 @@ export default function App() {
       setIsSearchOpen(true);
     } else if (action === 'emergency-request') {
       setActionModal({ type: 'emergency-request' });
-    } else if (action === 'export-audit') {
-      setActionModal({ type: 'export-audit' });
     } else if (action === 'run-optimizer') {
-      addToast('Constrained Optimization Engine executed across all 6 facilities. 3 transfers recommended.');
+      addToast('Constrained Optimization Engine executed across all facilities. Transfers recommended.');
       setCurrentView('transfers-and-logistics');
     } else {
       setActionModal({ type: 'take-action', payload: action });
@@ -97,7 +95,7 @@ export default function App() {
               currentFacility={currentFacility}
               onFacilityChange={(name) => {
                 setCurrentFacility(name);
-                addToast(`Operating node switched to ${name}`);
+                addToast(`Operating hospital switched to ${name}`);
               }}
               onOpenSearch={() => setIsSearchOpen(true)}
               user={user}
@@ -109,11 +107,14 @@ export default function App() {
                 <DashboardView
                   onToast={addToast}
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}
-                  onOpenAuditModal={() => setActionModal({ type: 'export-audit' })}
                   onTakeAction={(sku) => setActionModal({ type: 'take-action', payload: sku })}
                 />
               ) : (
-                <SecondaryViews view={currentView} onToast={addToast} />
+                <SecondaryViews
+                  view={currentView}
+                  onToast={addToast}
+                  onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}
+                />
               )}
             </main>
           </div>

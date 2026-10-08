@@ -46,55 +46,19 @@ export function DashboardHeader({
 
   return (
     <header className="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg border-b border-surface-container/60">
-      {/* Facility Switcher Dropdown */}
+      {/* Active Hospital Display */}
       <div className="relative flex items-center gap-space-md">
-        <div
-          onClick={() => setShowFacilityDropdown(!showFacilityDropdown)}
-          className="flex items-center gap-space-sm px-space-md py-1.5 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition-colors cursor-pointer border border-surface-container-high/60"
-        >
+        <div className="flex items-center gap-space-sm px-space-md py-1.5 rounded-xl bg-surface-container-low border border-surface-container-high/60">
           <span className="material-symbols-outlined text-primary text-[20px]">local_hospital</span>
           <div className="flex flex-col text-left">
             <span className="font-label-md text-label-md text-on-surface leading-tight font-semibold">
               {currentFacility}
             </span>
             <span className="font-body-sm text-body-sm text-on-surface-variant leading-none">
-              {facilities.find((f) => f.name === currentFacility)?.type || 'Tertiary Trauma Center'}
+              Surplus Redistribution Terminal
             </span>
           </div>
-          <span className="material-symbols-outlined text-outline text-[18px] ml-1">expand_more</span>
         </div>
-
-        {/* Dropdown Menu */}
-        {showFacilityDropdown && (
-          <div className="absolute top-12 left-0 w-80 bg-surface-container-lowest rounded-2xl shadow-xl border border-surface-container-high p-2 z-50 animate-fadeIn">
-            <div className="px-3 py-1.5 text-[11px] font-semibold text-outline uppercase tracking-wider">
-              Select Operating Node
-            </div>
-            {facilities.map((fac) => (
-              <button
-                key={fac.id}
-                type="button"
-                onClick={() => {
-                  if (onFacilityChange) onFacilityChange(fac.name);
-                  setShowFacilityDropdown(false);
-                }}
-                className={`w-full p-2.5 rounded-xl text-left flex items-center justify-between transition-colors cursor-pointer ${
-                  currentFacility === fac.name
-                    ? 'bg-primary-fixed/30 text-on-primary-fixed-variant font-semibold'
-                    : 'hover:bg-surface-container-low text-on-surface'
-                }`}
-              >
-                <div>
-                  <div className="text-xs font-semibold">{fac.name}</div>
-                  <div className="text-[11px] text-secondary">{fac.type}</div>
-                </div>
-                {currentFacility === fac.name && (
-                  <span className="material-symbols-outlined text-primary text-[18px]">check</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Right Controls */}
@@ -114,14 +78,6 @@ export function DashboardHeader({
               ⌘K
             </span>
           </button>
-        </div>
-
-        {/* Live Network Sync Pill */}
-        <div className="hidden xl:flex items-center gap-2 px-space-md py-1 rounded-full bg-tertiary-fixed/30 text-on-tertiary-fixed-variant border border-tertiary/20">
-          <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-          <span className="font-label-sm text-label-sm font-semibold">
-            6 Facilities Active // Synced
-          </span>
         </div>
 
         {/* Notifications Icon with Popover */}

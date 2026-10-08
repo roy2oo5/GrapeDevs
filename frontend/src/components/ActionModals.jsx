@@ -58,7 +58,7 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
               className="space-y-4"
             >
               <div className="p-3 rounded-xl bg-error-container/20 border border-error-container/50 text-xs text-on-error-container">
-                This request broadcasts an urgent borrow alert to all 5 interconnected hospital nodes in Metropolitan Health District 4.
+                This request broadcasts an urgent surplus request directly to interconnected network hospitals in District 4.
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -95,20 +95,10 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
                     onChange={(e) => setReqUrgency(e.target.value)}
                     className="w-full h-11 px-3 bg-surface-container-low rounded-xl border border-surface-container-high focus:border-primary focus:outline-none"
                   >
-                    <option value="critical">Phase II Critical (&lt; 24h)</option>
+                    <option value="critical">Critical (&lt; 24h)</option>
                     <option value="high">Urgent (&lt; 48h)</option>
                     <option value="normal">Standard Rebalance</option>
                   </select>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-on-surface uppercase mb-1">Target Department</label>
-                  <input
-                    type="text"
-                    value={reqDept}
-                    onChange={(e) => setReqDept(e.target.value)}
-                    className="w-full h-11 px-3 bg-surface-container-low rounded-xl border border-surface-container-high focus:border-primary focus:outline-none"
-                  />
                 </div>
               </div>
 

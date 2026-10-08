@@ -14,7 +14,6 @@ import { ActionModals } from '../components/ActionModals';
 import { TransfersLogisticsView } from '../components/TransfersLogisticsView';
 import { MOUPartnersView } from '../components/MOUPartnersView';
 import { CollaborationMOUView } from '../components/CollaborationMOUView';
-import { ScenarioSimulationView } from '../components/ScenarioSimulationView';
 import { HospitalSettingsView } from '../components/HospitalSettingsView';
 import App from '../App';
 
@@ -181,12 +180,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(handleView).toHaveBeenCalledWith('inventory-and-skus');
     });
 
-    it('renders DashboardHeader with facility and notification count', () => {
+    it('renders DashboardHeader with hospital name', () => {
       render(<DashboardHeader currentFacility="MedCare General Hospital" onOpenSearch={vi.fn()} />);
 
-      expect(screen.getByText('MedCare General Hospital')).toBeInTheDocument();
-      expect(screen.getByText('6 Facilities Active // Synced')).toBeInTheDocument();
-      expect(screen.getByText('Dr. Sarah Lin')).toBeInTheDocument();
+      expect(screen.getAllByText('MedCare General Hospital').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders DashboardView KPI cards and attention alerts', () => {
@@ -196,7 +193,6 @@ describe('PulseGrid Control Tower Test Suite', () => {
         <DashboardView
           onToast={handleToast}
           onOpenEmergencyModal={handleEmergency}
-          onOpenAuditModal={vi.fn()}
           onTakeAction={vi.fn()}
         />
       );
@@ -371,48 +367,6 @@ describe('PulseGrid Control Tower Test Suite', () => {
     });
   });
 
-  describe('ScenarioSimulationView Component (Screen 7)', () => {
-    it('renders simulation parameters, delta cards, and prescriptive interventions', () => {
-      render(<ScenarioSimulationView onToast={vi.fn()} />);
-
-      expect(screen.getByText('Scenario Simulation Engine & Stress Testing')).toBeInTheDocument();
-      expect(screen.getByText('Simulation Parameters')).toBeInTheDocument();
-      expect(screen.getByText(/"What-If" Case Surge/i)).toBeInTheDocument();
-      expect(screen.getByText('Supplier Delay / Port Chokehold')).toBeInTheDocument();
-
-      // Check Comparative Delta Cards
-      expect(screen.getByText('Baseline Trajectory')).toBeInTheDocument();
-      expect(screen.getByText('Simulated Shock Surge')).toBeInTheDocument();
-      expect(screen.getByText('Network Vulnerability')).toBeInTheDocument();
-
-      // Check Chart & Prescriptive Interventions
-      expect(screen.getByText('Stock Depletion & Buffer Trajectory (14-Day Horizon)')).toBeInTheDocument();
-      expect(screen.getByText('Recommended Interventions & Automated Mitigation Plan')).toBeInTheDocument();
-      expect(screen.getByText('Approve All High-Impact Transfers')).toBeInTheDocument();
-      expect(screen.getByText(/Redistribute 500 units of Paracetamol 500mg IV/i)).toBeInTheDocument();
-    });
-
-    it('handles running stochastic simulation feedback', async () => {
-      const handleToast = vi.fn();
-      render(<ScenarioSimulationView onToast={handleToast} />);
-
-      const resetBtn = screen.getByRole('button', { name: /Reset Defaults/i });
-      fireEvent.click(resetBtn);
-
-      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('Reset simulation parameters'));
-    });
-
-    it('handles approving all prescriptive mitigation actions', () => {
-      const handleToast = vi.fn();
-      render(<ScenarioSimulationView onToast={handleToast} />);
-
-      const approveAllBtn = screen.getByRole('button', { name: /Approve All High-Impact Transfers/i });
-      fireEvent.click(approveAllBtn);
-
-      expect(screen.getByText(/3 Transfers Initiated to Logistics/i)).toBeInTheDocument();
-      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('Approved'));
-    });
-  });
 
   describe('HospitalSettingsView Component (Screen 8)', () => {
     it('renders hospital configuration tabs, calibration table, and parameter knobs', () => {
@@ -473,7 +427,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
     it('renders full PulseGrid Executive Command Console by default and allows switching to auth', async () => {
       render(<App />);
       expect(screen.getByText('Executive Command Console')).toBeInTheDocument();
-      expect(screen.getByText('MedCare General Hospital')).toBeInTheDocument();
+      expect(screen.getAllByText('MedCare General Hospital').length).toBeGreaterThanOrEqual(1);
 
       // Switch to Auth mode
       fireEvent.click(screen.getByText(/Switch Terminal \/ Sign Out/i));

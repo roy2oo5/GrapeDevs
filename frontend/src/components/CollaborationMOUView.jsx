@@ -796,7 +796,7 @@ export function CollaborationMOUView({ onToast }) {
                 <span className="material-symbols-outlined text-[18px] text-primary mt-0.5">verified</span>
                 <div className="flex flex-col">
                   <span className="text-on-surface font-semibold text-[13px]">
-                    Last modified by Dr. Sarah Lin (Chief Pharmacy Logistics) on Oct 24, 2024 at 14:22 EST
+                    Last modified by MedCare General Hospital on Oct 24, 2024 at 14:22 EST
                   </span>
                   <span className="text-[11px] font-mono text-outline">
                     Cryptographic Block Hash: SHA-256 (0x7F89...9A2B) • Re-certification due in 11 months
@@ -1025,7 +1025,7 @@ export function CollaborationMOUView({ onToast }) {
                   <span>Policy Modification (Surplus Safe-Marketplace)</span>
                   <span className="text-outline font-mono">Oct 24, 14:22 EST</span>
                 </div>
-                <div className="text-on-surface-variant mt-1">Dr. Sarah Lin updated Article 8.3 surplus offset terms. Block #8921.</div>
+                <div className="text-on-surface-variant mt-1">MedCare General Hospital updated Article 8.3 surplus offset terms. Block #8921.</div>
               </div>
               <div className="p-3 bg-surface-container-low rounded-xl">
                 <div className="flex justify-between font-semibold text-on-surface">

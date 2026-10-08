@@ -77,7 +77,7 @@ export function TransfersLogisticsView({ onToast }) {
       regime: 'Ambient Regulated (15-25°C)',
       regimeType: 'ambient',
       origin: 'MedCare General (Depot-A)',
-      destination: 'Valley Trauma Center (ICU Dept)',
+      destination: 'Valley Trauma Center',
       distance: '18.4 km via I-80 Med Express',
       eta: '38m',
       courier: 'CryoExpress',
@@ -88,11 +88,11 @@ export function TransfersLogisticsView({ onToast }) {
       batch: '#LOT-99214-A',
       expiry: 'Nov 18, 2024 (18d buffer)',
       justification: 'Valley Trauma Center reports 41% pediatric & adult viral influenza surge admissions. Projected zero-stockout in 16.4 hours without peer-to-peer assistance. MedCare General currently operates at 142% safety buffer threshold with surplus batch LOT-99214-A.',
-      impact: 'Protects estimated 84 ICU admissions against fever spikes.',
+      impact: 'Protects estimated 84 hospital admissions against fever spikes.',
       steps: [
         { label: 'Proposed by Epi-Forecast Agent', time: 'Oct 28, 08:14 • Algorithmic shortage risk trigger (<24h lead)', done: true },
         { label: 'MOU Partner Verification', time: 'Oct 28, 08:22 • Valley Trauma confirmed forecast & accepted quota', done: true },
-        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 08:35 • Awaiting sign-off by Dr. Sarah Lin (Chief Pharmacy)', active: true },
+        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 08:35 • Awaiting sign-off by MedCare General Hospital', active: true },
         { label: 'Cold Chain Courier Dispatch', time: 'Pending authorization • Automated dispatch staged' },
         { label: 'Receipt & Cryptographic Ledgering', time: 'Pending delivery • DSCSA Title 21 CFR Part 11 ledgering' }
       ]
@@ -139,7 +139,7 @@ export function TransfersLogisticsView({ onToast }) {
       eta: '34m',
       courier: 'Packaging Ready',
       score: 91,
-      scoreLabel: 'ICU Restock',
+      scoreLabel: 'Hospital Restock',
       scoreType: 'critical',
       timeAgo: '50m ago',
       batch: '#LOT-33219-N',
@@ -148,7 +148,7 @@ export function TransfersLogisticsView({ onToast }) {
       steps: [
         { label: 'Proposed by Epi-Forecast Agent', time: 'Oct 28, 07:40', done: true },
         { label: 'MOU Partner Verification', time: 'Oct 28, 07:55', done: true },
-        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 08:05 • Approved by Dr. Sarah Lin', done: true },
+        { label: 'Clinical Pharmacy Authorization', time: 'Oct 28, 08:05 • Approved by MedCare General Hospital', done: true },
         { label: 'Cold Chain Courier Dispatch', time: 'Staging on Loading Bay 3', active: true },
         { label: 'Receipt & Cryptographic Ledgering', time: 'Pending receipt' }
       ]
@@ -920,9 +920,9 @@ export function TransfersLogisticsView({ onToast }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Destination Unit</label>
+                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Destination Hospital</label>
                   <select className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary">
-                    <option>Valley Trauma Center (ICU)</option>
+                    <option>Valley Trauma Center</option>
                     <option>MedCare General</option>
                     <option>North District Clinic</option>
                     <option>Central Children's Hospital</option>

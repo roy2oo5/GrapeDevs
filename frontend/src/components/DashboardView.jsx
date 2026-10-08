@@ -79,7 +79,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
       stock: '140 vials',
       burn: '82 units / day',
       depletion: '1.7 Days (Lead: 4d)',
-      alertText: 'Local Viral Epidemic Cluster identified (+28% admissions in Trauma Emergency). Algorithmic forecast projects absolute zero-inventory at MedCare Depot in 41 hours.',
+      alertText: 'Local Viral Epidemic Cluster identified (+28% hospital admissions). Algorithmic forecast projects absolute zero-inventory at MedCare Depot in 41 hours.',
       partnerOffer: 'Route Emergency Borrow via St. Jude Regional (Available: 600u)',
       actionText: 'Take Action'
     },
@@ -88,12 +88,12 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
       category: 'critical',
       sku: 'Propofol 10mg/mL Injectable Emulsion (20ml)',
       code: 'SKU #ANES-PROP-10M',
-      tag: 'CRITICAL: Surgical Quota Breached',
+      tag: 'CRITICAL: Stock Quota Breached',
       badge: 'MOU DISPATCH READY',
       stock: '28 ampoules',
-      burn: 'ICU Spiked 3.4x',
+      burn: 'Hospital Demand Spiked 3.4x',
       depletion: '0.9 Days (Safe: 5d)',
-      alertText: 'Critical surgery safety threshold violated. Valley Trauma Center reports a verified surplus of 420 units within active mutual assistance framework.',
+      alertText: 'Critical hospital safety threshold violated. Valley Trauma Center reports a verified surplus of 420 units within active mutual assistance framework.',
       partnerOffer: 'Auto-Match Transit Dispatch',
       actionText: 'Take Action'
     },
@@ -107,9 +107,9 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
       stock: '310 vials',
       burn: '4.1 Days Buffer',
       depletion: 'Supplier Lead: 3.5d',
-      alertText: 'Safety stock buffer near threshold. Automated Replenishment Purchase Order #PO-8812 is staged and ready for signing.',
+      alertText: 'Safety stock buffer near threshold. Automated Replenishment Order #PO-8812 is staged and ready for hospital sign-off.',
       partnerOffer: null,
-      actionText: 'Authorize PO #PO-8812'
+      actionText: 'Authorize Order #PO-8812'
     }
   ];
 
@@ -131,7 +131,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             <div className="flex items-center gap-2 mb-1.5">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm text-label-sm font-semibold tracking-wider uppercase border border-primary/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
-                Node Alpha-01 // MedCare Lead
+                MedCare General Hospital
               </span>
               <span className="font-label-sm text-label-sm text-outline font-mono">
                 TX-HASH: 90F2-SURGE-OCT
@@ -182,16 +182,6 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
                 7-Day Model
               </button>
             </div>
-
-            {/* Secondary Action: Audit Export */}
-            <button
-              type="button"
-              onClick={onOpenAuditModal}
-              className="inline-flex items-center gap-2 px-space-md py-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container-low text-on-surface font-label-md text-label-md transition-all shadow-sm cursor-pointer border border-surface-container-high/60"
-            >
-              <span className="material-symbols-outlined text-[18px] text-outline">receipt_long</span>
-              <span>Export Audit Telemetry</span>
-            </button>
 
             {/* Primary Action: Emergency Stock Request */}
             <button

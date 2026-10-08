@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export function RiskForecastingView({ onToast, onOpenMOUModal }) {
+export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
   const [selectedSKU, setSelectedSKU] = useState('Paracetamol 500mg IV Infusion (100ml) [High Volatility]');
   const [showBayesianBand, setShowBayesianBand] = useState(true);
   const [granularity, setGranularity] = useState('daily'); // 'daily' | 'weekly' | 'batch'
@@ -22,21 +22,29 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
   };
 
   const handleOpenBorrow = (sku, facility) => {
-    setMouDialog({
-      title: 'Inter-Facility Shortage Mitigator',
-      sku,
-      facility,
-      route: 'Direct Hospital Handoff'
-    });
+    if (onOpenEmergencyModal) {
+      onOpenEmergencyModal();
+    } else {
+      setMouDialog({
+        title: 'Inter-Facility Shortage Mitigator',
+        sku,
+        facility,
+        route: 'Direct Hospital Handoff'
+      });
+    }
   };
 
   const handleOpenTaker = (lot, med, val) => {
-    setMouDialog({
-      title: 'Expiry Redistribution Matcher',
-      sku: `${med} (${lot})`,
-      facility: `Matched Regional Partner • Stock: ${val}`,
-      route: 'Peer Redistribution Protocol'
-    });
+    if (onOpenEmergencyModal) {
+      onOpenEmergencyModal();
+    } else {
+      setMouDialog({
+        title: 'Expiry Redistribution Matcher',
+        sku: `${med} (${lot})`,
+        facility: `Matched Regional Partner • Stock: ${val}`,
+        route: 'Peer Redistribution Protocol'
+      });
+    }
   };
 
   const handleConfirmDispatch = () => {
@@ -204,13 +212,6 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
 
         {/* Controls & Action Ribbon */}
         <div className="flex flex-wrap items-center gap-space-sm pt-2 xl:pt-0">
-          {/* Date Horizon Selector */}
-          <div className="flex items-center gap-2 px-space-md py-2 bg-surface-container-lowest rounded-xl shadow-sm text-on-surface cursor-pointer hover:bg-surface-container-low transition-all border border-surface-container-high/60">
-            <span className="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
-            <span className="font-label-md text-label-md">Last 30 Days + 14-Day Forecast (Oct 1 – Nov 14)</span>
-            <span className="material-symbols-outlined text-[16px] text-outline">expand_more</span>
-          </div>
-
           {/* Granularity Pills */}
           <div className="inline-flex p-1 bg-surface-container-high rounded-xl shadow-inner">
             <button
@@ -264,7 +265,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[18px]">query_stats</span>
-                  <span>Run Simulation</span>
+                  <span>Run Forecast</span>
                 </>
               )}
             </button>
@@ -281,39 +282,17 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
         </div>
       </section>
 
-      {/* Section 1: KPI Summary Strip */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
-        {/* KPI 1 */}
-        <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-space-sm relative overflow-hidden group hover:shadow-md transition-all border border-surface-container-high/40">
+      {/* Section 1: KPI Summary Strip (Model Accuracy Removed) */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+        {/* KPI 1: Shortage Risk -> Triggers Emergency Request */}
+        <div
+          onClick={() => onOpenEmergencyModal && onOpenEmergencyModal()}
+          className="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-space-sm relative overflow-hidden group hover:shadow-md transition-all cursor-pointer border border-error/30"
+        >
           <div className="flex items-start justify-between">
             <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">
-                Model Accuracy
-              </span>
-              <span className="font-headline-lg text-headline-lg text-on-surface font-bold mt-1 tracking-tight">
-                97.4%
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-primary-fixed/40 flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[22px]">auto_graph</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-1.5 text-tertiary">
-              <span className="material-symbols-outlined text-[16px]">verified</span>
-              <span className="font-label-sm text-label-sm font-semibold">R² = 0.94 Precision</span>
-            </div>
-            <span className="font-body-sm text-body-sm text-outline">Bayesian MAP fit</span>
-          </div>
-          <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-primary-fixed/20 rounded-full blur-xl pointer-events-none"></div>
-        </div>
-
-        {/* KPI 2 */}
-        <div className="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-space-sm relative overflow-hidden group hover:shadow-md transition-all border border-surface-container-high/40">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">
-                Projected Shortages
+              <span className="font-label-sm text-label-sm uppercase tracking-wider text-error font-semibold">
+                Projected Shortages (Click to Request)
               </span>
               <span className="font-headline-lg text-headline-lg text-error font-bold mt-1 tracking-tight">
                 4 SKUs
@@ -328,7 +307,7 @@ export function RiskForecastingView({ onToast, onOpenMOUModal }) {
               <span className="w-2 h-2 rounded-full bg-error animate-ping"></span>
               <span className="font-label-sm text-label-sm font-semibold">Within 7 Calendar Days</span>
             </div>
-            <span className="font-body-sm text-body-sm text-outline">2 Critical ICU</span>
+            <span className="font-body-sm text-body-sm text-outline font-semibold">Trigger Stock Request</span>
           </div>
           <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-error-container/20 rounded-full blur-xl pointer-events-none"></div>
         </div>

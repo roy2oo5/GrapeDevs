@@ -389,7 +389,7 @@ export function HospitalSettingsView({ onToast }) {
                   <label className="font-label-md text-label-md text-on-surface font-semibold">Contact Person &amp; Role</label>
                   <input
                     type="text"
-                    defaultValue="Dr. Sarah Lin (Chief Pharmacy Logistics)"
+                    defaultValue="MedCare General Hospital (Regional Hub)"
                     className="px-space-md py-2.5 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface font-body-md text-body-md outline-none"
                   />
                 </div>
