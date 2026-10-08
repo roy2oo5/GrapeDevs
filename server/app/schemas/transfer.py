@@ -27,3 +27,5 @@ class TransferRead(TransferCreate):
     status: str
     created_at: datetime
     updated_at: datetime
+    requesting_hospital_name: str | None = None
+    source_hospital_name: str | None = None

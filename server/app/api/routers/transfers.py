@@ -18,6 +18,20 @@ router = APIRouter(
 )
 
 
+def serialize_transfer(db: Session, transfer: TransferRequest) -> dict:
+    requesting_hospital = db.get(Hospital, transfer.requesting_hospital_id) if transfer.requesting_hospital_id else None
+    source_hospital = db.get(Hospital, transfer.source_hospital_id) if transfer.source_hospital_id else None
+    fields = (
+        "id", "requesting_hospital_id", "source_hospital_id", "sku_code", "sku_name",
+        "quantity", "unit", "urgency", "department", "notes", "status", "created_at", "updated_at",
+    )
+    return {
+        **{field: getattr(transfer, field) for field in fields},
+        "requesting_hospital_name": requesting_hospital.name if requesting_hospital else None,
+        "source_hospital_name": source_hospital.name if source_hospital else None,
+    }
+
+
 @router.post("", response_model=TransferRead, status_code=status.HTTP_201_CREATED)
 def create_transfer(
     payload: TransferCreate,
@@ -37,7 +51,7 @@ def create_transfer(
     db.add(transfer)
     db.commit()
     db.refresh(transfer)
-    return transfer
+    return serialize_transfer(db, transfer)
 
 
 @router.get("", response_model=list[TransferRead])
@@ -56,7 +70,7 @@ def list_transfers(
     )
     if status_filter:
         statement = statement.where(TransferRequest.status == status_filter)
-    return list(db.scalars(statement))
+    return [serialize_transfer(db, transfer) for transfer in db.scalars(statement)]
 
 
 @router.patch("/{transfer_id}", response_model=TransferRead)
@@ -91,4 +105,4 @@ def update_transfer_status(
     transfer.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(transfer)
-    return transfer
+    return serialize_transfer(db, transfer)

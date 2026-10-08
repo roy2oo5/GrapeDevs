@@ -13,9 +13,14 @@ import { InfoModal } from './components/InfoModal';
 import { ApiTester } from './components/ApiTester';
 import {
   clearAccessToken,
+  createTransfer,
   fetchCurrentHospital,
+  fetchDashboard,
   fetchHealth,
+  fetchInventory,
+  fetchTransfers,
   getAccessToken,
+  updateTransferStatus,
 } from './services/api';
 
 export default function App() {
@@ -23,6 +28,10 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentHospital, setCurrentHospital] = useState('');
   const [backendStatus, setBackendStatus] = useState('checking');
+  const [dashboardData, setDashboardData] = useState({});
+  const [hospitalTransfers, setHospitalTransfers] = useState([]);
+  const [hospitalInventory, setHospitalInventory] = useState([]);
+  const [dashboardError, setDashboardError] = useState('');
 
   // Modals & Interactive States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -67,6 +76,22 @@ export default function App() {
     };
   }, []);
 
+  const loadHospitalDashboard = async () => {
+    try {
+      const [summary, transfers, inventory] = await Promise.all([fetchDashboard(), fetchTransfers(), fetchInventory()]);
+      setDashboardData(summary);
+      setHospitalTransfers(transfers);
+      setHospitalInventory(inventory);
+      setDashboardError('');
+    } catch (error) {
+      setDashboardError(error.message || 'Could not load hospital data.');
+    }
+  };
+
+  useEffect(() => {
+    if (appMode === 'dashboard') loadHospitalDashboard();
+  }, [appMode]);
+
   const handleLoginSuccess = (session) => {
     setCurrentHospital(session.hospital_name);
     setUser({
@@ -81,7 +106,24 @@ export default function App() {
     clearAccessToken();
     setUser(null);
     setCurrentHospital('');
+    setDashboardData({});
+    setHospitalTransfers([]);
+    setHospitalInventory([]);
     setAppMode('auth');
+  };
+
+  const handleActionConfirm = async (message, transferPayload) => {
+    if (!transferPayload) {
+      addToast(message);
+      return;
+    }
+    try {
+      const transfer = await createTransfer(transferPayload);
+      addToast(`Transfer request ${transfer.id} created.`);
+      await loadHospitalDashboard();
+    } catch (error) {
+      addToast(`Transfer request failed: ${error.message}`);
+    }
   };
 
   const handleCommandAction = (action) => {
@@ -123,9 +165,21 @@ export default function App() {
 
             {/* Main Content Area */}
             <main className="w-full pt-[5.25rem] min-h-screen bg-surface px-space-lg pb-space-xl flex-1">
+              {dashboardError && (
+                <div role="alert" className="mb-4 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">
+                  {dashboardError}
+                </div>
+              )}
               {currentView === 'dashboard' ? (
                 <DashboardView
                   onToast={addToast}
+                  dashboardData={dashboardData}
+                  inventoryBatches={hospitalInventory}
+                  pendingTransfers={hospitalTransfers.filter((transfer) => transfer.status === 'requested')}
+                  onResolveTransfer={async (transferId, status) => {
+                    await updateTransferStatus(transferId, status);
+                    await loadHospitalDashboard();
+                  }}
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}
                   onTakeAction={(sku) => setActionModal({ type: 'take-action', payload: sku })}
                 />
@@ -176,7 +230,7 @@ export default function App() {
       <ActionModals
         modalData={actionModal}
         onClose={() => setActionModal(null)}
-        onConfirm={(msg) => addToast(msg)}
+        onConfirm={handleActionConfirm}
       />
 
       {/* Auth Modals (Terms, Cryptographic Audit, Reset Key, SSO) */}

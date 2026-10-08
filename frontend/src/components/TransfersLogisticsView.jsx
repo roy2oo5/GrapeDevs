@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createTransfer, fetchHospitals, fetchTransfers, updateTransferStatus } from '../services/api';
 
 export function TransfersLogisticsView({ onToast }) {
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
@@ -8,6 +9,9 @@ export function TransfersLogisticsView({ onToast }) {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedTransferId, setSelectedTransferId] = useState('TRX-9402');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [peerHospitals, setPeerHospitals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [requestError, setRequestError] = useState('');
 
   // Transfers data model
   const [transfers, setTransfers] = useState([
@@ -221,39 +225,88 @@ export function TransfersLogisticsView({ onToast }) {
     { id: 'completed', title: 'Completed', subtitle: 'Reconciled to ledger', totalVal: '1,340 units', countBadge: 'bg-surface-container-high text-on-surface-variant' }
   ];
 
+  const toTransferCard = (transfer) => {
+    const column = transfer.status === 'in_transit' ? 'in-transit' : transfer.status === 'requested' ? 'under-review' : transfer.status;
+    const fromHospital = peerHospitals.find((hospital) => hospital.id === transfer.source_hospital_id)?.name ||
+      (transfer.source_hospital_id ? `Hospital ${transfer.source_hospital_id.slice(0, 8)}` : 'Peer hospital pending');
+    return {
+      id: transfer.id,
+      column,
+      skuName: transfer.sku_name,
+      subtitle: transfer.sku_code || 'Hospital stock request',
+      quantity: `${transfer.quantity} ${transfer.unit}`,
+      regime: transfer.storage_regime || 'Ambient',
+      regimeType: transfer.storage_regime?.toLowerCase().includes('cold') ? 'cold' : 'ambient',
+      origin: fromHospital,
+      destination: transfer.requesting_hospital_id ? 'This hospital' : 'This hospital',
+      distance: 'Peer request',
+      eta: 'Pending',
+      courier: 'Not assigned',
+      score: transfer.urgency === 'critical' ? 95 : transfer.urgency === 'high' ? 75 : 50,
+      scoreLabel: `${transfer.urgency} priority`,
+      scoreType: transfer.urgency === 'critical' ? 'critical' : 'routine',
+      timeAgo: new Date(transfer.created_at).toLocaleString(),
+      batch: transfer.sku_code || 'Batch unspecified',
+      expiry: 'See inventory batch',
+      justification: transfer.notes || transfer.department || 'Hospital stock transfer request',
+      steps: [{ label: 'Hospital transfer request created', time: new Date(transfer.created_at).toLocaleString(), done: true }],
+      status: transfer.status,
+    };
+  };
+
+  const loadTransfers = async () => {
+    setLoading(true);
+    setRequestError('');
+    try {
+      const [transferRecords, hospitals] = await Promise.all([fetchTransfers(), fetchHospitals()]);
+      setPeerHospitals(hospitals);
+      setTransfers(transferRecords.map(toTransferCard));
+      if (transferRecords.length && !transferRecords.some((item) => item.id === selectedTransferId)) {
+        setSelectedTransferId(transferRecords[0].id);
+      }
+    } catch (error) {
+      setRequestError(error.message || 'Could not load hospital transfers.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTransfers();
+  }, []);
+
   const filteredTransfers = transfers.filter(t => {
     if (selectedHospital !== 'All' && t.origin !== selectedHospital && t.destination !== selectedHospital) return false;
     if (selectedPriority !== 'All' && t.scoreType !== selectedPriority) return false;
     return true;
   });
 
-  const handleApproveTransfer = (id) => {
-    setTransfers(prev =>
-      prev.map(t => {
-        if (t.id === id) {
-          return {
-            ...t,
-            column: 'approved',
-            steps: t.steps.map((s, idx) => (idx <= 2 ? { ...s, done: true, active: false } : idx === 3 ? { ...s, active: true } : s))
-          };
-        }
-        return t;
-      })
-    );
-    if (onToast) {
-      onToast(`Transfer ${id} Authorized! Cold-Chain Courier dispatch staged.`);
+  const handleApproveTransfer = async (id) => {
+    const transfer = transfers.find((item) => item.id === id);
+    const nextStatus = transfer?.status === 'approved' ? 'in_transit' : 'approved';
+    try {
+      await updateTransferStatus(id, nextStatus);
+      await loadTransfers();
+      if (onToast) onToast(`Transfer ${id} moved to ${nextStatus.replace('_', ' ')}.`);
+    } catch (error) {
+      setRequestError(error.message || 'Could not update this transfer.');
     }
   };
 
-  const handleRejectTransfer = (id) => {
-    if (onToast) {
-      onToast(`Transfer ${id} rejected & flagged for manual review.`);
+  const handleRejectTransfer = async (id) => {
+    try {
+      await updateTransferStatus(id, 'rejected');
+      await loadTransfers();
+      if (onToast) onToast(`Transfer ${id} rejected.`);
+    } catch (error) {
+      setRequestError(error.message || 'Could not reject this transfer.');
     }
   };
 
   return (
     <div className="flex flex-col w-full pb-16 animate-fadeIn space-y-6">
       {/* 1. TOP HEADER & PRIMARY ACTIONS */}
+      {requestError && <div role="alert" className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{requestError}</div>}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
@@ -832,35 +885,24 @@ export function TransfersLogisticsView({ onToast }) {
               onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target;
-                const newTrx = {
-                  id: `TRX-${Math.floor(1000 + Math.random() * 9000)}`,
-                  column: 'under-review',
-                  skuName: form.sku.value,
-                  subtitle: 'Manual Requisition',
-                  quantity: form.quantity.value,
-                  regime: form.regime.value,
-                  regimeType: form.regime.value.toLowerCase().includes('cold') ? 'cold' : 'ambient',
-                  origin: 'MedCare General',
-                  destination: form.destination.value,
-                  distance: '14.2 km',
-                  eta: '30m',
-                  courier: 'Staged Courier',
-                  score: 90,
-                  scoreLabel: 'Urgent Borrow',
-                  scoreType: 'critical',
-                  timeAgo: 'Just now',
-                  batch: '#LOT-NEW-01',
-                  expiry: 'Dec 2025',
-                  justification: form.reason.value || 'Clinical emergency request under regional MOU framework.',
-                  steps: [
-                    { label: 'Manual Requisition Created', time: 'Just now', done: true },
-                    { label: 'Director Authorization', time: 'Awaiting', active: true },
-                    { label: 'Dispatch', time: 'Pending' }
-                  ]
-                };
-                setTransfers((prev) => [newTrx, ...prev]);
-                setIsInitiateModalOpen(false);
-                if (onToast) onToast(`Transfer ${newTrx.id} created successfully!`);
+                void (async () => {
+                  try {
+                    const transfer = await createTransfer({
+                      sku_name: form.sku.value,
+                      quantity: Number(form.quantity.value),
+                      unit: form.unit.value.trim() || 'units',
+                      urgency: form.urgency.value,
+                      source_hospital_id: form.destination.value,
+                      department: form.department.value || null,
+                      notes: form.reason.value || null,
+                    });
+                    setIsInitiateModalOpen(false);
+                    await loadTransfers();
+                    if (onToast) onToast(`Transfer ${transfer.id} created.`);
+                  } catch (error) {
+                    setRequestError(error.message || 'Could not create this transfer.');
+                  }
+                })();
               }}
               className="space-y-4 pt-2"
             >
@@ -878,7 +920,7 @@ export function TransfersLogisticsView({ onToast }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-on-surface mb-1">Quantity</label>
-                  <input name="quantity" type="text" required placeholder="e.g. 200 vials" className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface" />
+                  <input name="quantity" type="number" min="1" step="1" required placeholder="200" className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-on-surface mb-1">Storage Regime</label>
@@ -889,16 +931,32 @@ export function TransfersLogisticsView({ onToast }) {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface mb-1">Unit</label>
+                  <input name="unit" type="text" maxLength="40" defaultValue="units" className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface mb-1">Urgency</label>
+                  <select name="urgency" className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface">
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="normal">Normal</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-semibold text-on-surface mb-1">Destination Hospital</label>
+                <label className="block text-xs font-semibold text-on-surface mb-1">Source Hospital</label>
                 <select name="destination" required className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface">
-                  <option value="Valley Trauma Center">Valley Trauma Center</option>
-                  <option value="St. Jude Regional">St. Jude Regional</option>
-                  <option value="North District Clinic">North District Clinic</option>
-                  <option value="Central Children's">Central Children's</option>
-                  <option value="Highland Memorial">Highland Memorial</option>
+                  <option value="">Select a hospital</option>
+                  {peerHospitals.map((hospital) => <option key={hospital.id} value={hospital.id}>{hospital.name}</option>)}
                 </select>
               </div>
+
+              <label className="block text-xs font-semibold text-on-surface mb-1">Department
+                <input name="department" type="text" maxLength="120" className="mt-1 w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface" />
+              </label>
 
               <div>
                 <label className="block text-xs font-semibold text-on-surface mb-1">Clinical Justification</label>

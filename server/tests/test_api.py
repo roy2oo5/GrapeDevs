@@ -14,7 +14,7 @@ from app.api.routers.auth import get_current_hospital_admin
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as fastapi_app
-from app.models import Hospital, HospitalAdminAccount
+from app.models import Hospital, HospitalAdminAccount, InventoryBatch
 from app.schemas import HospitalAdminIdentity
 from app.services.auth import hash_terminal_access_key
 
@@ -216,6 +216,118 @@ def test_inventory_and_dashboard_are_scoped_to_hospital(authorized_client):
     assert dashboard["hospital_id"] == str(client.test_hospital_id)
 
 
+def test_delete_inventory_batch_and_enforce_hospital_scope(authorized_client, db_session_factory):
+    client = authorized_client
+    created = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DELETE-TEST", "sku_name": "Delete Test Item", "quantity": 5},
+    )
+    assert created.status_code == 201
+    batch_id = created.json()["id"]
+
+    deleted = client.delete(f"/api/inventory/batches/{batch_id}")
+    assert deleted.status_code == 204
+    assert deleted.content == b""
+    assert client.get("/api/inventory/batches").json() == []
+    assert client.delete(f"/api/inventory/batches/{batch_id}").status_code == 404
+
+    other_hospital_id = UUID("00000000-0000-4000-8000-000000000002")
+    with db_session_factory() as db:
+        db.add(Hospital(
+            id=other_hospital_id,
+            name="Other Test Hospital",
+            administrator_name="Other Admin",
+            administrator_email="other-test@example.org",
+            classification="tertiary",
+            node_role="coordinator",
+            status="active",
+        ))
+        db.add(InventoryBatch(
+            hospital_id=other_hospital_id,
+            sku_code="PRIVATE-ITEM",
+            sku_name="Other Hospital Item",
+            quantity=10,
+        ))
+        db.commit()
+        foreign_batch = db.query(InventoryBatch).filter_by(hospital_id=other_hospital_id).one()
+        foreign_batch_id = foreign_batch.id
+
+    assert client.delete(f"/api/inventory/batches/{foreign_batch_id}").status_code == 404
+
+
+def test_delete_inventory_batch_all_route_variations(authorized_client):
+    client = authorized_client
+
+    # 1. Test deletion via DELETE /api/inventory/batches/{id}/ (trailing slash)
+    batch1 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-1", "sku_name": "Delete Item 1", "quantity": 10},
+    ).json()
+    res1 = client.delete(f"/api/inventory/batches/{batch1['id']}/")
+    assert res1.status_code == 204
+
+    # 2. Test deletion via DELETE /api/inventory/{id}
+    batch2 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-2", "sku_name": "Delete Item 2", "quantity": 20},
+    ).json()
+    res2 = client.delete(f"/api/inventory/{batch2['id']}")
+    assert res2.status_code == 204
+
+    # 3. Test deletion via DELETE /api/inventory/batch/{id}
+    batch3 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-3", "sku_name": "Delete Item 3", "quantity": 30},
+    ).json()
+    res3 = client.delete(f"/api/inventory/batch/{batch3['id']}")
+    assert res3.status_code == 204
+
+    # 4. Test deletion via DELETE /api/inventory/batches?batch_id={id}
+    batch4 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-4", "sku_name": "Delete Item 4", "quantity": 40},
+    ).json()
+    res4 = client.delete(f"/api/inventory/batches?batch_id={batch4['id']}")
+    assert res4.status_code == 204
+
+    # 5. Test deletion via DELETE /api/inventory/batches?id={id}
+    batch5 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-5", "sku_name": "Delete Item 5", "quantity": 50},
+    ).json()
+    res5 = client.delete(f"/api/inventory/batches?id={batch5['id']}")
+    assert res5.status_code == 204
+
+    # 6. Test deletion via DELETE /api/inventory/batches with JSON body
+    batch6 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-6", "sku_name": "Delete Item 6", "quantity": 60},
+    ).json()
+    res6 = client.request("DELETE", "/api/inventory/batches", json={"batch_id": batch6["id"]})
+    assert res6.status_code == 204
+
+    # 7. Test deletion via DELETE /api/inventory with query param
+    batch7 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-7", "sku_name": "Delete Item 7", "quantity": 70},
+    ).json()
+    res7 = client.delete(f"/api/inventory?batch_id={batch7['id']}")
+    assert res7.status_code == 204
+
+    # 8. Test deletion via POST /api/inventory/batches/{id}/delete
+    batch8 = client.post(
+        "/api/inventory/batches",
+        json={"sku_code": "DEL-8", "sku_name": "Delete Item 8", "quantity": 80},
+    ).json()
+    res8 = client.post(f"/api/inventory/batches/{batch8['id']}/delete")
+    assert res8.status_code == 204
+
+    # 9. Test DELETE /api/inventory/batches without batch_id gives 400 Bad Request, NOT 405 Method Not Allowed
+    res_bad = client.delete("/api/inventory/batches")
+    assert res_bad.status_code == 400
+
+
+
 def test_transfer_status_requires_valid_transition_and_hospital_scope(authorized_client):
     client = authorized_client
     create_response = client.post(
@@ -244,3 +356,125 @@ def test_hospital_data_routes_require_bearer_token(client):
 def test_old_facility_registration_route_is_removed(client):
     response = client.post("/api/facilities", json={})
     assert response.status_code == 404
+
+
+def test_publish_surplus_listing_and_request_creates_transfer(authorized_client):
+    client = authorized_client
+    batch = client.post(
+        "/api/inventory/batches",
+        json={
+            "sku_code": "MED-PARA-500",
+            "sku_name": "Paracetamol 500mg IV",
+            "quantity": 100,
+            "average_daily_use": 15,
+            "unit": "vials",
+            "lot_number": "LOT-MKT-1",
+        },
+    )
+    assert batch.status_code == 201
+
+    listing_response = client.post(
+        "/api/marketplace/listings",
+        json={"inventory_batch_id": batch.json()["id"], "quantity": 50, "notes": "Surplus stock"},
+    )
+    assert listing_response.status_code == 201
+    listing = listing_response.json()
+    assert listing["quantity_available"] == 50
+
+    other_hospital = client.post(
+        "/api/auth/register",
+        json={
+            "hospital_name": "Other City Hospital",
+            "administrator_name": "Casey Ray",
+            "administrator_email": "casey@other.example",
+            "classification": "secondary",
+            "node_role": "pharmacy",
+            "hospital_administrator_id": "OTHER-ADMIN-001",
+            "terminal_access_key": "AnotherCorrectKey9!",
+        },
+    )
+    assert other_hospital.status_code == 201
+    other_hospital_id = UUID(other_hospital.json()["hospital_id"])
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="OTHER-ADMIN-001",
+        hospital_id=other_hospital_id,
+        hospital_name="Other City Hospital",
+    )
+
+    requested = client.post(
+        f"/api/marketplace/listings/{listing['id']}/request",
+        json={"quantity": 20, "urgency": "high", "department": "Emergency"},
+    )
+    assert requested.status_code == 201
+    assert requested.json()["transfer"]["quantity"] == 20
+    assert requested.json()["transfer"]["source_hospital_id"] == listing["hospital_id"]
+    assert requested.json()["listing"]["quantity_available"] == 30
+
+
+def test_agreement_create_and_partner_can_accept(authorized_client, client, db_session_factory):
+    client = authorized_client
+    other_hospital = client.post(
+        "/api/auth/register",
+        json={
+            "hospital_name": "Partner Hospital",
+            "administrator_name": "Jordan Lee",
+            "administrator_email": "jordan@partner.example",
+            "classification": "secondary",
+            "node_role": "coordinator",
+            "hospital_administrator_id": "PARTNER-ADMIN-001",
+            "terminal_access_key": "PartnerAccessKey9!",
+        },
+    )
+    partner_id = other_hospital.json()["hospital_id"]
+    created = client.post(
+        "/api/agreements",
+        json={
+            "partner_hospital_id": partner_id,
+            "title": "Emergency Medication Mutual Aid",
+            "signatory": "Alex Morgan",
+            "agreement_type": "surplus_redistribution",
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["status"] == "pending"
+
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="PARTNER-ADMIN-001",
+        hospital_id=UUID(partner_id),
+        hospital_name="Partner Hospital",
+    )
+    accepted = client.patch(f"/api/agreements/{created.json()['id']}", json={"status": "active"})
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "active"
+
+
+def test_hospital_settings_and_scenario_are_persisted(authorized_client):
+    client = authorized_client
+    settings = client.put(
+        "/api/operations/settings",
+        json={"settings": {"auto_approve_small_requests": True, "surplus_visibility": False}},
+    )
+    assert settings.status_code == 200
+    assert settings.json()["settings"]["surplus_visibility"] is False
+
+    client.post(
+        "/api/inventory/batches",
+        json={
+            "sku_code": "MED-PARA-500",
+            "sku_name": "Paracetamol 500mg IV",
+            "quantity": 100,
+            "average_daily_use": 15,
+        },
+    )
+    scenario = client.post(
+        "/api/operations/scenarios",
+        json={
+            "scenario_type": "epidemic_surge",
+            "demand_multiplier": 2,
+            "supplier_delay_days": 3,
+            "reproduction_index": 1.4,
+        },
+    )
+    assert scenario.status_code == 201
+    assert scenario.json()["results"]["inventory_batches_analyzed"] == 1
+    assert scenario.json()["results"]["projections"][0]["days_until_stockout"] == 0.3

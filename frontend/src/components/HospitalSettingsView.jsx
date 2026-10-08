@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchHospitalSettings, saveHospitalSettings } from '../services/api';
 
 export function HospitalSettingsView({ onToast }) {
   const [activeModule, setActiveModule] = useState('supply-chain-rules');
@@ -13,7 +14,8 @@ export function HospitalSettingsView({ onToast }) {
   // Modals
   const [isMQTTModalOpen, setIsMQTTModalOpen] = useState(false);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
-  const [unsavedChanges, setUnsavedChanges] = useState(3);
+  const [unsavedChanges, setUnsavedChanges] = useState(0);
+  const [settingsError, setSettingsError] = useState('');
 
   // Medication parameter items
   const [medications, setMedications] = useState([
@@ -113,6 +115,18 @@ export function HospitalSettingsView({ onToast }) {
     }
   ]);
 
+  useEffect(() => {
+    fetchHospitalSettings()
+      .then((hospital) => {
+        const saved = hospital.settings || {};
+        if (Number.isFinite(saved.shortage_window_hours)) setShortageWindow(saved.shortage_window_hours);
+        if (Number.isFinite(saved.confidence_threshold_pct)) setConfidenceThreshold(saved.confidence_threshold_pct);
+        if (Array.isArray(saved.medication_parameters)) setMedications(saved.medication_parameters);
+        setUnsavedChanges(0);
+      })
+      .catch((error) => setSettingsError(error.message || 'Could not load hospital settings.'));
+  }, []);
+
   const updateAdjustedDays = (id, delta) => {
     setMedications(prev =>
       prev.map(m => {
@@ -144,10 +158,18 @@ export function HospitalSettingsView({ onToast }) {
     if (onToast) onToast('Reset all parameter rules to AI ML Recommended Defaults.');
   };
 
-  const handleSaveAndDeploy = () => {
-    setUnsavedChanges(0);
-    if (onToast) {
-      onToast('Parameters deployed! Recalculated 2 downstream MCMC predictive models.');
+  const handleSaveAndDeploy = async () => {
+    setSettingsError('');
+    try {
+      await saveHospitalSettings({
+        shortage_window_hours: shortageWindow,
+        confidence_threshold_pct: confidenceThreshold,
+        medication_parameters: medications,
+      });
+      setUnsavedChanges(0);
+      if (onToast) onToast('Hospital parameters saved.');
+    } catch (error) {
+      setSettingsError(error.message || 'Could not save hospital settings.');
     }
   };
 
@@ -165,6 +187,7 @@ export function HospitalSettingsView({ onToast }) {
 
   return (
     <div className="flex flex-col w-full animate-fadeIn">
+      {settingsError && <div role="alert" className="mb-space-md rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{settingsError}</div>}
       {/* Top Command Context Bar */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-space-md mb-space-lg">
         <div className="flex flex-col gap-space-xs">
@@ -406,7 +429,7 @@ export function HospitalSettingsView({ onToast }) {
               <div className="flex justify-end pt-2">
                 <button
                   type="button"
-                  onClick={() => onToast && onToast('Hospital Profile updated successfully.')}
+                  onClick={() => onToast && onToast('Demo only: Hospital Profile updated for this session; changes are not saved to the server.')}
                   className="px-space-md py-2 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-semibold cursor-pointer shadow-sm"
                 >
                   Save Hospital Profile
@@ -962,7 +985,7 @@ export function HospitalSettingsView({ onToast }) {
                 type="button"
                 onClick={() => {
                   setIsMQTTModalOpen(false);
-                  if (onToast) onToast('MQTT IoT Broker connection verified (1,248 sensors online).');
+                  if (onToast) onToast('Demo only: broker connection was not tested or saved.');
                 }}
                 className="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold shadow-md hover:bg-primary-container cursor-pointer"
               >

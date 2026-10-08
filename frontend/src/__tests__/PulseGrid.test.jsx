@@ -241,13 +241,25 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(
         <DashboardView
           onToast={handleToast}
+          dashboardData={{
+            surplus_batch_count: 14,
+            surplus_units: 1240000,
+            units_expiring_within_30_days: 45800,
+            active_transfer_count: 18,
+            pending_agreement_count: 5,
+          }}
+            inventoryBatches={[
+              { id: 'batch-para', sku_code: 'IV-PARA-500', sku_name: 'Paracetamol 500mg IV Infusion (100ml)', quantity: 140, unit: 'vials', average_daily_use: 82 },
+              { id: 'batch-prop', sku_code: 'ANES-PROP-10M', sku_name: 'Propofol 10mg/mL Injectable Emulsion (20ml)', quantity: 28, unit: 'ampoules', average_daily_use: 31 },
+            ]}
+          pendingTransfers={[]}
           onOpenEmergencyModal={handleEmergency}
           onTakeAction={vi.fn()}
         />
       );
 
       expect(screen.getByText('Executive Command Console')).toBeInTheDocument();
-      expect(screen.getByText('1.24M Units')).toBeInTheDocument();
+      expect(screen.getByText('1,240,000 Units')).toBeInTheDocument();
       expect(screen.getByText('45,800 Units')).toBeInTheDocument();
       expect(screen.getByText('18 Requests')).toBeInTheDocument();
       expect(screen.getByText('5 Pending MOUs')).toBeInTheDocument();
@@ -261,8 +273,61 @@ describe('PulseGrid Control Tower Test Suite', () => {
   });
 
   describe('InventorySKUsView Component', () => {
-    it('adds a new inventory batch to the local inventory table', () => {
+    it('deletes the selected inventory batch from its row actions menu', async () => {
       const onToast = vi.fn();
+      const batch = {
+        id: 'batch-delete-001',
+        hospital_id: 'hospital-test-001',
+        sku_code: 'MED-DELETE-001',
+        sku_name: 'Delete Test Medicine',
+        quantity: 12,
+        unit: 'units',
+        lot_number: 'LOT-DELETE-12',
+        expires_on: '2027-04-30',
+        storage_regime: 'ambient',
+        average_daily_use: 0,
+      };
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const fetchMock = vi.fn((url, options = {}) => {
+        if (options.method === 'DELETE') return Promise.resolve({ ok: true, status: 204, json: async () => null });
+        return Promise.resolve({ ok: true, json: async () => [batch] });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<InventorySKUsView onToast={onToast} />);
+
+      await screen.findByText('MED-DELETE-001');
+      fireEvent.click(screen.getByRole('button', { name: /Inventory actions for Delete Test Medicine/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: /Delete inventory batch/i }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/inventory/batches/batch-delete-001'),
+        expect.objectContaining({ method: 'DELETE' }),
+      ));
+      expect(confirmSpy).toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByText('MED-DELETE-001')).not.toBeInTheDocument());
+      expect(onToast).toHaveBeenCalledWith(expect.stringContaining('Inventory batch deleted'));
+    });
+
+    it('persists a new inventory batch through the hospital API', async () => {
+      const onToast = vi.fn();
+      const createdBatch = {
+        id: 'batch-test-001',
+        hospital_id: 'hospital-test-001',
+        sku_code: 'MED-TEST-001',
+        sku_name: 'Test Saline Infusion',
+        quantity: 24,
+        unit: 'units',
+        lot_number: 'LOT-TEST-24',
+        expires_on: '2027-04-30',
+        storage_regime: 'ambient',
+        average_daily_use: 0,
+      };
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (options.method === 'POST') {
+          return Promise.resolve({ ok: true, json: async () => createdBatch });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }));
       render(<InventorySKUsView onToast={onToast} />);
 
       fireEvent.click(screen.getByRole('button', { name: /Add Inventory/i }));
@@ -285,10 +350,14 @@ describe('PulseGrid Control Tower Test Suite', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: /Add batch/i }));
 
-      expect(screen.getByText('MED-TEST-001')).toBeInTheDocument();
+      expect(await screen.findByText('MED-TEST-001')).toBeInTheDocument();
       expect(screen.getByText('Test Saline Infusion')).toBeInTheDocument();
       expect(screen.getByText('24 units')).toBeInTheDocument();
-      expect(onToast).toHaveBeenCalledWith(expect.stringContaining('added locally'));
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/inventory/batches'),
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(onToast).toHaveBeenCalledWith(expect.stringContaining('Inventory batch saved'));
     });
   });
 
@@ -359,17 +428,42 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getAllByText(/TRX-9402/).length).toBeGreaterThanOrEqual(1);
     });
 
-    it('handles approving a transfer and toast callback', () => {
+    it('persists transfer approval and reloads the hospital transfer list', async () => {
       const handleToast = vi.fn();
+      const transfer = {
+        id: 'transfer-test-001',
+        sku_name: 'Paracetamol 500mg IV Infusion',
+        sku_code: 'IV-PARA-500',
+        quantity: 600,
+        unit: 'vials',
+        urgency: 'critical',
+        status: 'requested',
+        created_at: new Date().toISOString(),
+        requesting_hospital_id: 'hospital-current',
+        source_hospital_id: 'hospital-source',
+      };
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (options.method === 'PATCH') {
+          return Promise.resolve({ ok: true, json: async () => ({ ...transfer, status: 'approved' }) });
+        }
+        if (String(url).includes('/api/hospitals')) {
+          return Promise.resolve({ ok: true, json: async () => [{ id: 'hospital-source', name: 'Source Hospital' }] });
+        }
+        return Promise.resolve({ ok: true, json: async () => [transfer] });
+      }));
       render(<TransfersLogisticsView onToast={handleToast} />);
 
-      const card = screen.getAllByText(/TRX-9402/)[0];
+      const card = await screen.findByText(/transfer-test-001/);
       fireEvent.click(card);
 
       const approveBtn = screen.getByRole('button', { name: /Approve Transfer & Dispatch/i });
       fireEvent.click(approveBtn);
 
-      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('Authorized'));
+      await waitFor(() => expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('approved')));
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/transfers/transfer-test-001'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
     });
   });
 
@@ -433,16 +527,44 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('Critical Injectables & Anaesthetics')).toBeInTheDocument();
     });
 
-    it('allows opening Create New MOU modal and submitting', () => {
+    it('allows opening Create New MOU modal and submitting', async () => {
       const handleToast = vi.fn();
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (String(url).includes('/api/hospitals/me')) {
+          return Promise.resolve({ ok: true, json: async () => ({ id: 'hospital-current', name: 'Current Hospital' }) });
+        }
+        if (String(url).includes('/api/hospitals')) {
+          return Promise.resolve({ ok: true, json: async () => [{ id: 'hospital-partner', name: 'Partner Hospital' }] });
+        }
+        if (String(url).includes('/api/agreements') && options.method === 'POST') {
+          return Promise.resolve({ ok: true, json: async () => ({
+            id: 'agreement-new',
+            hospital_id: 'hospital-current',
+            hospital_name: 'Current Hospital',
+            partner_hospital_id: 'hospital-partner',
+            partner_hospital_name: 'Partner Hospital',
+            title: 'Emergency Hospital Mutual Aid',
+            signatory: 'Alex Morgan',
+            agreement_type: 'full_peer_stock_swap',
+            status: 'pending',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }));
       render(<CollaborationMOUView onToast={handleToast} />);
 
       fireEvent.click(screen.getByRole('button', { name: /\+ Create New MOU/i }));
       expect(screen.getByText('Initiate Bilateral MOU Compact')).toBeInTheDocument();
 
       const form = screen.getByText('Initiate Bilateral MOU Compact').closest('.bg-surface-container-lowest').querySelector('form');
+      fireEvent.change(form.querySelector('[name="partner_hospital_id"]'), { target: { value: 'hospital-partner' } });
+      fireEvent.change(form.querySelector('[name="signatory"]'), { target: { value: 'Alex Morgan' } });
+      fireEvent.change(form.querySelector('[name="title"]'), { target: { value: 'Emergency Hospital Mutual Aid' } });
       fireEvent.submit(form);
-      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('Broadcasted'));
+      await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/agreements'), expect.objectContaining({ method: 'POST' })));
+      await waitFor(() => expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('sent to the partner')));
     });
 
     it('allows opening and closing Export Compliance Ledger modal', () => {
@@ -529,6 +651,15 @@ describe('PulseGrid Control Tower Test Suite', () => {
             ok: true,
             json: async () => ({ name: 'North District Hospital' }),
           });
+        }
+        if (String(url).includes('/api/dashboard')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ inventory_units: 0, units_expiring_within_30_days: 0, active_transfer_count: 0 }),
+          });
+        }
+        if (String(url).includes('/api/transfers') || String(url).includes('/api/inventory/batches')) {
+          return Promise.resolve({ ok: true, json: async () => [] });
         }
         return Promise.resolve({
           ok: true,

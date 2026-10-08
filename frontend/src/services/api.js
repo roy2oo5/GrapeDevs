@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use the same-origin Vite proxy by default so LAN clients call the dev server's
+// backend proxy instead of trying to reach their own localhost:8000.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const ACCESS_TOKEN_KEY = 'pulsegrid_access_token';
 
 export function getAccessToken() {
@@ -51,6 +53,128 @@ export async function fetchCurrentHospital() {
   return request('/api/hospitals/me', {}, true);
 }
 
+export function fetchHospitals() {
+  return request('/api/hospitals', {}, true);
+}
+
+export function fetchDashboard() {
+  return request('/api/dashboard', {}, true);
+}
+
+export function fetchInventory(params = {}) {
+  const query = new URLSearchParams(params);
+  return request(`/api/inventory/batches${query.size ? `?${query}` : ''}`, {}, true);
+}
+
+export function createInventoryBatch(batch) {
+  return request('/api/inventory/batches', { method: 'POST', body: JSON.stringify(batch) }, true);
+}
+
+export function updateInventoryBatch(batchId, quantity) {
+  return request(`/api/inventory/batches/${batchId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ quantity }),
+  }, true);
+}
+
+export function deleteInventoryBatch(batchId) {
+  const id = typeof batchId === 'object' && batchId !== null
+    ? (batchId.id || batchId.batch_id || batchId.key)
+    : batchId;
+  if (!id) {
+    throw new Error('A valid batch ID is required to delete an inventory batch.');
+  }
+  return request(`/api/inventory/batches/${id}`, { method: 'DELETE' }, true);
+}
+
+export const deleteInventory = deleteInventoryBatch;
+export const deleteItem = deleteInventoryBatch;
+
+export function updateInventoryUsage(batchId, averageDailyUse) {
+  return request(`/api/inventory/batches/${batchId}/usage`, {
+    method: 'PATCH',
+    body: JSON.stringify({ average_daily_use: averageDailyUse }),
+  }, true);
+}
+
+export function fetchInventoryForecast(horizonDays = 30) {
+  return request(`/api/inventory/forecast?horizon_days=${horizonDays}`, {}, true);
+}
+
+export function fetchTransfers(params = {}) {
+  const query = new URLSearchParams(params);
+  return request(`/api/transfers${query.size ? `?${query}` : ''}`, {}, true);
+}
+
+export function createTransfer(transfer) {
+  return request('/api/transfers', { method: 'POST', body: JSON.stringify(transfer) }, true);
+}
+
+export function updateTransferStatus(transferId, status) {
+  return request(`/api/transfers/${transferId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }, true);
+}
+
+export function fetchSurplusListings(params = {}) {
+  const query = new URLSearchParams(params);
+  return request(`/api/marketplace/listings${query.size ? `?${query}` : ''}`, {}, true);
+}
+
+export function fetchMySurplusListings() {
+  return request('/api/marketplace/mine', {}, true);
+}
+
+export function publishSurplusListing(listing) {
+  return request('/api/marketplace/listings', { method: 'POST', body: JSON.stringify(listing) }, true);
+}
+
+export function requestSurplusListing(listingId, requisition) {
+  return request(`/api/marketplace/listings/${listingId}/request`, {
+    method: 'POST',
+    body: JSON.stringify(requisition),
+  }, true);
+}
+
+export function withdrawSurplusListing(listingId) {
+  return request(`/api/marketplace/listings/${listingId}`, { method: 'DELETE' }, true);
+}
+
+export function fetchAgreements() {
+  return request('/api/agreements', {}, true);
+}
+
+export function createAgreement(agreement) {
+  return request('/api/agreements', { method: 'POST', body: JSON.stringify(agreement) }, true);
+}
+
+export function updateAgreementStatus(agreementId, status) {
+  return request(`/api/agreements/${agreementId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }, true);
+}
+
+export function fetchHospitalSettings() {
+  return request('/api/operations/settings', {}, true);
+}
+
+export function saveHospitalSettings(settings) {
+  return request('/api/operations/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ settings }),
+  }, true);
+}
+
+export function runScenario(scenario) {
+  return request('/api/operations/scenarios', { method: 'POST', body: JSON.stringify(scenario) }, true);
+}
+
+export function fetchScenarioRuns() {
+  return request('/api/operations/scenarios', {}, true);
+}
+
 export async function fetchHealth() {
   try {
     return await request('/api/health');
@@ -60,34 +184,3 @@ export async function fetchHealth() {
   }
 }
 
-export async function fetchItems() {
-  try {
-    return await request('/api/items', {}, true);
-  } catch (error) {
-    console.error('Failed to fetch items:', error);
-    throw error;
-  }
-}
-
-export async function addItem(item) {
-  try {
-    return await request('/api/items', {
-      method: 'POST',
-      body: JSON.stringify(item),
-    }, true);
-  } catch (error) {
-    console.error('Failed to add item:', error);
-    throw error;
-  }
-}
-
-export async function deleteItem(id) {
-  try {
-    return await request(`/api/items/${id}`, {
-      method: 'DELETE',
-    }, true);
-  } catch (error) {
-    console.error('Failed to delete item:', error);
-    throw error;
-  }
-}

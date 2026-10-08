@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createAgreement, fetchAgreements, fetchCurrentHospital, fetchHospitals, updateAgreementStatus } from '../services/api';
 
 export function CollaborationMOUView({ onToast }) {
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'active' | 'pending' | 'archived'
@@ -9,6 +10,8 @@ export function CollaborationMOUView({ onToast }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [partnerHospitals, setPartnerHospitals] = useState([]);
+  const [agreementError, setAgreementError] = useState('');
 
   // Policy switch states
   const [policies, setPolicies] = useState({
@@ -21,7 +24,7 @@ export function CollaborationMOUView({ onToast }) {
   const togglePolicy = (key) => {
     setPolicies(prev => {
       const updated = { ...prev, [key]: !prev[key] };
-      if (onToast) onToast(`Updated Policy: ${key} is now ${updated[key] ? 'ENABLED' : 'DISABLED'}`);
+      if (onToast) onToast(`Demo only: ${key} changed for this session; it was not saved to the server.`);
       return updated;
     });
   };
@@ -101,7 +104,53 @@ export function CollaborationMOUView({ onToast }) {
     }
   ]);
 
-  const selectedMOU = agreements.find(a => a.id === selectedMOUId) || agreements[0];
+  const selectedMOU = agreements.find(a => a.id === selectedMOUId) || agreements[0] || {
+    id: '', hospitalName: 'No hospital agreements', status: 'none', signatory: '', validity: '',
+    accordType: '', renewDays: '', marketplaceSync: '', dscsaVerified: false, fipsSigned: false,
+    agreementType: '', jurisdiction: '',
+  };
+
+  const loadAgreements = async () => {
+    try {
+      const [records, hospitals, currentHospital] = await Promise.all([
+        fetchAgreements(),
+        fetchHospitals(),
+        fetchCurrentHospital(),
+      ]);
+      const mapped = records.map((record) => ({
+        ...record,
+        hospitalName: record.hospital_id === currentHospital.id ? record.partner_hospital_name : record.hospital_name,
+        accordType: record.title,
+        validity: record.valid_until ? `Valid through ${record.valid_until}` : 'No expiry date set',
+        renewDays: record.valid_until ? `${Math.max(0, Math.ceil((new Date(`${record.valid_until}T00:00:00`) - new Date()) / 86400000))}d` : 'No expiry',
+        marketplaceSync: record.status === 'active' ? 'Hospital network active' : 'Awaiting partner review',
+        dscsaVerified: true,
+        fipsSigned: record.status === 'active',
+        jurisdiction: 'Hospital-to-hospital agreement',
+      }));
+      setAgreements(mapped);
+      if (mapped.length && !mapped.some((agreement) => agreement.id === selectedMOUId)) setSelectedMOUId(mapped[0].id);
+      setPartnerHospitals(hospitals);
+      setAgreementError('');
+    } catch (error) {
+      setAgreements([]);
+      setAgreementError(error.message || 'Could not load hospital agreements.');
+    }
+  };
+
+  useEffect(() => {
+    loadAgreements();
+  }, []);
+
+  const handleAgreementStatus = async (status) => {
+    try {
+      await updateAgreementStatus(selectedMOU.id, status);
+      await loadAgreements();
+      if (onToast) onToast(`Hospital agreement ${status}.`);
+    } catch (error) {
+      setAgreementError(error.message || 'Could not update agreement.');
+    }
+  };
 
   const filteredAgreements = agreements.filter(a => {
     if (activeTab === 'active' && a.status !== 'active') return false;
@@ -121,6 +170,7 @@ export function CollaborationMOUView({ onToast }) {
 
   return (
     <div className="flex flex-col w-full gap-space-lg animate-fadeIn">
+      {agreementError && <div role="alert" className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{agreementError}</div>}
       {/* TOP CONTEXT & COMMAND BAR */}
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-space-md">
         <div className="flex flex-col gap-1">
@@ -449,10 +499,7 @@ export function CollaborationMOUView({ onToast }) {
                   <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setAgreements(prev => prev.map(a => a.id === selectedMOU.id ? { ...a, status: 'active' } : a));
-                        if (onToast) onToast(`MOU Terms Accepted for ${selectedMOU.hospitalName}! Collaboration active.`);
-                      }}
+                      onClick={() => handleAgreementStatus('active')}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-tertiary hover:bg-tertiary/90 text-on-tertiary font-label-md text-label-md transition-colors shadow-sm cursor-pointer font-bold"
                     >
                       <span className="material-symbols-outlined text-[18px]">check_circle</span>
@@ -460,10 +507,7 @@ export function CollaborationMOUView({ onToast }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setAgreements(prev => prev.map(a => a.id === selectedMOU.id ? { ...a, status: 'archived' } : a));
-                        if (onToast) onToast(`Collaboration request rejected for ${selectedMOU.hospitalName}.`);
-                      }}
+                      onClick={() => handleAgreementStatus('rejected')}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-error-container hover:bg-error text-on-error-container hover:text-on-error font-label-md text-label-md transition-colors shadow-sm cursor-pointer font-bold"
                     >
                       <span className="material-symbols-outlined text-[18px]">cancel</span>
@@ -482,7 +526,7 @@ export function CollaborationMOUView({ onToast }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => onToast && onToast(`Configuration updates saved for ${selectedMOU.id}!`)}
+                      onClick={() => onToast && onToast('Demo only: agreement configuration is not saved to the server.')}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors shadow-sm cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[16px]">save</span>
@@ -507,7 +551,7 @@ export function CollaborationMOUView({ onToast }) {
                       coldChainWaiver: true,
                       surplusVisibility: true
                     });
-                    if (onToast) onToast('Reset exchange policies to standard District 4 template.');
+                    if (onToast) onToast('Demo only: exchange policies reset for this session; not saved to the server.');
                   }}
                   className="font-label-sm text-label-sm text-primary cursor-pointer hover:underline"
                 >
@@ -882,25 +926,40 @@ export function CollaborationMOUView({ onToast }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                setIsCreateModalOpen(false);
-                if (onToast) onToast('New MOU Accord Draft Broadcasted to Legal Counsel!');
+                void (async () => {
+                  const form = e.currentTarget;
+                  try {
+                    const agreement = await createAgreement({
+                      partner_hospital_id: form.elements.namedItem('partner_hospital_id').value,
+                      title: form.elements.namedItem('title').value,
+                      signatory: form.elements.namedItem('signatory').value,
+                      agreement_type: form.elements.namedItem('agreement_type').value,
+                      valid_until: form.elements.namedItem('valid_until').value || null,
+                    });
+                    setIsCreateModalOpen(false);
+                    await loadAgreements();
+                    setSelectedMOUId(agreement.id);
+                    if (onToast) onToast('Hospital agreement sent to the partner for review.');
+                  } catch (error) {
+                    setAgreementError(error.message || 'Could not create the hospital agreement.');
+                  }
+                })();
               }}
               className="space-y-3 pt-2 font-body-sm"
             >
               <div>
                 <label className="block text-xs font-semibold text-outline uppercase mb-1">Partner Hospital Node</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Memorial University Hospital"
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
-                />
+                <select name="partner_hospital_id" required defaultValue="" className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm">
+                  <option value="">Select a partner hospital</option>
+                  {partnerHospitals.map((hospital) => <option key={hospital.id} value={hospital.id}>{hospital.name}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-outline uppercase mb-1">Chief Signatory</label>
                   <input
+                    name="signatory"
                     type="text"
                     required
                     placeholder="e.g. Dr. Jane Doe, VP CMO"
@@ -909,21 +968,28 @@ export function CollaborationMOUView({ onToast }) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-outline uppercase mb-1">Accord Tier</label>
-                  <select className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary">
-                    <option>Tier 1: Full Peer Stock Swap</option>
-                    <option>Tier 2: Critical Surge Defense Only</option>
-                    <option>Tier 3: Strategic Biosecurity</option>
+                  <select name="agreement_type" className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary">
+                    <option value="full_peer_stock_swap">Tier 1: Full Peer Stock Swap</option>
+                    <option value="critical_surge_defense">Tier 2: Critical Surge Defense Only</option>
+                    <option value="strategic_biosecurity">Tier 3: Strategic Biosecurity</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-outline uppercase mb-1">Indemnification Cap ($)</label>
-                <input
-                  type="text"
-                  defaultValue="$1,500,000"
+                <label className="block text-xs font-semibold text-outline uppercase mb-1">Agreement title</label>
+                  <input
+                    name="title"
+                    type="text"
+                    required
+                    defaultValue="Hospital Mutual Aid Agreement"
                   className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-outline uppercase mb-1">Valid until (optional)</label>
+                <input name="valid_until" type="date" className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm" />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3">

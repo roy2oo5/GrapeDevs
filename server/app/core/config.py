@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     AUTH_TOKEN_TTL_MINUTES: int = 60
 
     model_config = SettingsConfigDict(
-        env_file=[PROJECT_ROOT / ".env", SERVER_DIR / ".env"],
+        env_file=[SERVER_DIR / ".env", PROJECT_ROOT / ".env"],
         env_file_encoding="utf-8",
         extra="ignore",
     )

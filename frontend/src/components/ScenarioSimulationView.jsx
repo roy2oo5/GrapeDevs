@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createTransfer, runScenario } from '../services/api';
 
 export function ScenarioSimulationView({ onToast }) {
   // Knobs state
@@ -15,6 +16,8 @@ export function ScenarioSimulationView({ onToast }) {
   const [isSavePresetModalOpen, setIsSavePresetModalOpen] = useState(false);
   const [selectedProtocolAction, setSelectedProtocolAction] = useState(null);
   const [approvedAll, setApprovedAll] = useState(false);
+  const [scenarioRun, setScenarioRun] = useState(null);
+  const [scenarioError, setScenarioError] = useState('');
 
   const resetDefaults = () => {
     setMultiplier(2.4);
@@ -24,28 +27,61 @@ export function ScenarioSimulationView({ onToast }) {
     if (onToast) onToast('Reset simulation parameters to standard scenario baseline.');
   };
 
-  const handleRunSimulation = () => {
+  const handleRunSimulation = async () => {
     setIsRunningSim(true);
-    setTimeout(() => {
+    setScenarioError('');
+    try {
+      const run = await runScenario({
+        scenario_type: archetype,
+        demand_multiplier: multiplier,
+        supplier_delay_days: delay,
+        reproduction_index: r0,
+      });
+      setScenarioRun(run);
       setIsRunningSim(false);
-      const newSeed = `#SIM-2024-${Math.floor(100 + Math.random() * 900)}`;
-      setSimSeed(newSeed);
-      if (onToast) onToast(`Monte Carlo 10,000 MCMC runs recalculated with seed ${newSeed}!`);
-    }, 1200);
+      setSimSeed(`#SIM-${run.id.slice(0, 8).toUpperCase()}`);
+      if (onToast) onToast(`Scenario saved. Analyzed ${run.results.inventory_batches_analyzed} inventory batches.`);
+    } catch (error) {
+      setScenarioError(error.message || 'Could not run hospital scenario.');
+      setIsRunningSim(false);
+    }
   };
 
-  const handleApproveAll = () => {
-    setApprovedAll(true);
-    if (onToast) onToast('All High-Impact Mitigation Transfers Approved & Dispatched to Logistics Mesh!');
+  const handleApproveAll = async () => {
+    const recommendations = scenarioRun?.results.projections.filter(
+      (item) => item.at_risk && item.recommended_replenishment_quantity > 0,
+    ) || [];
+    if (!recommendations.length) {
+      setScenarioError('Run a scenario with inventory usage data before creating mitigation requests.');
+      return;
+    }
+    try {
+      await Promise.all(recommendations.map((item) => createTransfer({
+        sku_code: item.sku_code,
+        sku_name: item.medicine_name,
+        quantity: item.recommended_replenishment_quantity,
+        unit: 'units',
+        urgency: 'critical',
+        notes: `Scenario ${scenarioRun.id}: mitigation for projected stockout.`,
+      })));
+      setApprovedAll(true);
+      if (onToast) onToast(`${recommendations.length} mitigation transfer request(s) created.`);
+    } catch (error) {
+      setScenarioError(error.message || 'Could not create mitigation transfer requests.');
+    }
   };
 
-  // Dynamically calculated risk values based on sliders
-  const dynamicRiskSKUs = Math.min(14, Math.max(3, Math.round(multiplier * 3.5 + delay * 0.15)));
-  const dynamicZeroDay = Math.max(2, Math.round(8 - multiplier * 1.5 - delay * 0.1));
-  const dynamicVulnerability = Math.min(99.4, (multiplier * 22 + delay * 1.6 + r0 * 18).toFixed(1));
+  const riskProjections = scenarioRun?.results.projections || [];
+  const dynamicRiskSKUs = scenarioRun?.results.at_risk_batches ?? 0;
+  const dynamicZeroDay = Math.min(
+    ...riskProjections.filter((item) => item.days_until_stockout !== null).map((item) => Math.max(0, Math.floor(item.days_until_stockout))),
+    0,
+  );
+  const dynamicVulnerability = scenarioRun?.results.scenario_risk_score ?? 0;
 
   return (
     <div className="flex flex-col w-full animate-fadeIn">
+      {scenarioError && <div role="alert" className="mb-space-md rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{scenarioError}</div>}
       {/* Top Breadcrumb & Metadata Strip */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-space-md">
         <div className="flex items-center gap-2">
@@ -832,7 +868,7 @@ export function ScenarioSimulationView({ onToast }) {
               onSubmit={(e) => {
                 e.preventDefault();
                 setIsSavePresetModalOpen(false);
-                if (onToast) onToast('Custom Simulation Preset saved to Regional Library!');
+                if (onToast) onToast('Demo only: scenario preset is not saved to the server.');
               }}
               className="space-y-3 pt-2"
             >

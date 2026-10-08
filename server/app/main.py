@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.api.routers.system import router as system_router
@@ -21,10 +22,20 @@ def create_app() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()],
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    @application.exception_handler(Exception)
+    async def global_exception_handler(request, exc):
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(exc), "error_type": type(exc).__name__, "traceback": traceback.format_exc()},
+        )
+
     application.include_router(system_router)
     application.include_router(api_router)
     return application

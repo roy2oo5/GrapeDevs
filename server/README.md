@@ -41,7 +41,7 @@ Run `python -m scripts.apply_schema` from this directory to migrate existing fac
 - `GET /api/auth/me`: return the identity associated with a valid bearer token.
 - `GET /api/hospitals/me`: current authenticated hospital profile.
 - `GET /api/dashboard`: current hospital inventory, near-expiry, and active-transfer totals.
-- `GET|POST /api/inventory/batches`: list/filter batches and record a batch; `PATCH /api/inventory/batches/{id}` adjusts quantity. These require a bearer token. For `POST`, the hospital is derived from the authenticated admin; `hospital_id` is optional and may only match that hospital. `unit` and `storage_regime` default to `units` and `ambient`.
+- `GET|POST /api/inventory/batches`: list/filter batches and record a batch; `PATCH /api/inventory/batches/{id}` adjusts quantity; `DELETE /api/inventory/batches/{id}` removes a batch. These require a bearer token and are scoped to the authenticated hospital. For `POST`, the hospital is derived from the authenticated admin; `hospital_id` is optional and may only match that hospital. `unit` and `storage_regime` default to `units` and `ambient`.
 - `GET|POST /api/transfers`: list/filter and create a stock request; requires a bearer token.
 - `PATCH /api/transfers/{id}`: advance a request through approved, in-transit, and completed, or reject/cancel it.
 

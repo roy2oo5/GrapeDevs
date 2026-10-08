@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Uuid
+from sqlalchemy import CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -22,6 +22,7 @@ class InventoryBatch(Base):
     lot_number: Mapped[str | None] = mapped_column(String(100))
     expires_on: Mapped[date | None] = mapped_column(Date)
     storage_regime: Mapped[str] = mapped_column(String(80), nullable=False, default="ambient")
+    average_daily_use: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )

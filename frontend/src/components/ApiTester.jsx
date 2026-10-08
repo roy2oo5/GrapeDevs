@@ -1,37 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { fetchHealth, fetchItems, addItem, deleteItem } from '../services/api';
-import { Plus, Trash2, RefreshCw, CheckCircle2, AlertCircle, Terminal } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, RefreshCw, Terminal } from 'lucide-react';
+import { fetchDashboard, fetchHealth, fetchInventory, fetchTransfers } from '../services/api';
 
 export function ApiTester({ onStatusChange }) {
   const [health, setHealth] = useState(null);
-  const [items, setItems] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [counts, setCounts] = useState({ inventory: 0, transfers: 0 });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [nameInput, setNameInput] = useState('');
-  const [descInput, setDescInput] = useState('');
-  const [consoleOutput, setConsoleOutput] = useState('// Console logs will appear here...\n');
+  const [error, setError] = useState('');
+  const [consoleOutput, setConsoleOutput] = useState('// Authenticated API checks will appear here...\n');
 
-  const logConsole = (msg) => {
+  const logConsole = (message) => {
     const timestamp = new Date().toLocaleTimeString();
-    setConsoleOutput((prev) => `[${timestamp}] ${msg}\n` + prev);
+    setConsoleOutput((previous) => `[${timestamp}] ${message}\n${previous}`);
   };
 
   const loadData = async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
       const healthData = await fetchHealth();
       setHealth(healthData);
-      onStatusChange('online');
-      logConsole(`GET /api/health -> 200 OK: System uptime ${healthData.uptime_seconds?.toFixed(1)}s`);
-
-      const itemsData = await fetchItems();
-      setItems(itemsData.items || []);
-      logConsole(`GET /api/items -> 200 OK: Loaded ${itemsData.count} items`);
-    } catch (err) {
-      setError('Could not connect to FastAPI server. Ensure backend is running on http://localhost:8000.');
-      onStatusChange('offline');
-      logConsole(`ERROR: ${err.message}`);
+      logConsole('GET /api/health -> 200 OK');
+      const [dashboard, inventory, transfers] = await Promise.all([
+        fetchDashboard(),
+        fetchInventory(),
+        fetchTransfers(),
+      ]);
+      setSummary(dashboard);
+      setCounts({ inventory: inventory.length, transfers: transfers.length });
+      onStatusChange?.('online');
+      logConsole('GET /api/dashboard -> 200 OK');
+      logConsole(`GET /api/inventory/batches -> 200 OK (${inventory.length} batches)`);
+      logConsole(`GET /api/transfers -> 200 OK (${transfers.length} transfers)`);
+    } catch (loadError) {
+      setError(loadError.message || 'Authenticated API request failed.');
+      onStatusChange?.('offline');
+      logConsole(`ERROR: ${loadError.message}`);
     } finally {
       setLoading(false);
     }
@@ -41,40 +46,12 @@ export function ApiTester({ onStatusChange }) {
     loadData();
   }, []);
 
-  const handleAddItem = async (e) => {
-    e.preventDefault();
-    if (!nameInput.trim()) return;
-
-    try {
-      const newItem = await addItem({
-        name: nameInput.trim(),
-        description: descInput.trim() || 'No description provided',
-      });
-      logConsole(`POST /api/items -> 201 Created: "${newItem.item.name}" (ID: ${newItem.item.id})`);
-      setNameInput('');
-      setDescInput('');
-      await loadData();
-    } catch (err) {
-      logConsole(`POST /api/items ERROR: ${err.message}`);
-    }
-  };
-
-  const handleDeleteItem = async (id) => {
-    try {
-      await deleteItem(id);
-      logConsole(`DELETE /api/items/${id} -> 200 OK`);
-      await loadData();
-    } catch (err) {
-      logConsole(`DELETE /api/items/${id} ERROR: ${err.message}`);
-    }
-  };
-
   return (
     <div id="api-explorer" className="api-section">
       <div className="section-header">
         <div>
-          <h2>Interactive API Explorer</h2>
-          <p className="feature-desc">Test real-time REST API endpoints connected to your FastAPI backend</p>
+          <h2>Hospital API Diagnostics</h2>
+          <p className="feature-desc">Authenticated checks for hospital data endpoints</p>
         </div>
         <button className="btn btn-secondary" onClick={loadData} disabled={loading}>
           <RefreshCw size={16} className={loading ? 'spin' : ''} /> Refresh Sync
@@ -82,7 +59,7 @@ export function ApiTester({ onStatusChange }) {
       </div>
 
       {error && (
-        <div className="glass-card" style={{ borderColor: 'rgba(244, 63, 94, 0.4)', marginBottom: '1.5rem', background: 'rgba(244, 63, 94, 0.08)' }}>
+        <div className="glass-card" role="alert" style={{ borderColor: 'rgba(244, 63, 94, 0.4)', marginBottom: '1.5rem', background: 'rgba(244, 63, 94, 0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#f43f5e' }}>
             <AlertCircle size={20} />
             <span>{error}</span>
@@ -90,8 +67,7 @@ export function ApiTester({ onStatusChange }) {
         </div>
       )}
 
-      <div className="features-grid" style={{ marginTop: '0' }}>
-        {/* Backend Info & Health */}
+      <div className="features-grid" style={{ marginTop: 0 }}>
         <div className="glass-card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h3 style={{ fontSize: '1.1rem' }}>System Telemetry</h3>
@@ -99,79 +75,31 @@ export function ApiTester({ onStatusChange }) {
               <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem' }}>
                 <CheckCircle2 size={16} /> Operational
               </span>
-            ) : (
-              <span style={{ color: '#f43f5e', fontSize: '0.85rem' }}>Offline</span>
-            )}
+            ) : <span style={{ color: '#f43f5e', fontSize: '0.85rem' }}>Offline</span>}
           </div>
-
-          {health ? (
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              <p style={{ margin: '0.4rem 0' }}><strong style={{ color: '#fff' }}>Framework:</strong> {health.framework}</p>
-              <p style={{ margin: '0.4rem 0' }}><strong style={{ color: '#fff' }}>Environment:</strong> {health.environment}</p>
-              <p style={{ margin: '0.4rem 0' }}><strong style={{ color: '#fff' }}>Python Version:</strong> {health.python_version}</p>
-              <p style={{ margin: '0.4rem 0' }}><strong style={{ color: '#fff' }}>Uptime:</strong> {health.uptime_seconds?.toFixed(1)}s</p>
-            </div>
-          ) : (
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              Start the FastAPI server via <code style={{ color: '#38bdf8' }}>python backend/run.py</code> to see telemetry data.
-            </p>
-          )}
+          {health && <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+            <p><strong>Framework:</strong> {health.framework}</p>
+            <p><strong>Environment:</strong> {health.environment}</p>
+            <p><strong>Python:</strong> {health.python_version}</p>
+            <p><strong>Uptime:</strong> {health.uptime_seconds?.toFixed(1)}s</p>
+          </div>}
         </div>
 
-        {/* Item Creator & List */}
         <div className="glass-card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Manage Items (FastAPI CRUD)</h3>
-          
-          <form onSubmit={handleAddItem} className="form-group" style={{ flexDirection: 'column', gap: '0.6rem' }}>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Item Name (e.g. Neural Model)"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              required
-            />
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Description (optional)"
-              value={descInput}
-              onChange={(e) => setDescInput(e.target.value)}
-            />
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.6rem 1rem', justifyContent: 'center' }}>
-              <Plus size={16} /> Add Item
-            </button>
-          </form>
-
-          <div className="items-list">
-            {items.map((item) => (
-              <div key={item.id} className="item-card">
-                <div className="item-info">
-                  <span className="item-name">{item.name}</span>
-                  <span className="item-desc">{item.description}</span>
-                </div>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDeleteItem(item.id)}
-                  title="Delete Item"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-            {items.length === 0 && (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'center', padding: '1rem 0' }}>
-                No items added yet. Try adding one above!
-              </p>
-            )}
-          </div>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Hospital Data</h3>
+          {summary ? <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+            <p><strong>Inventory units:</strong> {summary.inventory_units}</p>
+            <p><strong>Expiring within 30 days:</strong> {summary.units_expiring_within_30_days}</p>
+            <p><strong>Surplus batches:</strong> {summary.surplus_batch_count}</p>
+            <p><strong>Active transfers:</strong> {summary.active_transfer_count}</p>
+            <p><strong>Loaded records:</strong> {counts.inventory} batches, {counts.transfers} transfers</p>
+          </div> : <p>Waiting for authenticated hospital data.</p>}
         </div>
       </div>
 
-      {/* Terminal Log Output */}
       <div style={{ marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          <Terminal size={14} /> Live API Telemetry Output
+          <Terminal size={14} /> Live API Telemetry
         </div>
         <pre className="code-console">{consoleOutput}</pre>
       </div>

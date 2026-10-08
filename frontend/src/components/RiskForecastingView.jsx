@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { fetchInventoryForecast, createTransfer } from '../services/api';
 
 export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
   const [selectedSKU, setSelectedSKU] = useState('Paracetamol 500mg IV Infusion (100ml) [High Volatility]');
@@ -7,18 +8,27 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
   const [shortageFilter, setShortageFilter] = useState('all'); // 'all' | 'under3' | 'surge'
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationGlow, setSimulationGlow] = useState(false);
+  const [forecastRows, setForecastRows] = useState([]);
+  const [forecastError, setForecastError] = useState('');
 
   // Modal State for Inter-Hospital MOU Dispatch
   const [mouDialog, setMouDialog] = useState(null); // { title, sku, hospital, route }
 
-  const handleRunSimulation = () => {
+  const handleRunSimulation = async () => {
     setIsSimulating(true);
-    setTimeout(() => {
+    setForecastError('');
+    try {
+      const horizon = granularity === 'weekly' ? 7 : granularity === 'batch' ? 14 : 30;
+      const forecast = await fetchInventoryForecast(horizon);
+      setForecastRows(forecast.forecasts);
       setIsSimulating(false);
       setSimulationGlow(true);
       setTimeout(() => setSimulationGlow(false), 1200);
-      if (onToast) onToast('Bayesian MAP fits updated: +34% epidemic cluster demand projection integrated.');
-    }, 900);
+      if (onToast) onToast(`Forecast calculated for ${forecast.forecasts.length} inventory batches over ${horizon} days.`);
+    } catch (error) {
+      setForecastError(error.message || 'Could not calculate hospital inventory forecasts.');
+      setIsSimulating(false);
+    }
   };
 
   const handleOpenBorrow = (sku, hospital) => {
@@ -47,87 +57,39 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
     }
   };
 
-  const handleConfirmDispatch = () => {
-    const sku = mouDialog?.sku;
-    setMouDialog(null);
-    if (onToast) onToast(`Transfer request token generated for ${sku}. Requisition sent to Regional District 4 Hub.`);
+  const handleConfirmDispatch = async () => {
+    try {
+      await createTransfer({ sku_name: mouDialog.sku, quantity: 1, urgency: 'high', notes: mouDialog.hospital });
+      setMouDialog(null);
+      if (onToast) onToast(`Transfer request created for ${mouDialog.sku}.`);
+    } catch (error) {
+      setForecastError(error.message || 'Could not create the transfer request.');
+    }
   };
 
-  // Shortage table data
-  const shortageData = [
-    {
-      id: 1,
-      sku: 'Paracetamol 500mg IV',
-      code: 'SKU-88210 • 100ml Infusion',
-      stock: '140 vials',
-      stockBar: 'w-1/6 bg-error',
-      burn: '98 u/day',
-      burnSub: '+28% surge',
-      burnColor: 'text-error',
-      depletion: '1.4d',
-      status: 'Critical',
-      statusClass: 'bg-error-container text-on-error-container',
-      ping: true,
-      actionText: 'Initiate Borrow',
-      actionClass: 'bg-error text-on-error hover:opacity-90',
-      category: 'under3',
-      hospitalMatch: 'St. Jude Health Hub'
-    },
-    {
-      id: 2,
-      sku: 'Propofol 10mg/mL',
-      code: 'SKU-44109 • 20ml Emulsion',
-      stock: '28 amp',
-      stockBar: 'w-1/4 bg-primary',
-      burn: '11.5 u/day',
-      burnSub: 'ICU Steady',
-      burnColor: 'text-on-surface-variant',
-      depletion: '2.4d',
-      status: 'Borrow',
-      statusClass: 'bg-secondary-container text-on-secondary-fixed',
-      ping: false,
-      actionText: 'Route Stock',
-      actionClass: 'bg-surface-container-high text-on-surface hover:bg-primary-container hover:text-on-primary-container',
-      category: 'under3',
-      hospitalMatch: 'Valley Trauma Center'
-    },
-    {
-      id: 3,
-      sku: 'Ceftriaxone 1g Powder',
-      code: 'SKU-11902 • Vial Injection',
-      stock: '310 vials',
-      stockBar: 'w-2/5 bg-secondary',
-      burn: '72 u/day',
-      burnSub: '+15% surge',
-      burnColor: 'text-error',
-      depletion: '4.3d',
-      status: 'Reorder',
-      statusClass: 'bg-surface-container-high text-on-surface-variant',
-      ping: false,
-      actionText: 'PO Staged',
-      actionClass: 'bg-surface-container-low text-on-surface hover:bg-surface-container-high',
-      category: 'surge',
-      hospitalMatch: 'Automated Supplier Gateway'
-    },
-    {
-      id: 4,
-      sku: 'Epinephrine 1mg/mL',
-      code: 'SKU-33201 • Auto-Injector',
-      stock: '85 units',
-      stockBar: 'w-3/5 bg-tertiary',
-      burn: '14 u/day',
-      burnSub: 'Baseline',
-      burnColor: 'text-on-surface-variant',
-      depletion: '6.0d',
-      status: 'Normal',
-      statusClass: 'bg-tertiary-fixed/40 text-on-tertiary-fixed-variant',
-      ping: false,
-      actionText: 'Monitor',
-      actionClass: 'bg-surface-container-low text-outline hover:text-on-surface',
-      category: 'normal',
-      hospitalMatch: 'Internal Buffer Adequate'
-    }
-  ];
+  const shortageData = forecastRows.map((forecast, index) => {
+    const critical = forecast.days_until_stockout !== null && forecast.days_until_stockout <= 3;
+    const atRisk = forecast.stockout_within_horizon;
+    return {
+      id: forecast.inventory_batch_id,
+      sku: forecast.medicine_name,
+      code: forecast.sku_code,
+      stock: `${forecast.current_quantity} units`,
+      stockBar: critical ? 'w-1/6 bg-error' : atRisk ? 'w-2/5 bg-secondary' : 'w-3/5 bg-tertiary',
+      burn: `${forecast.average_daily_use} units/day`,
+      burnSub: `${forecast.horizon_days}-day forecast`,
+      burnColor: critical ? 'text-error' : 'text-on-surface-variant',
+      depletion: forecast.days_until_stockout === null ? 'No usage rate' : `${forecast.days_until_stockout}d`,
+      status: critical ? 'Critical' : atRisk ? 'At Risk' : 'In Range',
+      statusClass: critical ? 'bg-error-container text-on-error-container' : atRisk ? 'bg-secondary-container text-on-secondary-fixed' : 'bg-tertiary-fixed/40 text-on-tertiary-fixed-variant',
+      ping: critical,
+      actionText: 'Create Transfer Request',
+      actionClass: critical ? 'bg-error text-on-error hover:opacity-90' : 'bg-surface-container-high text-on-surface',
+      category: critical ? 'under3' : atRisk ? 'surge' : 'normal',
+      hospitalMatch: 'Select partner in transfers',
+      rank: index,
+    };
+  });
 
   const filteredShortages = shortageData.filter((item) => {
     if (shortageFilter === 'all') return true;

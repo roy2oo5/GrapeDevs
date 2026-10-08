@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createInventoryBatch, deleteInventoryBatch, fetchInventory } from '../services/api';
 
 export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
   const [expandedRows, setExpandedRows] = useState({ para: true });
@@ -7,6 +8,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
     sku_code: '',
     medicine_name: '',
     quantity: '',
+    average_daily_use: '0',
     lot_number: '',
     expires_on: '',
   });
@@ -15,6 +17,10 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
   const [storageFilter, setStorageFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activePin, setActivePin] = useState(null); // 'cold' | 'reorder' | 'transit' | 'quarantine' | null
+  const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [inventoryError, setInventoryError] = useState('');
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [deletingBatchId, setDeletingBatchId] = useState(null);
 
   // Lot States for Paracetamol
   const [lots, setLots] = useState([
@@ -87,7 +93,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
           : l
       )
     );
-    if (onToast) onToast(`Batch Quarantined: ${lotCode} moved to temporary isolation hold. Quality audit initiated.`);
+    if (onToast) onToast(`Demo only: ${lotCode} marked quarantined in this view; no server update or audit was recorded.`);
   };
 
   const handleReleaseLot = (lotId, lotCode) => {
@@ -105,7 +111,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
           : l
       )
     );
-    if (onToast) onToast(`Batch Released: ${lotCode} cleared for patient dispensing and OR requisition.`);
+    if (onToast) onToast(`Demo only: ${lotCode} marked usable in this view; no server update was recorded.`);
   };
 
   const handleMarkDamaged = (lotId, lotCode) => {
@@ -123,12 +129,12 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
           : l
       )
     );
-    if (onToast) onToast(`Batch Compromised: ${lotCode} marked for quarantine disposal pursuant to hazardous protocol.`);
+    if (onToast) onToast(`Demo only: ${lotCode} marked damaged in this view; no server update was recorded.`);
   };
 
   const handleLogDestruction = (lotId, lotCode) => {
     setLots((prev) => prev.map((l) => (l.id === lotId ? { ...l, destroyed: true } : l)));
-    if (onToast) onToast(`Destruction Logged: Disposal protocol filed with DEA / State Pharmacy Board for ${lotCode}.`);
+    if (onToast) onToast(`Demo only: destruction of ${lotCode} was not logged or filed with any authority.`);
   };
 
   // SKU List
@@ -278,53 +284,98 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
     }
   ]);
 
-  const handleAddBatch = (event) => {
-    event.preventDefault();
-    const code = batchForm.sku_code.trim();
-    const name = batchForm.medicine_name.trim();
-    const unit = 'units';
-    const quantity = Number(batchForm.quantity);
-    const lotNumber = batchForm.lot_number.trim();
-    const expiryDescription = batchForm.expires_on
-      ? `Exp: ${new Date(`${batchForm.expires_on}T00:00:00`).toLocaleDateString()}`
+  const toInventoryRow = (batch) => {
+    const isCold = batch.storage_regime.toLowerCase().includes('cold');
+    const daysRemaining = batch.average_daily_use > 0 ? batch.quantity / batch.average_daily_use : null;
+    const isCritical = daysRemaining !== null && daysRemaining <= 3;
+    const isLow = daysRemaining !== null && daysRemaining <= 7;
+    const expiryText = batch.expires_on
+      ? `Exp: ${new Date(`${batch.expires_on}T00:00:00`).toLocaleDateString()}`
       : 'Expiry not recorded';
-    const key = `batch-${Date.now()}`;
-    const sku = {
-      key,
-      code,
+    return {
+      key: batch.id,
+      id: batch.id,
+      code: batch.sku_code,
       depot: 'Current hospital',
-      name,
-      unit,
-      atc: 'New inventory batch',
-      storage: 'Ambient (15-25°C)',
-      storageType: 'ambient',
-      storageIcon: 'thermostat',
-      stock: `${quantity} ${unit}`,
-      bufferPct: 'New',
-      bufferColor: 'text-primary font-bold',
-      bufferBar: 'bg-primary',
+      name: batch.sku_name,
+      unit: batch.unit,
+      atc: batch.lot_number ? `Lot: ${batch.lot_number}` : 'Hospital inventory',
+      storage: batch.storage_regime,
+      storageType: isCold ? 'cold' : 'ambient',
+      storageIcon: isCold ? 'ac_unit' : 'thermostat',
+      stock: `${batch.quantity} ${batch.unit}`,
+      bufferPct: daysRemaining === null ? 'Usage not set' : `${Math.min(100, Math.round(daysRemaining * 10))}%`,
+      bufferColor: isCritical ? 'text-error font-bold' : isLow ? 'text-secondary font-bold' : 'text-tertiary font-bold',
+      bufferBar: isCritical ? 'bg-error' : isLow ? 'bg-secondary' : 'bg-tertiary',
       inbound: '0 units',
       inboundSub: 'No pending shipments',
       reorder: 'Not set',
       minSafety: 'Not set',
-      status: 'New Batch',
-      statusClass: 'bg-primary-fixed text-on-primary-fixed-variant',
-      ping: false,
-      category: 'New Inventory',
-      subContent: `Lot ${lotNumber || 'not recorded'} • ${quantity} ${unit} on hand • ${expiryDescription}`,
+      status: isCritical ? 'Critical Lead Time' : isLow ? 'Buffer Warning' : 'On Hand',
+      statusClass: isCritical ? 'bg-error-container text-on-error-container' : isLow ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant',
+      ping: isCritical,
+      category: 'Hospital Inventory',
+      subContent: `Lot ${batch.lot_number || 'not recorded'} • ${batch.quantity} ${batch.unit} • ${expiryText} • Average daily use: ${batch.average_daily_use}`,
     };
+  };
 
-    setSkus((current) => [sku, ...current]);
-    setExpandedRows((current) => ({ ...current, [key]: true }));
-    setBatchForm({
-      sku_code: '',
-      medicine_name: '',
-      quantity: '',
-      lot_number: '',
-      expires_on: '',
-    });
-    setIsAddBatchOpen(false);
-    if (onToast) onToast(`Inventory batch added locally: ${code} (${quantity} ${unit}).`);
+  const loadInventory = async () => {
+    setInventoryLoading(true);
+    setInventoryError('');
+    try {
+      const batches = await fetchInventory();
+      setSkus(batches.map(toInventoryRow));
+    } catch (error) {
+      setInventoryError(error.message || 'Could not load hospital inventory.');
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInventory();
+  }, []);
+
+  const handleAddBatch = async (event) => {
+    event.preventDefault();
+    const code = batchForm.sku_code.trim();
+    const name = batchForm.medicine_name.trim();
+    const quantity = Number(batchForm.quantity);
+    setInventoryError('');
+    try {
+      const created = await createInventoryBatch({
+        sku_code: code,
+        sku_name: name,
+        quantity,
+        lot_number: batchForm.lot_number.trim() || null,
+        expires_on: batchForm.expires_on || null,
+        average_daily_use: Number(batchForm.average_daily_use) || 0,
+      });
+      const row = toInventoryRow(created);
+      setSkus((current) => [row, ...current.filter((item) => item.id !== row.id)]);
+      setExpandedRows((current) => ({ ...current, [row.key]: true }));
+      setBatchForm({ sku_code: '', medicine_name: '', quantity: '', average_daily_use: '0', lot_number: '', expires_on: '' });
+      setIsAddBatchOpen(false);
+      if (onToast) onToast(`Inventory batch saved: ${code} (${created.quantity} ${created.unit}).`);
+    } catch (error) {
+      setInventoryError(error.message || 'Could not save inventory batch.');
+    }
+  };
+
+  const handleDeleteBatch = async (batch) => {
+    if (!batch.id || !window.confirm(`Delete ${batch.name} (${batch.code}) from this hospital's inventory?`)) return;
+    setDeletingBatchId(batch.id);
+    setInventoryError('');
+    try {
+      await deleteInventoryBatch(batch.id);
+      setSkus((current) => current.filter((item) => item.id !== batch.id));
+      setActiveMenuId(null);
+      if (onToast) onToast(`Inventory batch deleted: ${batch.code}.`);
+    } catch (error) {
+      setInventoryError(error.message || 'Could not delete inventory batch.');
+    } finally {
+      setDeletingBatchId(null);
+    }
   };
 
   const filteredSKUs = skus.filter((item) => {
@@ -412,7 +463,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                   Add inventory batch
                 </h2>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Enter a batch record. This preview is stored in this screen only.
+                  Add a hospital inventory batch and optional daily usage for stock forecasting.
                 </p>
               </div>
               <button
@@ -462,6 +513,18 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
+                Average daily use
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={batchForm.average_daily_use}
+                  onChange={(event) => setBatchForm({ ...batchForm, average_daily_use: event.target.value })}
+                  placeholder="0"
+                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
                 Lot number
                 <input
                   maxLength={100}
@@ -500,6 +563,12 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
         </div>
       )}
 
+      {inventoryError && (
+        <div role="alert" className="mb-space-md rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">
+          {inventoryError}
+        </div>
+      )}
+
       {/* Summary KPI Cards Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pb-space-lg">
         {/* Card 1 */}
@@ -513,8 +582,8 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-headline-lg text-headline-lg text-on-surface font-bold">1,420</span>
-            <span className="font-label-sm text-label-sm text-outline">SKUs Registered</span>
+            <span className="font-headline-lg text-headline-lg text-on-surface font-bold">{inventoryLoading ? '…' : skus.length}</span>
+            <span className="font-label-sm text-label-sm text-outline">Inventory batches</span>
           </div>
           <div className="flex items-center gap-1.5 pt-space-xs mt-2">
             <span className="w-2 h-2 rounded-full bg-tertiary"></span>
@@ -785,14 +854,36 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right pr-6" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => onToast && onToast(`Opened SKU diagnostics for ${sku.name}`)}
-                          className="p-1.5 rounded-lg hover:bg-surface-container-high text-on-surface-variant transition-colors cursor-pointer"
-                          title="SKU Actions"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                        </button>
+                        <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() => setActiveMenuId((current) => current === sku.key ? null : sku.key)}
+                            className="p-1.5 rounded-lg hover:bg-surface-container-high text-on-surface-variant transition-colors cursor-pointer"
+                            title="Inventory actions"
+                            aria-label={`Inventory actions for ${sku.name}`}
+                            aria-expanded={activeMenuId === sku.key}
+                            aria-haspopup="menu"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                          </button>
+                          {activeMenuId === sku.key && (
+                            <div role="menu" className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-surface-container-high bg-surface-container-lowest p-1 text-left shadow-xl">
+                              {sku.id ? (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  disabled={deletingBatchId === sku.id}
+                                  onClick={() => handleDeleteBatch(sku)}
+                                  className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-error hover:bg-error-container/50 disabled:opacity-50"
+                                >
+                                  {deletingBatchId === sku.id ? 'Deleting…' : 'Delete inventory batch'}
+                                </button>
+                              ) : (
+                                <span className="block px-3 py-2 text-xs text-outline">No server inventory batch</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
 

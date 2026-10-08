@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchInventory, fetchSurplusListings, publishSurplusListing, requestSurplusListing } from '../services/api';
 
 export function MOUPartnersView({ onToast }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,6 +18,9 @@ export function MOUPartnersView({ onToast }) {
   const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
   const [inspectItem, setInspectItem] = useState(null);
   const [isDispatching, setIsDispatching] = useState(false);
+  const [inventoryBatches, setInventoryBatches] = useState([]);
+  const [requestedQuantity, setRequestedQuantity] = useState(1);
+  const [marketplaceError, setMarketplaceError] = useState('');
 
   // Marketplace items dataset
   const [listings, setListings] = useState([
@@ -165,24 +169,72 @@ export function MOUPartnersView({ onToast }) {
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
     if (onToast) {
-      onToast(bookmarkedIds.includes(id) ? 'Removed from Watchlist' : 'Saved to Watchlist');
+      onToast(bookmarkedIds.includes(id) ? 'Removed from this session’s watchlist.' : 'Added to this session’s watchlist; not saved to the server.');
     }
   };
 
+  const mapListing = (listing) => ({
+    ...listing,
+    drugName: listing.sku_name,
+    subtitle: `${listing.sku_code} • ${listing.unit}`,
+    category: 'hospital surplus',
+    mouTier: 'Hospital listing',
+    storageRegime: listing.storage_regime,
+    regimeType: listing.storage_regime.toLowerCase().includes('cold') ? 'cold' : 'ambient',
+    offeringNode: listing.hospital_name,
+    distanceKm: 0,
+    distanceEta: 'Network listing',
+    lotQuantity: listing.quantity_available,
+    expiration: listing.expires_on || 'Not specified',
+    daysRemaining: listing.expires_on
+      ? Math.ceil((new Date(`${listing.expires_on}T00:00:00`) - new Date()) / 86400000)
+      : 9999,
+    isNearExpiry: Boolean(listing.expires_on && new Date(listing.expires_on) <= new Date(Date.now() + 30 * 86400000)),
+    isRestricted: false,
+    batchLot: listing.lot_number || 'Lot not specified',
+    tempStatus: listing.storage_regime,
+  });
+
+  const loadMarketplace = async () => {
+    setMarketplaceError('');
+    try {
+      const [remoteListings, batches] = await Promise.all([fetchSurplusListings(), fetchInventory()]);
+      setListings(remoteListings.map(mapListing));
+      setInventoryBatches(batches);
+    } catch (error) {
+      setListings([]);
+      setInventoryBatches([]);
+      setMarketplaceError(error.message || 'Could not load the hospital marketplace.');
+    }
+  };
+
+  useEffect(() => {
+    loadMarketplace();
+  }, []);
+
   const handleRequestTransfer = (item) => {
     setSelectedTransferItem(item);
+    setRequestedQuantity(1);
     setIsTransferModalOpen(true);
   };
 
-  const handleConfirmTransfer = () => {
+  const handleConfirmTransfer = async () => {
+    if (!selectedTransferItem) return;
     setIsDispatching(true);
-    setTimeout(() => {
+    setMarketplaceError('');
+    try {
+      await requestSurplusListing(selectedTransferItem.id, {
+        quantity: Number(requestedQuantity),
+        urgency: 'normal',
+      });
       setIsDispatching(false);
       setIsTransferModalOpen(false);
-      if (onToast) {
-        onToast(`Transfer Dispatched for ${selectedTransferItem?.drugName}! Signed to District 4 Ledger.`);
-      }
-    }, 1200);
+      await loadMarketplace();
+      if (onToast) onToast(`Transfer request sent for ${selectedTransferItem.drugName}.`);
+    } catch (error) {
+      setMarketplaceError(error.message || 'Could not request this surplus listing.');
+      setIsDispatching(false);
+    }
   };
 
   const filteredListings = listings.filter(item => {
@@ -214,6 +266,7 @@ export function MOUPartnersView({ onToast }) {
 
   return (
     <div className="flex flex-col w-full gap-space-lg animate-fadeIn">
+      {marketplaceError && <div role="alert" className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{marketplaceError}</div>}
       {/* Title & Operational Clearance Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
         <div className="flex flex-col gap-space-xs">
@@ -706,6 +759,17 @@ export function MOUPartnersView({ onToast }) {
                 <span className="text-outline">Source Hospital:</span>
                 <span className="text-on-surface">{selectedTransferItem.offeringNode}</span>
               </div>
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-outline">Quantity to request:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedTransferItem.quantity_available}
+                  value={requestedQuantity}
+                  onChange={(event) => setRequestedQuantity(Number(event.target.value))}
+                  className="w-24 rounded-md border border-surface-container-high bg-surface-container-low px-2 py-1 text-right text-on-surface"
+                />
+              </label>
               <div className="flex justify-between">
                 <span className="text-outline">Courier Tier:</span>
                 <span className="text-tertiary font-medium">District Rapid Tier-1 (&lt; 45 mins)</span>
@@ -769,19 +833,30 @@ export function MOUPartnersView({ onToast }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                setIsPostSurplusModalOpen(false);
-                if (onToast) onToast('Surplus Lot published to Regional MOU Marketplace!');
+                void (async () => {
+                  try {
+                    const form = e.currentTarget;
+                    await publishSurplusListing({
+                      inventory_batch_id: form.inventory_batch_id.value,
+                      quantity: Number(form.quantity.value),
+                      notes: form.notes.value || null,
+                    });
+                    setIsPostSurplusModalOpen(false);
+                    await loadMarketplace();
+                    if (onToast) onToast('Surplus lot published to the hospital marketplace.');
+                  } catch (error) {
+                    setMarketplaceError(error.message || 'Could not publish this surplus lot.');
+                  }
+                })();
               }}
               className="space-y-3 pt-2 font-body-sm"
             >
               <div>
-                <label className="block text-xs font-semibold text-outline uppercase mb-1">Medication SKU / Formulation</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Paracetamol 500mg IV Infusion"
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
-                />
+                <label className="block text-xs font-semibold text-outline uppercase mb-1">Hospital inventory batch</label>
+                <select name="inventory_batch_id" required className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm">
+                  <option value="">Select a batch</option>
+                  {inventoryBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.sku_name} • {batch.quantity} {batch.unit}{batch.lot_number ? ` • ${batch.lot_number}` : ''}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -790,6 +865,8 @@ export function MOUPartnersView({ onToast }) {
                   <input
                     type="number"
                     required
+                    name="quantity"
+                    min="1"
                     placeholder="e.g. 300"
                     className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
                   />
@@ -798,7 +875,7 @@ export function MOUPartnersView({ onToast }) {
                   <label className="block text-xs font-semibold text-outline uppercase mb-1">Batch Lot Number</label>
                   <input
                     type="text"
-                    required
+                    name="notes"
                     placeholder="e.g. #LOT-99214-B"
                     className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
                   />
@@ -807,20 +884,12 @@ export function MOUPartnersView({ onToast }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Expiry Date</label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary"
-                  />
+                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Batch expiry</label>
+                  <p className="text-sm text-on-surface-variant">Copied from selected inventory batch</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Storage Condition</label>
-                  <select className="w-full px-3 py-2 rounded-xl bg-surface-container border border-surface-container-high text-on-surface text-sm focus:outline-none focus:border-primary">
-                    <option>Ambient Regulated (15-25°C)</option>
-                    <option>Cold Chain (2-8°C Monitored)</option>
-                    <option>Deep Freeze (-20°C)</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-outline uppercase mb-1">Storage condition</label>
+                  <p className="text-sm text-on-surface-variant">Copied from selected inventory batch</p>
                 </div>
               </div>
 

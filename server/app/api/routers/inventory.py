@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,8 +11,10 @@ from app.models import Hospital, InventoryBatch
 from app.schemas import (
     HospitalAdminIdentity,
     InventoryBatchCreate,
+    InventoryBatchDeletePayload,
     InventoryBatchRead,
     InventoryBatchUpdate,
+    InventoryUsageUpdate,
 )
 
 
@@ -42,6 +44,41 @@ def create_inventory_batch(
     db.commit()
     db.refresh(batch)
     return batch
+
+
+@router.get("/forecast")
+def inventory_forecast(
+    horizon_days: int = Query(default=30, ge=1, le=90),
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    batches = list(
+        db.scalars(
+            select(InventoryBatch).where(
+                InventoryBatch.hospital_id == identity.hospital_id,
+                InventoryBatch.average_daily_use > 0,
+            )
+        )
+    )
+    forecasts = []
+    for batch in batches:
+        projected_use = batch.average_daily_use * horizon_days
+        days_remaining = batch.quantity / batch.average_daily_use
+        forecasts.append(
+            {
+                "inventory_batch_id": str(batch.id),
+                "sku_code": batch.sku_code,
+                "medicine_name": batch.sku_name,
+                "current_quantity": batch.quantity,
+                "average_daily_use": batch.average_daily_use,
+                "horizon_days": horizon_days,
+                "projected_quantity": max(0, batch.quantity - projected_use),
+                "days_until_stockout": round(days_remaining, 1),
+                "stockout_within_horizon": days_remaining <= horizon_days,
+                "expires_on": batch.expires_on.isoformat() if batch.expires_on else None,
+            }
+        )
+    return {"hospital_id": str(identity.hospital_id), "horizon_days": horizon_days, "forecasts": forecasts}
 
 
 @router.get("/batches", response_model=list[InventoryBatchRead])
@@ -79,6 +116,86 @@ def update_inventory_batch(
     if batch is None or batch.hospital_id != identity.hospital_id:
         raise HTTPException(status_code=404, detail="Inventory batch not found")
     batch.quantity = payload.quantity
+    db.commit()
+    db.refresh(batch)
+    return batch
+
+
+def _perform_delete_inventory_batch(
+    batch_id: UUID,
+    db: Session,
+    identity: HospitalAdminIdentity,
+):
+    batch = db.get(InventoryBatch, batch_id)
+    if batch is None or batch.hospital_id != identity.hospital_id:
+        raise HTTPException(status_code=404, detail="Inventory batch not found")
+    db.delete(batch)
+    db.commit()
+
+
+@router.delete("/batches/{batch_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/batches/{batch_id}/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/batch/{batch_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/batch/{batch_id}/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_inventory_batch(
+    batch_id: UUID,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    _perform_delete_inventory_batch(batch_id, db, identity)
+
+
+@router.delete("/batches", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/batches/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_inventory_batch_by_param_or_body(
+    batch_id: UUID | None = Query(default=None),
+    id: UUID | None = Query(default=None),
+    payload: InventoryBatchDeletePayload | None = Body(default=None),
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    target_id = batch_id or id or (payload.batch_id if payload else None) or (payload.id if payload else None)
+    if target_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A batch_id or id query parameter or body payload is required to delete an inventory batch",
+        )
+    _perform_delete_inventory_batch(target_id, db, identity)
+
+
+@router.delete("/{batch_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{batch_id}/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_inventory_batch_by_root_id(
+    batch_id: UUID,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    _perform_delete_inventory_batch(batch_id, db, identity)
+
+
+@router.post("/batches/{batch_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{batch_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_inventory_batch_via_post(
+    batch_id: UUID,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    _perform_delete_inventory_batch(batch_id, db, identity)
+
+
+@router.patch("/batches/{batch_id}/usage", response_model=InventoryBatchRead)
+def update_inventory_usage(
+    batch_id: UUID,
+    payload: InventoryUsageUpdate,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    batch = db.get(InventoryBatch, batch_id)
+    if batch is None or batch.hospital_id != identity.hospital_id:
+        raise HTTPException(status_code=404, detail="Inventory batch not found")
+    batch.average_daily_use = payload.average_daily_use
     db.commit()
     db.refresh(batch)
     return batch

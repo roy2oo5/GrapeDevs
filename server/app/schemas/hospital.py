@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -14,4 +15,11 @@ class HospitalRead(BaseModel):
     classification: str
     node_role: str
     status: str
+    settings: dict[str, Any]
     created_at: datetime
+
+
+class HospitalDirectoryEntry(BaseModel):
+    id: UUID
+    name: str
+    classification: str

@@ -1,49 +1,17 @@
 import React, { useState } from 'react';
 
-export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal, onTakeAction }) {
+export function DashboardView({
+  onToast,
+  onOpenEmergencyModal,
+  onOpenAuditModal,
+  onTakeAction,
+  dashboardData = {},
+  inventoryBatches = [],
+  pendingTransfers = [],
+  onResolveTransfer,
+}) {
   const [timeframe, setTimeframe] = useState('live'); // 'live' | '24h' | '7d'
   const [attentionFilter, setAttentionFilter] = useState('all'); // 'all' | 'critical' | 'risk'
-
-  // Approvals State (allows dismissing/approving in real-time)
-  const [approvals, setApprovals] = useState([
-    {
-      id: 'approval-card-1',
-      type: 'OUTBOUND TRANSFER',
-      typeColor: 'bg-primary-fixed text-on-primary-fixed-variant',
-      badge: 'Exp: 28 min',
-      badgeColor: 'text-error',
-      badgeIcon: 'timer',
-      sku: 'Enoxaparin Sodium 40mg/0.4mL',
-      from: 'MedCare General',
-      to: 'Valley Trauma Center',
-      details: '150 Pre-filled Syringes • Expiring in 38 days. Valley Trauma declared surge protocol after transit accident.'
-    },
-    {
-      id: 'approval-card-2',
-      type: 'INBOUND BORROW',
-      typeColor: 'bg-tertiary-fixed text-on-tertiary-fixed',
-      badge: 'Dispatched',
-      badgeColor: 'text-primary',
-      badgeIcon: 'local_shipping',
-      sku: 'Sevoflurane Inhalation Liquid (250ml)',
-      from: 'St. Jude Regional Hospital',
-      to: 'MedCare General',
-      details: '24 Bottles • Responding to OR Suite 4 volume spike. ETA at MedCare Dock 2: 34 minutes.'
-    },
-    {
-      id: 'approval-card-3',
-      type: 'OUTBOUND REBALANCE',
-      typeColor: 'bg-surface-container-high text-on-surface-variant',
-      badge: 'Routine Routing',
-      badgeColor: 'text-outline',
-      badgeIcon: null,
-      sku: 'N95 Surgical Respirator Masks (Box/50)',
-      from: 'MedCare General',
-      to: 'North District Community Clinic',
-      details: '40 Boxes • Network surplus rebalancing quota (+180% local target). Non-critical timing.'
-    }
-  ]);
-
   const [dismissingId, setDismissingId] = useState(null);
 
   const handleTimeframeChange = (tf) => {
@@ -52,63 +20,52 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
     if (onToast) onToast(`Timeframe updated: ${label}`);
   };
 
-  const handleResolveApproval = (id, action) => {
+  const handleResolveApproval = async (id, action) => {
     setDismissingId(id);
-    setTimeout(() => {
-      setApprovals((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await onResolveTransfer?.(id, action === 'approved' ? 'approved' : 'rejected');
       setDismissingId(null);
-      if (onToast) {
-        onToast(action === 'approved' ? 'MOU Transfer Signed & Dispatched' : 'Transfer Request Terminated');
-      }
-    }, 280);
+    } catch {
+      setDismissingId(null);
+    }
   };
+
+  const approvals = pendingTransfers.map((transfer) => ({
+    id: transfer.id,
+    type: transfer.requesting_hospital_id === dashboardData.hospital_id ? 'OUTBOUND REQUEST' : 'INBOUND REQUEST',
+    typeColor: 'bg-primary-fixed text-on-primary-fixed-variant',
+    badge: `${transfer.urgency} priority`,
+    badgeColor: transfer.urgency === 'critical' ? 'text-error' : 'text-outline',
+    badgeIcon: 'schedule',
+    sku: transfer.sku_name,
+    from: transfer.source_hospital_name || 'Peer hospital',
+    to: transfer.requesting_hospital_name || 'This hospital',
+    details: `${transfer.quantity} ${transfer.unit}${transfer.department ? ` • ${transfer.department}` : ''}${transfer.notes ? ` • ${transfer.notes}` : ''}`,
+  }));
 
 
   // Filter attention cards
-  const attentionCards = [
-    {
-      id: 'attn-1',
-      category: 'critical',
-      sku: 'Paracetamol 500mg IV Infusion (100ml)',
-      code: 'SKU #IV-PARA-500',
-      tag: 'CRITICAL: Stockout < Lead Time',
-      badge: 'BORROW PROTOCOL INITIATED',
-      stock: '140 vials',
-      burn: '82 units / day',
-      depletion: '1.7 Days (Lead: 4d)',
-      alertText: 'Local Viral Epidemic Cluster identified (+28% hospital admissions). Algorithmic forecast projects absolute zero-inventory at MedCare Depot in 41 hours.',
-      partnerOffer: 'Route Emergency Borrow via St. Jude Regional (Available: 600u)',
-      actionText: 'Take Action'
-    },
-    {
-      id: 'attn-2',
-      category: 'critical',
-      sku: 'Propofol 10mg/mL Injectable Emulsion (20ml)',
-      code: 'SKU #ANES-PROP-10M',
-      tag: 'CRITICAL: Stock Quota Breached',
-      badge: 'MOU DISPATCH READY',
-      stock: '28 ampoules',
-      burn: 'Hospital Demand Spiked 3.4x',
-      depletion: '0.9 Days (Safe: 5d)',
-      alertText: 'Critical hospital safety threshold violated. Valley Trauma Center reports a verified surplus of 420 units within active mutual assistance framework.',
-      partnerOffer: 'Auto-Match Transit Dispatch',
-      actionText: 'Take Action'
-    },
-    {
-      id: 'attn-3',
-      category: 'risk',
-      sku: 'Ceftriaxone 1g Powder for Injection',
-      code: 'SKU #ANTI-CEFT-1G',
-      tag: 'REORDER: Threshold Alert',
-      badge: 'PREDICTIVE SURGE',
-      stock: '310 vials',
-      burn: '4.1 Days Buffer',
-      depletion: 'Supplier Lead: 3.5d',
-      alertText: 'Safety stock buffer near threshold. Automated Replenishment Order #PO-8812 is staged and ready for hospital sign-off.',
-      partnerOffer: null,
-      actionText: 'Authorize Order #PO-8812'
-    }
-  ];
+  const attentionCards = inventoryBatches
+    .filter((batch) => batch.average_daily_use > 0)
+    .map((batch) => {
+      const daysRemaining = batch.quantity / batch.average_daily_use;
+      const critical = daysRemaining <= 3;
+      return {
+        id: batch.id,
+        category: critical ? 'critical' : daysRemaining <= 7 ? 'risk' : 'normal',
+        sku: batch.sku_name,
+        code: `SKU #${batch.sku_code}`,
+        tag: critical ? 'CRITICAL: Stockout Risk' : daysRemaining <= 7 ? 'REORDER: Buffer Alert' : 'STOCK: On Hand',
+        badge: `${daysRemaining.toFixed(1)} DAYS OF STOCK`,
+        stock: `${batch.quantity} ${batch.unit}`,
+        burn: `${batch.average_daily_use} units / day`,
+        depletion: `${daysRemaining.toFixed(1)} days` ,
+        alertText: `At current recorded usage, this batch is projected to run out in ${daysRemaining.toFixed(1)} days.`,
+        partnerOffer: null,
+        actionText: 'Create Transfer Request',
+      };
+    })
+    .filter((item) => item.category !== 'normal');
 
   const filteredAttention = attentionCards.filter((card) => {
     if (attentionFilter === 'all') return true;
@@ -199,15 +156,15 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             <div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">
-                  1,420 Items
+                  {(dashboardData.surplus_batch_count || 0).toLocaleString('en-US')} Batches
                 </span>
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-tertiary-fixed/30 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">
                   <span className="material-symbols-outlined text-[14px]">trending_up</span>
-                  1.24M Units
+                  {(dashboardData.surplus_units || 0).toLocaleString('en-US')} Units
                 </span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                Available for redistribution across 6 network hospital nodes
+                Available for redistribution from this hospital
               </p>
             </div>
             <div className="mt-space-md pt-space-xs">
@@ -242,9 +199,9 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             <div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-headline-xl text-headline-xl font-bold tracking-tight text-amber-700">
-                  45,800 Units
+                  {(dashboardData.units_expiring_within_30_days || 0).toLocaleString('en-US')} Units
                 </span>
-                <span className="font-label-sm text-label-sm text-outline font-medium">14 Batches</span>
+                <span className="font-label-sm text-label-sm text-outline font-medium">Expiring soon</span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
                 Flagged for zero-wastage peer redistribution prior to expiration
@@ -275,7 +232,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <span className="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">
-                  18 Requests
+                  {(dashboardData.active_transfer_count || 0).toLocaleString('en-US')} Requests
                 </span>
                 <span className="flex h-3 w-3 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -289,7 +246,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             <div className="mt-space-md p-2.5 rounded-lg bg-surface-container-low flex items-center justify-between text-on-surface-variant">
               <span className="font-body-sm text-body-sm font-medium">Urgency Status</span>
               <span className="font-label-sm text-label-sm text-error font-semibold uppercase tracking-wider">
-                3 Critical
+                {approvals.filter((transfer) => transfer.badge.includes('critical')).length} Critical
               </span>
             </div>
           </div>
@@ -307,7 +264,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
             <div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">
-                  5 Pending MOUs
+                  {(dashboardData.pending_agreement_count || 0).toLocaleString('en-US')} Pending MOUs
                 </span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">

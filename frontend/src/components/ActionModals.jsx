@@ -52,7 +52,15 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                onConfirm(`Emergency request submitted for ${reqQty} units of ${reqSku}. Regional MOU nodes notified.`);
+                onConfirm(
+                  `Emergency stock request submitted for ${reqQty} units of ${reqSku}.`,
+                  {
+                    sku_name: reqSku,
+                    quantity: Number(reqQty),
+                    urgency: reqUrgency,
+                    department: reqDept,
+                  },
+                );
                 onClose();
               }}
               className="space-y-4"
@@ -154,7 +162,12 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
                 <button
                   type="button"
                   onClick={() => {
-                    onConfirm(`Auto-dispatched transfer order TR-${Math.floor(1000 + Math.random() * 9000)} from St. Jude Regional for ${payload}.`);
+                    onConfirm(`Transfer request submitted for ${payload}.`, {
+                      sku_name: String(payload),
+                      quantity: 1,
+                      urgency: 'critical',
+                      notes: 'Created from the dashboard stockout intervention.',
+                    });
                     onClose();
                   }}
                   className="px-5 py-2 rounded-xl bg-primary text-on-primary font-semibold shadow-md hover:bg-primary-container"
