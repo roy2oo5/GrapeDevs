@@ -7,7 +7,7 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'M
     { id: 'outbreak-surveillance', label: 'Outbreak Surveillance', icon: 'coronavirus' },
     { id: 'transfers-and-logistics', label: 'Transfers & Logistics', icon: 'local_shipping' },
     { id: 'mou-partners', label: 'Surplus Marketplace', icon: 'storefront' },
-    { id: 'facility-network', label: 'Collaboration & MOUs', icon: 'handshake' },
+    { id: 'hospital-network', label: 'Collaboration & MOUs', icon: 'handshake' },
   ];
 
   return (

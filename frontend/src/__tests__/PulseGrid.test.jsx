@@ -15,11 +15,14 @@ import { TransfersLogisticsView } from '../components/TransfersLogisticsView';
 import { MOUPartnersView } from '../components/MOUPartnersView';
 import { CollaborationMOUView } from '../components/CollaborationMOUView';
 import { HospitalSettingsView } from '../components/HospitalSettingsView';
+import { InventorySKUsView } from '../components/InventorySKUsView';
 import App from '../App';
 
 describe('PulseGrid Control Tower Test Suite', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    window.sessionStorage.clear();
   });
 
   describe('Header Component', () => {
@@ -52,7 +55,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('Expiry-Aware Redistribution')).toBeInTheDocument();
       expect(screen.getByText('Reconciliation Audit Log')).toBeInTheDocument();
       expect(screen.getByText('System Telemetry Status')).toBeInTheDocument();
-      expect(screen.getByText('6 Facilities Active')).toBeInTheDocument();
+      expect(screen.getByText('6 Hospitals Active')).toBeInTheDocument();
       expect(screen.getByText('1,420 Monitored SKUs')).toBeInTheDocument();
     });
   });
@@ -61,7 +64,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
     it('defaults to Sign In tab and allows password visibility toggle', () => {
       render(<AuthFormPanel />);
 
-      expect(screen.getByText('Welcome back')).toBeInTheDocument();
+      expect(screen.getByText('Hospital Login')).toBeInTheDocument();
       expect(screen.getByText('Access Control Tower')).toBeInTheDocument();
 
       const passInput = screen.getByLabelText(/Terminal Access Key/i);
@@ -75,38 +78,42 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(passInput).toHaveAttribute('type', 'password');
     });
 
-    it('switches between Sign In and Register Facility tabs', () => {
+    it('switches between Sign In and Register Hospital tabs', () => {
       render(<AuthFormPanel />);
 
-      const registerTab = screen.getByRole('button', { name: /Register Facility/i });
+      const registerTab = screen.getByRole('button', { name: /Register Hospital/i });
       fireEvent.click(registerTab);
 
       expect(screen.getByText('Join Network')).toBeInTheDocument();
-      expect(screen.getByLabelText(/Lead Administrator/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Facility Name/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Facility Level/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Hospital Administrator Name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Hospital Name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Hospital Classification/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Hospital Administrator ID/i)).toBeInTheDocument();
       expect(screen.getByText('Pharmacy')).toBeInTheDocument();
       expect(screen.getByText('District Health')).toBeInTheDocument();
       expect(screen.getByText('Logistics')).toBeInTheDocument();
 
       const signinTab = screen.getByRole('button', { name: /Sign In/i });
       fireEvent.click(signinTab);
-      expect(screen.getByText('Welcome back')).toBeInTheDocument();
+      expect(screen.getByText('Hospital Login')).toBeInTheDocument();
     });
 
-    it('validates password mismatch during facility onboarding', async () => {
+    it('validates password mismatch during hospital registration', async () => {
       render(<AuthFormPanel />);
 
-      fireEvent.click(screen.getByRole('button', { name: /Register Facility/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Register Hospital/i }));
 
-      fireEvent.change(screen.getByLabelText(/Lead Administrator/i), {
+      fireEvent.change(screen.getByLabelText(/Hospital Administrator Name/i), {
         target: { value: 'Dr. Elena Vance' },
       });
       fireEvent.change(screen.getByLabelText(/Official Email/i), {
         target: { value: 'elena@metrohealth.org' },
       });
-      fireEvent.change(screen.getByLabelText(/Facility Name/i), {
+      fireEvent.change(screen.getByLabelText(/Hospital Name/i), {
         target: { value: 'Metro General' },
+      });
+      fireEvent.change(screen.getByLabelText(/Hospital Administrator ID/i), {
+        target: { value: 'METRO-ADMIN-001' },
       });
       fireEvent.change(screen.getByLabelText(/^Set Password/i), {
         target: { value: 'Password1234!' },
@@ -115,19 +122,29 @@ describe('PulseGrid Control Tower Test Suite', () => {
         target: { value: 'DifferentPassword!' },
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /Submit Onboarding Request/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Create Hospital Account/i }));
 
       expect(
         await screen.findByText(/Terminal Access Keys do not match/i)
       ).toBeInTheDocument();
     });
 
-    it('handles sign in submission with simulated cryptographic verification', async () => {
+    it('logs in to a hospital and hands the returned token to the app', async () => {
       const handleLogin = vi.fn();
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          access_token: 'signed-hospital-token',
+          hospital_id: '00000000-0000-4000-8000-000000000001',
+          hospital_name: 'Metro General Hospital',
+          administrator_id: 'METRO-ADMIN-001',
+          role: 'Hospital Administrator',
+        }),
+      }));
       render(<AuthFormPanel onLoginSuccess={handleLogin} />);
 
-      fireEvent.change(screen.getByLabelText(/Administrator ID/i), {
-        target: { value: 'admin@metropolitan-health.org' },
+      fireEvent.change(screen.getByLabelText(/Hospital Administrator ID/i), {
+        target: { value: 'METRO-ADMIN-001' },
       });
       fireEvent.change(screen.getByLabelText(/Terminal Access Key/i), {
         target: { value: 'validPassword123' },
@@ -143,13 +160,45 @@ describe('PulseGrid Control Tower Test Suite', () => {
         () => {
           expect(handleLogin).toHaveBeenCalledWith(
             expect.objectContaining({
-              email: 'admin@metropolitan-health.org',
-              role: 'Lead Administrator',
+              hospital_name: 'Metro General Hospital',
+              role: 'Hospital Administrator',
             })
           );
         },
         { timeout: 3000 }
       );
+      expect(window.sessionStorage.getItem('pulsegrid_access_token')).toBe('signed-hospital-token');
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/auth/login'),
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('registers a hospital and returns to login without issuing a session token', async () => {
+      const registered = vi.fn();
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          hospital_id: '00000000-0000-4000-8000-000000000001',
+          hospital_name: 'Metro General Hospital',
+          hospital_administrator_id: 'METRO-ADMIN-001',
+          status: 'active',
+        }),
+      }));
+      render(<AuthFormPanel onRegisterSuccess={registered} />);
+      fireEvent.click(screen.getByRole('button', { name: /Register Hospital/i }));
+      fireEvent.change(screen.getByLabelText(/Hospital Administrator Name/i), { target: { value: 'Alex Morgan' } });
+      fireEvent.change(screen.getByLabelText(/Official Email/i), { target: { value: 'alex@metro.example' } });
+      fireEvent.change(screen.getByLabelText(/Hospital Name/i), { target: { value: 'Metro General Hospital' } });
+      fireEvent.change(screen.getByLabelText(/Hospital Administrator ID/i), { target: { value: 'METRO-ADMIN-001' } });
+      fireEvent.change(screen.getByLabelText(/^Set Password/i), { target: { value: 'CorrectHorseBattery9!' } });
+      fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value: 'CorrectHorseBattery9!' } });
+      fireEvent.click(screen.getByRole('button', { name: /Create Hospital Account/i }));
+
+      expect(await screen.findByText(/Hospital Registered/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Hospital Administrator ID/i)).toHaveValue('METRO-ADMIN-001');
+      expect(registered).toHaveBeenCalledWith(expect.objectContaining({ hospital_name: 'Metro General Hospital' }));
+      expect(window.sessionStorage.getItem('pulsegrid_access_token')).toBeNull();
     });
 
     it('triggers callbacks for reset access keys and SSO options', () => {
@@ -181,7 +230,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
     });
 
     it('renders DashboardHeader with hospital name', () => {
-      render(<DashboardHeader currentFacility="MedCare General Hospital" onOpenSearch={vi.fn()} />);
+      render(<DashboardHeader currentHospital="MedCare General Hospital" onOpenSearch={vi.fn()} />);
 
       expect(screen.getAllByText('MedCare General Hospital').length).toBeGreaterThanOrEqual(1);
     });
@@ -208,6 +257,38 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       fireEvent.click(screen.getByText('Emergency Stock Request'));
       expect(handleEmergency).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('InventorySKUsView Component', () => {
+    it('adds a new inventory batch to the local inventory table', () => {
+      const onToast = vi.fn();
+      render(<InventorySKUsView onToast={onToast} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Add Inventory/i }));
+      expect(screen.queryByLabelText(/^Unit$/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Storage regime/i)).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/SKU code/i), {
+        target: { value: 'MED-TEST-001' },
+      });
+      fireEvent.change(screen.getByLabelText(/Medicine name/i), {
+        target: { value: 'Test Saline Infusion' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Quantity$/i), {
+        target: { value: '24' },
+      });
+      fireEvent.change(screen.getByLabelText(/Lot number/i), {
+        target: { value: 'LOT-TEST-24' },
+      });
+      fireEvent.change(screen.getByLabelText(/Expiration date/i), {
+        target: { value: '2027-04-30' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Add batch/i }));
+
+      expect(screen.getByText('MED-TEST-001')).toBeInTheDocument();
+      expect(screen.getByText('Test Saline Infusion')).toBeInTheDocument();
+      expect(screen.getByText('24 units')).toBeInTheDocument();
+      expect(onToast).toHaveBeenCalledWith(expect.stringContaining('added locally'));
     });
   });
 
@@ -431,17 +512,37 @@ describe('PulseGrid Control Tower Test Suite', () => {
   });
 
   describe('App Full Integration', () => {
-    it('renders full PulseGrid Executive Command Console by default and allows switching to auth', async () => {
+    it('requires hospital login before showing the dashboard', async () => {
       render(<App />);
-      expect(screen.getByText('Executive Command Console')).toBeInTheDocument();
-      expect(screen.getAllByText('MedCare General Hospital').length).toBeGreaterThanOrEqual(1);
-
-      // Switch to Auth mode
-      fireEvent.click(screen.getByText(/Switch Terminal \/ Sign Out/i));
-      expect(screen.getByText('Welcome back')).toBeInTheDocument();
+      expect(screen.getByText('Hospital Login')).toBeInTheDocument();
+      expect(screen.queryByText('Executive Command Console')).not.toBeInTheDocument();
       expect(
         screen.getByText('Predictive inventory, zero-stockout allocation.')
       ).toBeInTheDocument();
+    });
+
+    it('routes a valid stored hospital token into that hospital dashboard', async () => {
+      window.sessionStorage.setItem('pulsegrid_access_token', 'saved-hospital-token');
+      const fetchMock = vi.fn((url) => {
+        if (String(url).includes('/api/hospitals/me')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ name: 'North District Hospital' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ status: 'healthy' }),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      render(<App />);
+
+      expect(await screen.findByText('Executive Command Console')).toBeInTheDocument();
+      expect(screen.getAllByText('North District Hospital').length).toBeGreaterThan(0);
+      const hospitalRequest = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/hospitals/me'));
+      expect(hospitalRequest[1].headers.get('Authorization')).toBe('Bearer saved-hospital-token');
     });
   });
 });

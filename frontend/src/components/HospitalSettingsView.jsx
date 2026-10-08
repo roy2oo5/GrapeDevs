@@ -226,7 +226,7 @@ export function HospitalSettingsView({ onToast }) {
             </div>
             <div className="flex flex-col flex-1 min-w-0">
               <span className="font-label-lg text-label-lg text-on-surface">Hospital Profile</span>
-              <span className="font-body-sm text-body-sm text-outline truncate">License #, Contact, Facility Tier</span>
+              <span className="font-body-sm text-body-sm text-outline truncate">License #, Contact, Hospital Tier</span>
             </div>
           </button>
 
@@ -363,8 +363,8 @@ export function HospitalSettingsView({ onToast }) {
               <div className="flex items-center gap-space-sm pb-space-sm border-b border-surface-container-low">
                 <span className="material-symbols-outlined text-primary text-[24px]">local_hospital</span>
                 <div className="flex flex-col">
-                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">Hospital Profile &amp; Facility Metadata</h2>
-                  <p className="font-body-sm text-body-sm text-outline">Manage health system identification, DEA license verification, and facility classification.</p>
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">Hospital Profile &amp; Hospital Metadata</h2>
+                  <p className="font-body-sm text-body-sm text-outline">Manage hospital identification, DEA license verification, and hospital classification.</p>
                 </div>
               </div>
 
@@ -394,7 +394,7 @@ export function HospitalSettingsView({ onToast }) {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-label-md text-label-md text-on-surface font-semibold">Facility Tier &amp; Classification</label>
+                  <label className="font-label-md text-label-md text-on-surface font-semibold">Hospital Tier &amp; Classification</label>
                   <select defaultValue="Tier-1 Trauma Center & Regional Hub" className="px-space-md py-2.5 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface font-body-md text-body-md outline-none cursor-pointer">
                     <option>Tier-1 Trauma Center &amp; Regional Hub</option>
                     <option>Tier-2 Regional Acute Hospital</option>
@@ -796,7 +796,7 @@ export function HospitalSettingsView({ onToast }) {
                         <span className="font-label-md text-label-md text-on-surface font-semibold">Automated Mutual-Aid Confidence</span>
                         <span className="px-2 py-0.5 rounded bg-tertiary text-on-tertiary font-mono font-semibold text-[11px]">&gt; {confidenceThreshold}% Conf.</span>
                       </div>
-                      <p className="font-body-sm text-body-sm text-outline">Minimum predictive certitude required before auto-dispatching regional inter-facility transfer requests.</p>
+                      <p className="font-body-sm text-body-sm text-outline">Minimum predictive certitude required before auto-dispatching regional inter-hospital transfer requests.</p>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <input

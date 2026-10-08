@@ -1,0 +1,3 @@
+Do not integrate the frontend and backend. but check those two against each other and make it comaptible so that we can integrate it later. 
+
+i need a feature in invertory to add new invertory both in frontend and backend

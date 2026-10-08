@@ -81,7 +81,7 @@ export function ScenarioSimulationView({ onToast }) {
             <h1 className="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">Scenario Simulation Engine &amp; Stress Testing</h1>
           </div>
           <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-            Monte Carlo stochastic sandbox for multi-facility epidemic surges, pharmaceutical supply chokeholds, and proactive mutual-aid mitigation.
+            Monte Carlo stochastic sandbox for multi-hospital epidemic surges, pharmaceutical supply chokeholds, and proactive mutual-aid mitigation.
           </p>
         </div>
 
@@ -779,7 +779,7 @@ export function ScenarioSimulationView({ onToast }) {
             </div>
 
             <p className="text-xs text-on-surface-variant font-body-sm">
-              Generates a comprehensive PDF and raw CSV report encompassing 10,000 MCMC probabilistic runout curves, supplier bottleneck sensitivity deltas, and multi-facility mutual-aid relief models.
+              Generates a comprehensive PDF and raw CSV report encompassing 10,000 MCMC probabilistic runout curves, supplier bottleneck sensitivity deltas, and multi-hospital mutual-aid relief models.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2">

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 export function TransfersLogisticsView({ onToast }) {
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
-  const [selectedFacility, setSelectedFacility] = useState('All');
+  const [selectedHospital, setSelectedHospital] = useState('All');
   const [selectedPriority, setSelectedPriority] = useState('All');
   const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -222,7 +222,7 @@ export function TransfersLogisticsView({ onToast }) {
   ];
 
   const filteredTransfers = transfers.filter(t => {
-    if (selectedFacility !== 'All' && t.origin !== selectedFacility && t.destination !== selectedFacility) return false;
+    if (selectedHospital !== 'All' && t.origin !== selectedHospital && t.destination !== selectedHospital) return false;
     if (selectedPriority !== 'All' && t.scoreType !== selectedPriority) return false;
     return true;
   });
@@ -407,15 +407,15 @@ export function TransfersLogisticsView({ onToast }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="px-2 text-xs font-semibold text-outline uppercase tracking-wider">Filters:</span>
 
-          {/* Facility Filter */}
+          {/* Hospital Filter */}
           <div className="relative">
             <select
-              value={selectedFacility}
-              onChange={(e) => setSelectedFacility(e.target.value)}
-              aria-label="Filter transfers by facility"
+              value={selectedHospital}
+              onChange={(e) => setSelectedHospital(e.target.value)}
+              aria-label="Filter transfers by hospital"
               className="appearance-none flex items-center gap-1.5 pl-8 pr-7 py-1.5 rounded-xl bg-surface-container-lowest text-on-surface text-xs font-medium shadow-xs cursor-pointer hover:bg-surface-container-high transition-colors border border-surface-container-high/60 outline-none"
             >
-              <option value="All">Facility: All 6 Centers</option>
+              <option value="All">Hospital: All 6 Centers</option>
               <option value="MedCare General">MedCare General</option>
               <option value="Valley Trauma Center">Valley Trauma Center</option>
               <option value="St. Jude Regional">St. Jude Regional</option>
@@ -890,7 +890,7 @@ export function TransfersLogisticsView({ onToast }) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-on-surface mb-1">Destination Facility</label>
+                <label className="block text-xs font-semibold text-on-surface mb-1">Destination Hospital</label>
                 <select name="destination" required className="w-full p-2.5 rounded-xl bg-surface-container-low text-xs border border-surface-container-high text-on-surface">
                   <option value="Valley Trauma Center">Valley Trauma Center</option>
                   <option value="St. Jude Regional">St. Jude Regional</option>

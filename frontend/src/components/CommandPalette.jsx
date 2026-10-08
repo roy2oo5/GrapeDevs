@@ -12,8 +12,8 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
     { type: 'ACTION', label: 'Emergency Stock Request', detail: 'Initiate emergency clinical borrow under MOU', action: 'emergency-request' },
     { type: 'ACTION', label: 'Export Audit Telemetry', detail: 'Download signed FIPS 140-3 cryptographic logs', action: 'export-audit' },
     { type: 'ACTION', label: 'Run AI Redistribution Optimizer', detail: 'Execute linear solver across all 6 facilities', action: 'run-optimizer' },
-    { type: 'FACILITY', label: 'St. Jude Regional Hospital', detail: 'Node 03 • 600u Paracetamol Available', action: 'node-stjude' },
-    { type: 'FACILITY', label: 'Valley Trauma Center', detail: 'Node 02 • 420u Propofol Surplus', action: 'node-valley' },
+    { type: 'HOSPITAL', label: 'St. Jude Regional Hospital', detail: 'Node 03 • 600u Paracetamol Available', action: 'node-stjude' },
+    { type: 'HOSPITAL', label: 'Valley Trauma Center', detail: 'Node 02 • 420u Propofol Surplus', action: 'node-valley' },
   ];
 
   const filtered = items.filter(
@@ -55,7 +55,7 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a SKU name, facility, or system command..."
+            placeholder="Type a SKU name, hospital, or system command..."
             className="flex-1 bg-transparent text-on-surface font-body-lg text-body-lg focus:outline-none placeholder:text-outline"
           />
           <button

@@ -163,7 +163,7 @@ export function InfoModal({ modalType, onClose }) {
               </p>
               <h4 className="font-semibold text-on-surface text-sm">Privacy &amp; Data Boundary</h4>
               <p>
-                All batch inventories, lot numbers, and facility consumption logs are partitioned behind zero-knowledge encryption barriers. No protected health information (PHI) is transmitted or stored.
+                All batch inventories, lot numbers, and hospital consumption logs are partitioned behind zero-knowledge encryption barriers. No protected health information (PHI) is transmitted or stored.
               </p>
               <h4 className="font-semibold text-on-surface text-sm">Auditability</h4>
               <p>

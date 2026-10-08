@@ -8,8 +8,8 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationGlow, setSimulationGlow] = useState(false);
 
-  // Modal State for Inter-Facility MOU Dispatch
-  const [mouDialog, setMouDialog] = useState(null); // { title, sku, facility, route }
+  // Modal State for Inter-Hospital MOU Dispatch
+  const [mouDialog, setMouDialog] = useState(null); // { title, sku, hospital, route }
 
   const handleRunSimulation = () => {
     setIsSimulating(true);
@@ -21,14 +21,14 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
     }, 900);
   };
 
-  const handleOpenBorrow = (sku, facility) => {
+  const handleOpenBorrow = (sku, hospital) => {
     if (onOpenEmergencyModal) {
       onOpenEmergencyModal();
     } else {
       setMouDialog({
-        title: 'Inter-Facility Shortage Mitigator',
+        title: 'Inter-Hospital Shortage Mitigator',
         sku,
-        facility,
+        hospital,
         route: 'Direct Hospital Handoff'
       });
     }
@@ -41,7 +41,7 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
       setMouDialog({
         title: 'Expiry Redistribution Matcher',
         sku: `${med} (${lot})`,
-        facility: `Matched Regional Partner • Stock: ${val}`,
+        hospital: `Matched Regional Partner • Stock: ${val}`,
         route: 'Peer Redistribution Protocol'
       });
     }
@@ -71,7 +71,7 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
       actionText: 'Initiate Borrow',
       actionClass: 'bg-error text-on-error hover:opacity-90',
       category: 'under3',
-      facilityMatch: 'St. Jude Health Hub'
+      hospitalMatch: 'St. Jude Health Hub'
     },
     {
       id: 2,
@@ -89,7 +89,7 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
       actionText: 'Route Stock',
       actionClass: 'bg-surface-container-high text-on-surface hover:bg-primary-container hover:text-on-primary-container',
       category: 'under3',
-      facilityMatch: 'Valley Trauma Center'
+      hospitalMatch: 'Valley Trauma Center'
     },
     {
       id: 3,
@@ -107,7 +107,7 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
       actionText: 'PO Staged',
       actionClass: 'bg-surface-container-low text-on-surface hover:bg-surface-container-high',
       category: 'surge',
-      facilityMatch: 'Automated Supplier Gateway'
+      hospitalMatch: 'Automated Supplier Gateway'
     },
     {
       id: 4,
@@ -125,7 +125,7 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
       actionText: 'Monitor',
       actionClass: 'bg-surface-container-low text-outline hover:text-on-surface',
       category: 'normal',
-      facilityMatch: 'Internal Buffer Adequate'
+      hospitalMatch: 'Internal Buffer Adequate'
     }
   ];
 
@@ -708,7 +708,7 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
                       <td className="py-3 px-3 text-right">
                         <button
                           type="button"
-                          onClick={() => handleOpenBorrow(item.sku, item.facilityMatch)}
+                          onClick={() => handleOpenBorrow(item.sku, item.hospitalMatch)}
                           className={`px-3 py-1.5 rounded-xl font-label-sm text-label-sm font-semibold shadow-sm transition-all cursor-pointer ${item.actionClass}`}
                         >
                           {item.actionText}
@@ -861,8 +861,8 @@ export function RiskForecastingView({ onToast, onOpenEmergencyModal }) {
                 <span className="font-label-md text-label-md text-on-surface font-semibold">{mouDialog.sku}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-label-sm text-label-sm text-outline">Target Facility:</span>
-                <span className="font-label-md text-label-md text-primary font-semibold">{mouDialog.facility}</span>
+                <span className="font-label-sm text-label-sm text-outline">Target Hospital:</span>
+                <span className="font-label-md text-label-md text-primary font-semibold">{mouDialog.hospital}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-label-sm text-label-sm text-outline">Protocol Route:</span>

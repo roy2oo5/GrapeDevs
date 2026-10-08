@@ -11,19 +11,24 @@ import { LeftTelemetryPanel } from './components/LeftTelemetryPanel';
 import { AuthFormPanel } from './components/AuthFormPanel';
 import { InfoModal } from './components/InfoModal';
 import { ApiTester } from './components/ApiTester';
-import { fetchHealth } from './services/api';
+import {
+  clearAccessToken,
+  fetchCurrentHospital,
+  fetchHealth,
+  getAccessToken,
+} from './services/api';
 
 export default function App() {
-  const [appMode, setAppMode] = useState('dashboard'); // 'dashboard' | 'auth'
+  const [appMode, setAppMode] = useState('auth'); // 'dashboard' | 'auth'
   const [currentView, setCurrentView] = useState('dashboard');
-  const [currentFacility, setCurrentFacility] = useState('MedCare General Hospital');
+  const [currentHospital, setCurrentHospital] = useState('');
   const [backendStatus, setBackendStatus] = useState('checking');
 
   // Modals & Interactive States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [actionModal, setActionModal] = useState(null); // { type, payload }
   const [authModalType, setAuthModalType] = useState(null); // 'reset' | 'sso' | 'terms' | 'telemetry' | 'diagnostics'
-  const [user, setUser] = useState({ name: 'MedCare General Hospital', role: 'Regional Redistribution Hub' });
+  const [user, setUser] = useState(null);
 
   // Toasts
   const [toasts, setToasts] = useState([]);
@@ -46,18 +51,37 @@ export default function App() {
       .catch(() => {
         if (isMounted) setBackendStatus('offline');
       });
+    const token = getAccessToken();
+    if (token) {
+      fetchCurrentHospital()
+        .then((hospital) => {
+          if (!isMounted) return;
+          setCurrentHospital(hospital.name);
+          setUser({ name: hospital.name, role: 'Hospital Administrator' });
+          setAppMode('dashboard');
+        })
+        .catch(() => clearAccessToken());
+    }
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const handleLoginSuccess = (userData) => {
+  const handleLoginSuccess = (session) => {
+    setCurrentHospital(session.hospital_name);
     setUser({
-      name: userData.facility || 'MedCare General Hospital',
-      role: userData.role || 'Regional Redistribution Hub'
+      name: session.hospital_name,
+      role: session.role || 'Hospital Administrator',
     });
     setAppMode('dashboard');
-    addToast(`Authenticated as ${userData.email}. Welcome to Executive Command Console.`);
+    addToast(`Signed in to ${session.hospital_name}.`);
+  };
+
+  const handleSignOut = () => {
+    clearAccessToken();
+    setUser(null);
+    setCurrentHospital('');
+    setAppMode('auth');
   };
 
   const handleCommandAction = (action) => {
@@ -85,18 +109,14 @@ export default function App() {
               setCurrentView(viewId);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onOpenAuth={() => setAppMode('auth')}
+            onOpenAuth={handleSignOut}
           />
 
           {/* Main Layout Area */}
           <div className="pl-72 flex-1 flex flex-col min-w-0">
             {/* Top Fixed Header */}
             <DashboardHeader
-              currentFacility={currentFacility}
-              onFacilityChange={(name) => {
-                setCurrentFacility(name);
-                addToast(`Operating hospital switched to ${name}`);
-              }}
+              currentHospital={currentHospital}
               onOpenSearch={() => setIsSearchOpen(true)}
               user={user}
             />
@@ -120,7 +140,7 @@ export default function App() {
           </div>
         </div>
       ) : (
-        /* VIEW 2: ACCESS CONTROL TOWER (AUTH & FACILITY ONBOARDING) */
+        /* VIEW 2: HOSPITAL ACCESS */
         <div className="min-h-screen flex flex-col justify-between relative">
           <div className="fixed inset-0 pointer-events-none z-0 bg-[radial-gradient(circle_at_50%_18%,rgba(0,123,185,0.07)_0%,transparent_65%)]"></div>
 
@@ -134,21 +154,10 @@ export default function App() {
                   onResetKeyClick={() => setAuthModalType('reset')}
                   onSSOClick={() => setAuthModalType('sso')}
                   onLoginSuccess={handleLoginSuccess}
-                  onRegisterSuccess={(data) => {
-                    addToast(`Onboarding request submitted for ${data.facility}. Pending verification.`);
-                  }}
+                  onRegisterSuccess={(data) => addToast(`${data.hospital_name} is ready for hospital login.`)}
                 />
               </div>
 
-              {/* Quick Jump back to Dashboard */}
-              <button
-                type="button"
-                onClick={() => setAppMode('dashboard')}
-                className="mt-4 text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>Jump to Executive Dashboard Console</span>
-                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-              </button>
             </div>
           </main>
 

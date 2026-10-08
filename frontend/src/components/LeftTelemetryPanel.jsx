@@ -130,7 +130,7 @@ export function LeftTelemetryPanel() {
           <div className="flex items-center justify-between text-surface-container-highest font-label-sm text-label-sm pt-1 border-t border-white/5">
             <span className="flex items-center gap-1 text-surface-variant/90">
               <span className="material-symbols-outlined text-[13px] text-primary-fixed">domain</span>
-              6 Facilities Active
+              6 Hospitals Active
             </span>
             <span className="text-surface-container-lowest font-medium">
               1,420 Monitored SKUs

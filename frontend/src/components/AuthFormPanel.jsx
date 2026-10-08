@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { loginHospital, registerHospital } from '../services/api';
 
 export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onRegisterSuccess }) {
   const [activeTab, setActiveTab] = useState('signin'); // 'signin' | 'register'
 
   // Sign In State
-  const [signinEmail, setSigninEmail] = useState('');
+  const [signinAdminId, setSigninAdminId] = useState('');
   const [signinPassword, setSigninPassword] = useState('');
   const [showSigninPassword, setShowSigninPassword] = useState(false);
   const [rememberTerminal, setRememberTerminal] = useState(false);
@@ -13,9 +14,10 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
   // Register State
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regFacility, setRegFacility] = useState('');
+  const [regHospitalName, setRegHospitalName] = useState('');
   const [regClassification, setRegClassification] = useState('tertiary');
   const [regNodeRole, setRegNodeRole] = useState('pharmacy'); // 'pharmacy' | 'coordinator' | 'logistics'
+  const [regAdminId, setRegAdminId] = useState('');
   const [regPass, setRegPass] = useState('');
   const [regPassConfirm, setRegPassConfirm] = useState('');
   const [showRegPass, setShowRegPass] = useState(false);
@@ -24,37 +26,30 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
   const [authNotification, setAuthNotification] = useState(null);
 
   // Handle Sign In Submission
-  const handleSigninSubmit = (e) => {
+  const handleSigninSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setSigninStatus('verifying');
-
-    setTimeout(() => {
+    try {
+      const session = await loginHospital({
+        hospital_administrator_id: signinAdminId.trim(),
+        terminal_access_key: signinPassword,
+      });
       setSigninStatus('authenticated');
-      const user = {
-        email: signinEmail || 'admin@metropolitan-health.org',
-        node: 'Node Sec-09',
-        role: 'Lead Administrator',
-        timestamp: new Date().toISOString()
-      };
       setAuthNotification({
         type: 'success',
-        title: 'Authentication Successful',
-        message: `Secure terminal session initialized for ${user.email} (Clearance Level 4).`
+        title: 'Hospital Login Successful',
+        message: `Secure session opened for ${session.hospital_name}.`,
       });
-
-      if (onLoginSuccess) {
-        onLoginSuccess(user);
-      }
-
-      setTimeout(() => {
-        setSigninStatus('idle');
-      }, 2000);
-    }, 1200);
+      onLoginSuccess?.(session);
+    } catch (error) {
+      setFormError(error.message || 'Unable to sign in to this hospital.');
+      setSigninStatus('idle');
+    }
   };
 
   // Handle Register Submission
-  const handleRegisterSubmit = (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -69,31 +64,33 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
     }
 
     setRegisterStatus('verifying');
-
-    setTimeout(() => {
-      setRegisterStatus('submitted');
-      const registrationData = {
-        name: regName,
-        email: regEmail,
-        facility: regFacility,
+    try {
+      const registrationData = await registerHospital({
+        hospital_name: regHospitalName.trim(),
+        administrator_name: regName.trim(),
+        administrator_email: regEmail.trim(),
         classification: regClassification,
-        nodeRole: regNodeRole
-      };
-
+        node_role: regNodeRole,
+        hospital_administrator_id: regAdminId.trim(),
+        terminal_access_key: regPass,
+      });
+      setRegisterStatus('submitted');
       setAuthNotification({
         type: 'success',
-        title: 'Onboarding Request Dispatched',
-        message: `Cryptographic audit payload generated for ${regFacility || 'Facility'}. Pending Medical Director signature.`
+        title: 'Hospital Registered',
+        message: `${registrationData.hospital_name} is registered. Sign in with ${registrationData.hospital_administrator_id} to continue.`,
       });
-
-      if (onRegisterSuccess) {
-        onRegisterSuccess(registrationData);
-      }
-
+      onRegisterSuccess?.(registrationData);
+      setSigninAdminId(regAdminId.trim());
+      setSigninPassword('');
+      setActiveTab('signin');
       setTimeout(() => {
         setRegisterStatus('idle');
       }, 2500);
-    }, 1400);
+    } catch (error) {
+      setFormError(error.message || 'Unable to register this hospital.');
+      setRegisterStatus('idle');
+    }
   };
 
   return (
@@ -132,7 +129,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">add_business</span>
-              <span>Register Facility</span>
+              <span>Register Hospital</span>
             </button>
           </div>
         </div>
@@ -170,7 +167,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
           <div className="transition-opacity duration-200" id="signin-view">
             <div className="mb-space-lg">
               <h2 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-semibold">
-                Welcome back
+                Hospital Login
               </h2>
               <p className="font-body-md text-body-md text-secondary mt-1">
                 Access your hospital intelligence node &amp; telemetry console.
@@ -178,13 +175,13 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
             </div>
 
             <form className="space-y-space-md" onSubmit={handleSigninSubmit}>
-              {/* Work Email / Node ID */}
+              {/* Hospital Administrator ID */}
               <div className="space-y-1.5">
                 <label
                   className="block font-label-md text-label-md text-on-surface font-semibold"
                   htmlFor="signin-email"
                 >
-                  Administrator ID or Institutional Email
+                  Hospital Administrator ID
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">
@@ -192,11 +189,11 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                   </span>
                   <input
                     id="signin-email"
-                    type="email"
+                    type="text"
                     required
-                    value={signinEmail}
-                    onChange={(e) => setSigninEmail(e.target.value)}
-                    placeholder="admin@metropolitan-health.org"
+                    value={signinAdminId}
+                    onChange={(e) => setSigninAdminId(e.target.value)}
+                    placeholder="HOSP-ADMIN-0042"
                     className="w-full h-12 pl-11 pr-4 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl shadow-[inset_0_2px_4px_rgba(25,28,30,0.03)] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary/20"
                   />
                 </div>
@@ -209,7 +206,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     className="block font-label-md text-label-md text-on-surface font-semibold"
                     htmlFor="signin-password"
                   >
-                    Terminal Access Key / Password
+                    Terminal Access Key
                   </label>
                   <button
                     type="button"
@@ -312,7 +309,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
           </div>
         )}
 
-        {/* VIEW 2: REGISTER FACILITY FORM */}
+        {/* VIEW 2: REGISTER HOSPITAL FORM */}
         {activeTab === 'register' && (
           <div className="transition-opacity duration-200" id="register-view">
             <div className="mb-space-md">
@@ -320,7 +317,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                 Join Network
               </h2>
               <p className="font-body-md text-body-md text-secondary mt-1">
-                Deploy dynamic demand forecasting for your healthcare facility.
+                Register your hospital and create its first administrator login.
               </p>
             </div>
 
@@ -332,7 +329,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     className="block font-label-md text-label-md text-on-surface font-semibold"
                     htmlFor="reg-name"
                   >
-                    Lead Administrator
+                    Hospital Administrator Name
                   </label>
                   <input
                     id="reg-name"
@@ -340,7 +337,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     required
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    placeholder="Dr. Elena Vance"
+                    placeholder="Alex Morgan"
                     className="w-full h-10 px-3 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl shadow-[inset_0_2px_4px_rgba(25,28,30,0.03)] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary/20"
                   />
                 </div>
@@ -363,22 +360,22 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                 </div>
               </div>
 
-              {/* Facility Name & Classification */}
+              {/* Hospital Name & Classification */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
                 <div className="space-y-1">
                   <label
                     className="block font-label-md text-label-md text-on-surface font-semibold"
-                    htmlFor="reg-facility"
+                    htmlFor="reg-hospital"
                   >
-                    Facility Name
+                    Hospital Name
                   </label>
                   <input
-                    id="reg-facility"
+                    id="reg-hospital"
                     type="text"
                     required
-                    value={regFacility}
-                    onChange={(e) => setRegFacility(e.target.value)}
-                    placeholder="District Hospital Alpha"
+                    value={regHospitalName}
+                    onChange={(e) => setRegHospitalName(e.target.value)}
+                    placeholder="North District General Hospital"
                     className="w-full h-10 px-3 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl shadow-[inset_0_2px_4px_rgba(25,28,30,0.03)] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary/20"
                   />
                 </div>
@@ -387,7 +384,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     className="block font-label-md text-label-md text-on-surface font-semibold"
                     htmlFor="reg-classification"
                   >
-                    Facility Level
+                    Hospital Classification
                   </label>
                   <div className="relative">
                     <select
@@ -409,7 +406,27 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                 </div>
               </div>
 
-              {/* System Role Card Pills */}
+              <div className="space-y-1">
+                <label
+                  className="block font-label-md text-label-md text-on-surface font-semibold"
+                  htmlFor="reg-admin-id"
+                >
+                  Hospital Administrator ID
+                </label>
+                <input
+                  id="reg-admin-id"
+                  type="text"
+                  required
+                  minLength={3}
+                  maxLength={80}
+                  value={regAdminId}
+                  onChange={(e) => setRegAdminId(e.target.value)}
+                  placeholder="HOSP-ADMIN-0042"
+                  className="w-full h-10 px-3 bg-surface-container-low text-on-surface font-body-md text-body-md rounded-xl border border-transparent focus:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {/* Hospital Administrator Role */}
               <div className="space-y-1.5 pt-1">
                 <label className="block font-label-md text-label-md text-on-surface font-semibold">
                   Operational Node Function
@@ -530,7 +547,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                   shield
                 </span>
                 <p className="font-label-sm text-label-sm text-on-secondary-container leading-relaxed font-medium">
-                  Requests require cryptographic audit confirmation by your Regional Medical Director within 2 hours of submission.
+                  This creates the hospital and its first administrator account. The terminal access key is stored as a secure hash.
                 </p>
               </div>
 
@@ -545,16 +562,16 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
-                    <span>Transmitting Institutional Enrollment...</span>
+                    <span>Registering Hospital...</span>
                   </>
                 ) : registerStatus === 'submitted' ? (
                   <>
                     <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
-                    <span>Audit Request Dispatched</span>
+                    <span>Hospital Registered</span>
                   </>
                 ) : (
                   <>
-                    <span>Submit Onboarding Request</span>
+                    <span>Create Hospital Account</span>
                     <span className="material-symbols-outlined text-[18px]">send</span>
                   </>
                 )}

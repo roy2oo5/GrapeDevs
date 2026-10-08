@@ -24,7 +24,7 @@ export function SecondaryViews({ view, onToast }) {
     return <MOUPartnersView onToast={onToast} />;
   }
 
-  if (view === 'collaboration-and-mou-management' || view === 'facility-network' || view === 'mou-management' || view === 'collaboration') {
+  if (view === 'collaboration-and-mou-management' || view === 'hospital-network' || view === 'mou-management' || view === 'collaboration') {
     return <CollaborationMOUView onToast={onToast} />;
   }
 

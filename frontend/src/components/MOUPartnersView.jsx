@@ -703,7 +703,7 @@ export function MOUPartnersView({ onToast }) {
                 <span className="font-semibold text-on-surface">{selectedTransferItem.drugName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-outline">Source Facility:</span>
+                <span className="text-outline">Source Hospital:</span>
                 <span className="text-on-surface">{selectedTransferItem.offeringNode}</span>
               </div>
               <div className="flex justify-between">
@@ -929,7 +929,7 @@ export function MOUPartnersView({ onToast }) {
               </div>
               <div className="p-3 bg-surface-container-low rounded-xl space-y-1">
                 <div className="font-bold text-tertiary">Level 2: Strategic Borrowing</div>
-                <p className="text-outline">Cross-facility loans for surge defense with automated 14-day replenishment tracking.</p>
+                <p className="text-outline">Cross-hospital loans for surge defense with automated 14-day replenishment tracking.</p>
               </div>
               <div className="p-3 bg-surface-container-low rounded-xl space-y-1">
                 <div className="font-bold text-amber-700">Level 3: Strategic Reserve (Biosecurity)</div>

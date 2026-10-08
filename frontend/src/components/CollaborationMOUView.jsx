@@ -30,7 +30,7 @@ export function CollaborationMOUView({ onToast }) {
   const [agreements, setAgreements] = useState([
     {
       id: 'MOU-2024-VTC-09',
-      facilityName: 'Valley Trauma Center',
+      hospitalName: 'Valley Trauma Center',
       status: 'active',
       accordType: 'Bilateral Clinical Mutual-Aid Compact',
       signatory: 'Dr. Marcus Vance (CMO)',
@@ -44,7 +44,7 @@ export function CollaborationMOUView({ onToast }) {
     },
     {
       id: 'MOU-2024-SJR-03',
-      facilityName: 'St. Jude Regional Hospital',
+      hospitalName: 'St. Jude Regional Hospital',
       status: 'pending',
       accordType: 'Regional Tier-2 Pediatric & Critical Accord',
       signatory: 'Elena Rostova, VP Operations',
@@ -59,7 +59,7 @@ export function CollaborationMOUView({ onToast }) {
     },
     {
       id: 'MOU-2023-NDC-14',
-      facilityName: 'North District Community Clinic',
+      hospitalName: 'North District Community Clinic',
       status: 'active',
       accordType: 'Outpatient Emergency Redistribution Accord',
       signatory: 'J. Sterling, PharmD',
@@ -73,7 +73,7 @@ export function CollaborationMOUView({ onToast }) {
     },
     {
       id: 'MOU-2024-HMM-08',
-      facilityName: 'Highland Mercy Medical Center',
+      hospitalName: 'Highland Mercy Medical Center',
       status: 'active',
       accordType: 'Full Cross-Network Emergency Accord',
       signatory: 'Dr. Arthur Pendelton',
@@ -87,7 +87,7 @@ export function CollaborationMOUView({ onToast }) {
     },
     {
       id: 'MOU-2022-MBD-01',
-      facilityName: 'Metro Bio-Defense Research Depot',
+      hospitalName: 'Metro Bio-Defense Research Depot',
       status: 'archived',
       accordType: 'Strategic National Countermeasure MOU',
       signatory: 'Col. Raymond Shaw (Depot Lead)',
@@ -111,7 +111,7 @@ export function CollaborationMOUView({ onToast }) {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
-        a.facilityName.toLowerCase().includes(q) ||
+        a.hospitalName.toLowerCase().includes(q) ||
         a.id.toLowerCase().includes(q) ||
         a.signatory.toLowerCase().includes(q)
       );
@@ -351,7 +351,7 @@ export function CollaborationMOUView({ onToast }) {
                     <div className="flex items-start justify-between pl-1">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                          <span className="font-label-lg text-label-lg text-on-surface font-semibold">{item.facilityName}</span>
+                          <span className="font-label-lg text-label-lg text-on-surface font-semibold">{item.hospitalName}</span>
                           {item.status === 'active' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary-fixed/40 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">
                               <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
@@ -426,7 +426,7 @@ export function CollaborationMOUView({ onToast }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-sm border-b border-surface-container-low">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">{selectedMOU.facilityName}</h2>
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">{selectedMOU.hospitalName}</h2>
                   <span className="px-2.5 py-0.5 rounded-full bg-tertiary-fixed/30 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
                     Active Governance Protocol
@@ -451,7 +451,7 @@ export function CollaborationMOUView({ onToast }) {
                       type="button"
                       onClick={() => {
                         setAgreements(prev => prev.map(a => a.id === selectedMOU.id ? { ...a, status: 'active' } : a));
-                        if (onToast) onToast(`MOU Terms Accepted for ${selectedMOU.facilityName}! Collaboration active.`);
+                        if (onToast) onToast(`MOU Terms Accepted for ${selectedMOU.hospitalName}! Collaboration active.`);
                       }}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-tertiary hover:bg-tertiary/90 text-on-tertiary font-label-md text-label-md transition-colors shadow-sm cursor-pointer font-bold"
                     >
@@ -462,7 +462,7 @@ export function CollaborationMOUView({ onToast }) {
                       type="button"
                       onClick={() => {
                         setAgreements(prev => prev.map(a => a.id === selectedMOU.id ? { ...a, status: 'archived' } : a));
-                        if (onToast) onToast(`Collaboration request rejected for ${selectedMOU.facilityName}.`);
+                        if (onToast) onToast(`Collaboration request rejected for ${selectedMOU.hospitalName}.`);
                       }}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-error-container hover:bg-error text-on-error-container hover:text-on-error font-label-md text-label-md transition-colors shadow-sm cursor-pointer font-bold"
                     >
@@ -474,7 +474,7 @@ export function CollaborationMOUView({ onToast }) {
                   <>
                     <button
                       type="button"
-                      onClick={() => onToast && onToast(`Executed Legal Terms PDF generated for ${selectedMOU.facilityName}`)}
+                      onClick={() => onToast && onToast(`Executed Legal Terms PDF generated for ${selectedMOU.hospitalName}`)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-colors cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
@@ -547,7 +547,7 @@ export function CollaborationMOUView({ onToast }) {
                     <div className="flex flex-col">
                       <span className="font-label-md text-label-md text-on-surface font-semibold">Requires Bilateral Approval</span>
                       <span className="font-body-sm text-body-sm text-on-surface-variant text-[12px] leading-tight mt-0.5">
-                        Simultaneous dual cryptographic sign-off by both facility Chief Pharmacists for transactions exceeding $25,000 or controlled narcotics.
+                        Simultaneous dual cryptographic sign-off by both hospital Chief Pharmacists for transactions exceeding $25,000 or controlled narcotics.
                       </span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
@@ -814,7 +814,7 @@ export function CollaborationMOUView({ onToast }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => onToast && onToast(`Downloaded Accord Package for ${selectedMOU.facilityName}`)}
+                  onClick={() => onToast && onToast(`Downloaded Accord Package for ${selectedMOU.hospitalName}`)}
                   className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm transition-colors flex items-center gap-1 shadow-sm cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">download</span>

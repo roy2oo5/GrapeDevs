@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 
 export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
   const [expandedRows, setExpandedRows] = useState({ para: true });
+  const [isAddBatchOpen, setIsAddBatchOpen] = useState(false);
+  const [batchForm, setBatchForm] = useState({
+    sku_code: '',
+    medicine_name: '',
+    quantity: '',
+    lot_number: '',
+    expires_on: '',
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [storageFilter, setStorageFilter] = useState('all');
@@ -124,7 +132,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
   };
 
   // SKU List
-  const skus = [
+  const [skus, setSkus] = useState([
     {
       key: 'para',
       code: 'MED-PARA-500',
@@ -268,7 +276,56 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
       category: 'Emergency & Critical Care',
       subContent: '85 units distributed across 6 Rapid Response Crash Carts and Main Emergency Stock. Lot #EPI-2024-X expires in 11 months.'
     }
-  ];
+  ]);
+
+  const handleAddBatch = (event) => {
+    event.preventDefault();
+    const code = batchForm.sku_code.trim();
+    const name = batchForm.medicine_name.trim();
+    const unit = 'units';
+    const quantity = Number(batchForm.quantity);
+    const lotNumber = batchForm.lot_number.trim();
+    const expiryDescription = batchForm.expires_on
+      ? `Exp: ${new Date(`${batchForm.expires_on}T00:00:00`).toLocaleDateString()}`
+      : 'Expiry not recorded';
+    const key = `batch-${Date.now()}`;
+    const sku = {
+      key,
+      code,
+      depot: 'Current hospital',
+      name,
+      unit,
+      atc: 'New inventory batch',
+      storage: 'Ambient (15-25°C)',
+      storageType: 'ambient',
+      storageIcon: 'thermostat',
+      stock: `${quantity} ${unit}`,
+      bufferPct: 'New',
+      bufferColor: 'text-primary font-bold',
+      bufferBar: 'bg-primary',
+      inbound: '0 units',
+      inboundSub: 'No pending shipments',
+      reorder: 'Not set',
+      minSafety: 'Not set',
+      status: 'New Batch',
+      statusClass: 'bg-primary-fixed text-on-primary-fixed-variant',
+      ping: false,
+      category: 'New Inventory',
+      subContent: `Lot ${lotNumber || 'not recorded'} • ${quantity} ${unit} on hand • ${expiryDescription}`,
+    };
+
+    setSkus((current) => [sku, ...current]);
+    setExpandedRows((current) => ({ ...current, [key]: true }));
+    setBatchForm({
+      sku_code: '',
+      medicine_name: '',
+      quantity: '',
+      lot_number: '',
+      expires_on: '',
+    });
+    setIsAddBatchOpen(false);
+    if (onToast) onToast(`Inventory batch added locally: ${code} (${quantity} ${unit}).`);
+  };
 
   const filteredSKUs = skus.filter((item) => {
     if (searchQuery.trim()) {
@@ -319,6 +376,14 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
         <div className="flex items-center gap-space-sm flex-wrap xl:self-start">
           <button
             type="button"
+            onClick={() => setIsAddBatchOpen(true)}
+            className="flex items-center gap-2 px-space-md py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary transition-colors font-label-md text-label-md shadow-sm cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span>Add Inventory</span>
+          </button>
+          <button
+            type="button"
             onClick={() => onToast && onToast('Stock manifest exported (CSV & PDF).')}
             className="flex items-center gap-2 px-space-md py-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container-high text-on-surface transition-all font-label-md text-label-md shadow-sm active:scale-95 cursor-pointer border border-surface-container-high/60"
           >
@@ -327,6 +392,113 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
           </button>
         </div>
       </div>
+
+      {isAddBatchOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsAddBatchOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-inventory-title"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-surface-container-high bg-surface-container-lowest p-5 shadow-2xl sm:p-6"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="add-inventory-title" className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+                  Add inventory batch
+                </h2>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  Enter a batch record. This preview is stored in this screen only.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close add inventory form"
+                onClick={() => setIsAddBatchOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-outline hover:bg-surface-container hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddBatch} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
+                SKU code
+                <input
+                  required
+                  maxLength={80}
+                  value={batchForm.sku_code}
+                  onChange={(event) => setBatchForm({ ...batchForm, sku_code: event.target.value })}
+                  placeholder="IV-PARA-500"
+                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
+                Medicine name
+                <input
+                  required
+                  maxLength={200}
+                  value={batchForm.medicine_name}
+                  onChange={(event) => setBatchForm({ ...batchForm, medicine_name: event.target.value })}
+                  placeholder="Paracetamol 500mg IV"
+                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
+                Quantity
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={batchForm.quantity}
+                  onChange={(event) => setBatchForm({ ...batchForm, quantity: event.target.value })}
+                  placeholder="140"
+                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
+                Lot number
+                <input
+                  maxLength={100}
+                  value={batchForm.lot_number}
+                  onChange={(event) => setBatchForm({ ...batchForm, lot_number: event.target.value })}
+                  placeholder="LOT-99214-A"
+                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
+                Expiration date
+                <input
+                  type="date"
+                  value={batchForm.expires_on}
+                  onChange={(event) => setBatchForm({ ...batchForm, expires_on: event.target.value })}
+                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
+                />
+              </label>
+              <div className="flex justify-end gap-2 border-t border-surface-container pt-4 sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddBatchOpen(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container"
+                >
+                  Add batch
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       {/* Summary KPI Cards Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pb-space-lg">

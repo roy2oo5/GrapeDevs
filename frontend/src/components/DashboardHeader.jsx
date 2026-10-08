@@ -1,24 +1,13 @@
 import React, { useState } from 'react';
 
 export function DashboardHeader({
-  currentFacility = 'MedCare General Hospital',
-  onFacilityChange,
+  currentHospital = 'MedCare General Hospital',
   onOpenSearch,
   onOpenNotifications,
   unreadCount = 3,
   user = { name: 'Dr. Sarah Lin', role: 'Chief Pharmacy Logistics' }
 }) {
-  const [showFacilityDropdown, setShowFacilityDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  const facilities = [
-    { name: 'MedCare General Hospital', type: 'Tertiary Trauma Center', id: 'medcare' },
-    { name: 'Valley Trauma Center', type: 'Secondary Regional Hub', id: 'valley' },
-    { name: 'St. Jude Regional Hospital', type: 'Tertiary Care & Burn Center', id: 'stjude' },
-    { name: 'Apex Memorial Medical', type: 'District General Hospital', id: 'apex' },
-    { name: 'North District Clinic', type: 'Community Outpatient Node', id: 'north' },
-    { name: 'Regional Strategic Depot', type: 'Central Stockpile Depository', id: 'depot' },
-  ];
 
   const notificationItems = [
     {
@@ -52,7 +41,7 @@ export function DashboardHeader({
           <span className="material-symbols-outlined text-primary text-[20px]">local_hospital</span>
           <div className="flex flex-col text-left">
             <span className="font-label-md text-label-md text-on-surface leading-tight font-semibold">
-              {currentFacility}
+              {currentHospital}
             </span>
             <span className="font-body-sm text-body-sm text-on-surface-variant leading-none">
               Surplus Redistribution Terminal

@@ -130,7 +130,7 @@ export function DashboardView({ onToast, onOpenEmergencyModal, onOpenAuditModal,
               Executive Command Console
             </h1>
             <p className="font-body-lg text-body-lg text-on-surface-variant mt-1 leading-relaxed">
-              Real-time epidemiological surge tracking and multi-facility supply rebalancing across Regional District 4.
+              Real-time epidemiological surge tracking and multi-hospital supply rebalancing across Regional District 4.
             </p>
           </div>
 
