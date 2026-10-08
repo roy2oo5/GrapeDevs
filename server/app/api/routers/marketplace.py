@@ -1,18 +1,22 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import date
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, aliased
 
 from app.api.routers.auth import get_current_hospital_admin
 from app.db.session import get_db
-from app.models import Hospital, InventoryBatch, SurplusListing, TransferRequest
+from app.models import Hospital, InventoryBatch, SurplusListing, TransferAuditEvent, TransferRequest
 from app.schemas import (
     HospitalAdminIdentity,
     SurplusListingCreate,
     SurplusListingRead,
     SurplusRequestCreate,
 )
+from app.services.geography import is_within_hospital_radius
+from app.services.realtime import publish_hospital_event
 
 
 router = APIRouter(prefix="/marketplace", tags=["Surplus Marketplace"])
@@ -88,14 +92,18 @@ def list_listings(
             SurplusListing.status == "active",
             SurplusListing.hospital_id != identity.hospital_id,
             SurplusListing.quantity_available >= min_quantity,
+            (SurplusListing.expires_on.is_(None) | (SurplusListing.expires_on >= date.today())),
         )
         .order_by(SurplusListing.expires_on.asc().nullslast(), SurplusListing.created_at.desc())
     )
     if sku_code:
         statement = statement.where(SurplusListing.sku_code == sku_code)
+    current_hospital = db.get(Hospital, identity.hospital_id)
     return [
         serialize_listing(db, listing, hospital_name)
         for listing, hospital_name in db.execute(statement)
+        if current_hospital is not None
+        and is_within_hospital_radius(current_hospital, db.get(Hospital, listing.hospital_id))
     ]
 
 
@@ -155,6 +163,7 @@ def publish_listing(
     db.add(listing)
     db.commit()
     db.refresh(listing)
+    publish_hospital_event({identity.hospital_id}, "marketplace.updated", listing_id=str(listing.id))
     return serialize_listing(db, listing)
 
 
@@ -168,8 +177,30 @@ def request_listing(
     listing = db.get(SurplusListing, listing_id)
     if listing is None or listing.status != "active" or listing.hospital_id == identity.hospital_id:
         raise HTTPException(status_code=404, detail="Surplus listing not found")
+    source_hospital = db.get(Hospital, listing.hospital_id)
+    requesting_hospital = db.get(Hospital, identity.hospital_id)
+    if (
+        source_hospital is None
+        or requesting_hospital is None
+        or not is_within_hospital_radius(requesting_hospital, source_hospital)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Surplus can only be requested from a hospital within 50 km",
+        )
     if payload.quantity > listing.quantity_available:
         raise HTTPException(status_code=409, detail="Requested quantity is no longer available")
+    if listing.expires_on is not None and listing.expires_on < date.today():
+        raise HTTPException(status_code=409, detail="This surplus listing has expired")
+    duplicate = db.scalar(
+        select(TransferRequest).where(
+            TransferRequest.surplus_listing_id == listing.id,
+            TransferRequest.requesting_hospital_id == identity.hospital_id,
+            TransferRequest.status.in_(("requested", "approved", "in_transit")),
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(status_code=409, detail="You already have an active request for this surplus listing")
 
     transfer = TransferRequest(
         requesting_hospital_id=identity.hospital_id,
@@ -187,8 +218,22 @@ def request_listing(
     if listing.quantity_available == 0:
         listing.status = "filled"
     db.add(transfer)
+    db.flush()
+    db.add(TransferAuditEvent(
+        transfer_id=transfer.id,
+        actor_hospital_id=identity.hospital_id,
+        from_status=None,
+        to_status="requested",
+        quantity=transfer.quantity,
+    ))
     db.commit()
     db.refresh(transfer)
+    publish_hospital_event(
+        {identity.hospital_id, listing.hospital_id},
+        "marketplace.updated",
+        listing_id=str(listing.id),
+        transfer_id=str(transfer.id),
+    )
     return {"transfer": transfer, "listing": serialize_listing(db, listing)}
 
 

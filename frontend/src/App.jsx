@@ -20,6 +20,7 @@ import {
   fetchInventory,
   fetchTransfers,
   getAccessToken,
+  openRealtimeConnection,
   updateTransferStatus,
 } from './services/api';
 
@@ -32,6 +33,7 @@ export default function App() {
   const [hospitalTransfers, setHospitalTransfers] = useState([]);
   const [hospitalInventory, setHospitalInventory] = useState([]);
   const [dashboardError, setDashboardError] = useState('');
+  const [syncVersion, setSyncVersion] = useState(0);
 
   // Modals & Interactive States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -90,6 +92,30 @@ export default function App() {
 
   useEffect(() => {
     if (appMode === 'dashboard') loadHospitalDashboard();
+  }, [appMode]);
+
+  useEffect(() => {
+    if (appMode !== 'dashboard' || !getAccessToken()) return undefined;
+    let reconnectTimer;
+    let disposed = false;
+    const connect = () => {
+      const websocket = openRealtimeConnection({
+        onMessage: () => {
+          setSyncVersion((version) => version + 1);
+          loadHospitalDashboard();
+        },
+        onClose: () => {
+          if (!disposed) reconnectTimer = window.setTimeout(connect, 2000);
+        },
+      });
+      return websocket;
+    };
+    const websocket = connect();
+    return () => {
+      disposed = true;
+      window.clearTimeout(reconnectTimer);
+      websocket?.close();
+    };
   }, [appMode]);
 
   const handleLoginSuccess = (session) => {
@@ -185,6 +211,7 @@ export default function App() {
                 />
               ) : (
                 <SecondaryViews
+                  key={syncVersion}
                   view={currentView}
                   onToast={addToast}
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}

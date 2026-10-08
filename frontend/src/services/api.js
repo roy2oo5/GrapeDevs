@@ -7,6 +7,25 @@ export function getAccessToken() {
   return window.sessionStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+export function openRealtimeConnection({ onMessage, onClose } = {}) {
+  const token = getAccessToken();
+  if (!token) return null;
+  const configuredUrl = import.meta.env.VITE_API_URL;
+  const websocketBase = configuredUrl
+    ? configuredUrl.replace(/^http/, 'ws')
+    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+  const websocket = new WebSocket(`${websocketBase}/api/ws?token=${encodeURIComponent(token)}`);
+  websocket.addEventListener('message', (event) => {
+    try {
+      onMessage?.(JSON.parse(event.data));
+    } catch {
+      console.warn('Received an invalid realtime event.');
+    }
+  });
+  websocket.addEventListener('close', () => onClose?.());
+  return websocket;
+}
+
 export function setAccessToken(token) {
   window.sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
 }
@@ -101,6 +120,29 @@ export function fetchInventoryForecast(horizonDays = 30) {
   return request(`/api/inventory/forecast?horizon_days=${horizonDays}`, {}, true);
 }
 
+export function fetchMouInventoryAvailability(skuCode) {
+  return request(`/api/inventory/mou-availability?sku_code=${encodeURIComponent(skuCode)}`, {}, true);
+}
+
+export function saveDailyUsage(payload) {
+  return request('/api/data/usage', { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function saveSurveillanceReport(payload) {
+  return request('/api/data/surveillance', { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function fetchDemandForecast(forecast) {
+  return request('/api/forecast/predict', {
+    method: 'POST',
+    body: JSON.stringify(forecast),
+  }, true);
+}
+
+export function fetchDemandForecastModelInfo() {
+  return request('/api/forecast/model-info', {}, true);
+}
+
 export function fetchTransfers(params = {}) {
   const query = new URLSearchParams(params);
   return request(`/api/transfers${query.size ? `?${query}` : ''}`, {}, true);
@@ -128,6 +170,13 @@ export function fetchMySurplusListings() {
 
 export function publishSurplusListing(listing) {
   return request('/api/marketplace/listings', { method: 'POST', body: JSON.stringify(listing) }, true);
+}
+
+export function requestSurplusListing(listingId, requestDetails) {
+  return request(`/api/marketplace/listings/${listingId}/request`, {
+    method: 'POST',
+    body: JSON.stringify(requestDetails),
+  }, true);
 }
 
 export function deleteSurplusListing(listingId) {

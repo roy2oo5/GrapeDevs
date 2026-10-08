@@ -2,12 +2,12 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.api.routers.auth import get_current_hospital_admin
-from app.models import Hospital, InventoryBatch
+from app.models import Hospital, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage
 from app.schemas import (
     HospitalAdminIdentity,
     InventoryBatchCreate,
@@ -16,6 +16,8 @@ from app.schemas import (
     InventoryBatchUpdate,
     InventoryUsageUpdate,
 )
+from app.services.geography import is_within_hospital_radius
+from app.services.realtime import publish_hospital_event
 
 
 router = APIRouter(
@@ -43,6 +45,7 @@ def create_inventory_batch(
     db.add(batch)
     db.commit()
     db.refresh(batch)
+    publish_hospital_event({identity.hospital_id}, "inventory.updated", batch_id=str(batch.id))
     return batch
 
 
@@ -56,29 +59,141 @@ def inventory_forecast(
         db.scalars(
             select(InventoryBatch).where(
                 InventoryBatch.hospital_id == identity.hospital_id,
-                InventoryBatch.average_daily_use > 0,
+                InventoryBatch.quantity > 0,
             )
         )
     )
     forecasts = []
+    latest_surveillance = db.scalar(
+        select(HospitalSurveillance)
+        .where(
+            HospitalSurveillance.hospital_id == identity.hospital_id,
+            HospitalSurveillance.report_date >= date.today() - timedelta(days=7),
+        )
+        .order_by(HospitalSurveillance.report_date.desc())
+    )
+    surveillance_multiplier = 1.0
+    surveillance_status = "no_recent_surveillance"
+    if latest_surveillance is not None:
+        surveillance_status = latest_surveillance.alert_level
+        if latest_surveillance.outbreak_flag or latest_surveillance.alert_level == "surge":
+            surveillance_multiplier = 1.25
+        elif latest_surveillance.alert_level == "watch":
+            surveillance_multiplier = 1.10
     for batch in batches:
-        projected_use = batch.average_daily_use * horizon_days
-        days_remaining = batch.quantity / batch.average_daily_use
+        recent_usage = db.scalar(
+            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
+                MedicineDailyUsage.hospital_id == identity.hospital_id,
+                MedicineDailyUsage.sku_code == batch.sku_code,
+                MedicineDailyUsage.usage_date >= date.today() - timedelta(days=30),
+            )
+        )
+        base_daily_use = float(recent_usage) if recent_usage is not None else batch.average_daily_use
+        daily_use = base_daily_use * surveillance_multiplier
+        projected_use = daily_use * horizon_days
+        days_remaining = (
+            batch.quantity / daily_use
+            if daily_use > 0
+            else None
+        )
+        daily_forecast = [
+            {
+                "date": (date.today() + timedelta(days=offset)).isoformat(),
+                "predicted_demand": round(daily_use, 2),
+                "projected_quantity": round(
+                    max(0, batch.quantity - (daily_use * (offset + 1))), 2
+                ),
+            }
+            for offset in range(horizon_days)
+        ]
+        risk_level = (
+            "critical_shortage"
+            if days_remaining is not None and days_remaining <= 3
+            else "shortage_within_horizon"
+            if days_remaining is not None and days_remaining <= horizon_days
+            else "no_shortage_projected"
+        )
         forecasts.append(
             {
                 "inventory_batch_id": str(batch.id),
                 "sku_code": batch.sku_code,
                 "medicine_name": batch.sku_name,
                 "current_quantity": batch.quantity,
-                "average_daily_use": batch.average_daily_use,
+                "average_daily_use": round(daily_use, 2),
+                "base_daily_use": round(base_daily_use, 2),
+                "data_source": "daily_usage_records" if recent_usage is not None else "inventory_batch_average",
+                "surveillance_status": surveillance_status,
+                "surveillance_multiplier": surveillance_multiplier,
                 "horizon_days": horizon_days,
                 "projected_quantity": max(0, batch.quantity - projected_use),
-                "days_until_stockout": round(days_remaining, 1),
-                "stockout_within_horizon": days_remaining <= horizon_days,
+                "days_until_stockout": round(days_remaining, 1) if days_remaining is not None else None,
+                "stockout_within_horizon": days_remaining is not None and days_remaining <= horizon_days,
+                "risk_level": risk_level,
+                "daily_forecast": daily_forecast,
                 "expires_on": batch.expires_on.isoformat() if batch.expires_on else None,
             }
         )
     return {"hospital_id": str(identity.hospital_id), "horizon_days": horizon_days, "forecasts": forecasts}
+
+
+@router.get("/mou-availability")
+def mou_inventory_availability(
+    sku_code: str = Query(min_length=1),
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    """Show same-SKU stock at active MOU partners, preserving a 14-day reserve."""
+    partner_ids = db.scalars(
+        select(HospitalAgreement.partner_hospital_id).where(
+            HospitalAgreement.hospital_id == identity.hospital_id,
+            HospitalAgreement.status == "active",
+        )
+    ).all()
+    reverse_partner_ids = db.scalars(
+        select(HospitalAgreement.hospital_id).where(
+            HospitalAgreement.partner_hospital_id == identity.hospital_id,
+            HospitalAgreement.status == "active",
+        )
+    ).all()
+    partner_ids = set(partner_ids).union(reverse_partner_ids)
+    current_hospital = db.get(Hospital, identity.hospital_id)
+    partner_hospitals = list(
+        db.scalars(select(Hospital).where(Hospital.id.in_(partner_ids), Hospital.status == "active"))
+    )
+    partner_ids = {
+        hospital.id
+        for hospital in partner_hospitals
+        if current_hospital is not None
+        and is_within_hospital_radius(current_hospital, hospital)
+    }
+    if not partner_ids:
+        return {"sku_code": sku_code, "partners": []}
+
+    batches = db.scalars(
+        select(InventoryBatch).where(
+            InventoryBatch.hospital_id.in_(partner_ids),
+            InventoryBatch.sku_code == sku_code,
+            InventoryBatch.quantity > 0,
+        )
+    ).all()
+    hospitals = {hospital.id: hospital.name for hospital in partner_hospitals if hospital.id in partner_ids}
+    partners = []
+    for batch in batches:
+        reserve = batch.average_daily_use * 14
+        partners.append(
+            {
+                "hospital_id": str(batch.hospital_id),
+                "hospital_name": hospitals.get(batch.hospital_id, "MOU hospital"),
+                "sku_code": batch.sku_code,
+                "sku_name": batch.sku_name,
+                "quantity_on_hand": batch.quantity,
+                "average_daily_use": batch.average_daily_use,
+                "protected_reserve": round(reserve, 2),
+                "quantity_shareable": max(0, round(batch.quantity - reserve)),
+                "expires_on": batch.expires_on.isoformat() if batch.expires_on else None,
+            }
+        )
+    return {"sku_code": sku_code, "partners": partners}
 
 
 @router.get("/batches", response_model=list[InventoryBatchRead])
@@ -118,6 +233,7 @@ def update_inventory_batch(
     batch.quantity = payload.quantity
     db.commit()
     db.refresh(batch)
+    publish_hospital_event({identity.hospital_id}, "inventory.updated", batch_id=str(batch.id))
     return batch
 
 

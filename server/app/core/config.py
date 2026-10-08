@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     AUTH_TOKEN_SECRET: str = ""
     AUTH_TOKEN_TTL_MINUTES: int = 60
+    FORECAST_SERVICE_URL: str = "http://127.0.0.1:8010"
 
     model_config = SettingsConfigDict(
         env_file=[SERVER_DIR / ".env", PROJECT_ROOT / ".env"],

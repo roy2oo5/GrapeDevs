@@ -21,7 +21,13 @@ from app.schemas.marketplace import (
     SurplusRequestCreate,
 )
 from app.schemas.operations import HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
-from app.schemas.transfer import TransferCreate, TransferRead, TransferStatusUpdate
+from app.schemas.transfer import TransferAuditRead, TransferCreate, TransferRead, TransferStatusUpdate
+from app.schemas.usage import (
+    HospitalSurveillanceCreate,
+    HospitalSurveillanceRead,
+    MedicineDailyUsageCreate,
+    MedicineDailyUsageRead,
+)
 
 __all__ = [
     "HospitalAdminIdentity",
@@ -50,4 +56,9 @@ __all__ = [
     "TransferCreate",
     "TransferRead",
     "TransferStatusUpdate",
+    "TransferAuditRead",
+    "MedicineDailyUsageCreate",
+    "MedicineDailyUsageRead",
+    "HospitalSurveillanceCreate",
+    "HospitalSurveillanceRead",
 ]

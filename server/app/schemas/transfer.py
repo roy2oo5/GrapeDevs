@@ -18,6 +18,17 @@ class TransferCreate(BaseModel):
 
 class TransferStatusUpdate(BaseModel):
     status: str = Field(pattern="^(approved|rejected|in_transit|completed|canceled)$")
+    approved_quantity: int | None = Field(default=None, gt=0, le=1000000)
+
+
+class TransferAuditRead(BaseModel):
+    id: UUID
+    transfer_id: UUID
+    actor_hospital_id: UUID | None
+    from_status: str | None
+    to_status: str
+    quantity: int
+    created_at: datetime
 
 
 class TransferRead(TransferCreate):

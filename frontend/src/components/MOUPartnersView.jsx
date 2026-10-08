@@ -5,6 +5,7 @@ import {
   fetchSurplusListings,
   deleteSurplusListing,
   publishSurplusListing,
+  requestSurplusListing,
 } from '../services/api';
 
 function formatDate(value) {
@@ -22,6 +23,12 @@ export function MOUPartnersView({ onToast }) {
   const [notes, setNotes] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [deletingListingId, setDeletingListingId] = useState(null);
+  const [requestingListingId, setRequestingListingId] = useState(null);
+  const [requestQuantity, setRequestQuantity] = useState('');
+  const [requestUrgency, setRequestUrgency] = useState('normal');
+  const [requestDepartment, setRequestDepartment] = useState('');
+  const [requestNotes, setRequestNotes] = useState('');
+  const [isRequesting, setIsRequesting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -57,6 +64,49 @@ export function MOUPartnersView({ onToast }) {
       setError(deleteError.message || 'Could not remove surplus listing.');
     } finally {
       setDeletingListingId(null);
+    }
+  };
+
+  const openRequestForm = (listing) => {
+    setRequestingListingId(listing.id);
+    setRequestQuantity(String(listing.quantity_available));
+    setRequestUrgency('normal');
+    setRequestDepartment('');
+    setRequestNotes('');
+    setError('');
+  };
+
+  const closeRequestForm = () => {
+    setRequestingListingId(null);
+    setRequestQuantity('');
+    setRequestDepartment('');
+    setRequestNotes('');
+  };
+
+  const handleRequest = async (event, listing) => {
+    event.preventDefault();
+    const requestedQuantity = Number(requestQuantity);
+    if (!requestedQuantity || requestedQuantity > listing.quantity_available) {
+      setError(`Request between 1 and ${listing.quantity_available} ${listing.unit}.`);
+      return;
+    }
+
+    setIsRequesting(true);
+    setError('');
+    try {
+      await requestSurplusListing(listing.id, {
+        quantity: requestedQuantity,
+        urgency: requestUrgency,
+        department: requestDepartment.trim() || null,
+        notes: requestNotes.trim() || null,
+      });
+      closeRequestForm();
+      await loadMarketplace();
+      onToast?.(`Request sent to ${listing.hospital_name}.`);
+    } catch (requestError) {
+      setError(requestError.message || 'Could not send surplus request.');
+    } finally {
+      setIsRequesting(false);
     }
   };
 
@@ -315,6 +365,47 @@ export function MOUPartnersView({ onToast }) {
                     <p className="mt-3 border-t border-outline/10 pt-3 text-sm text-on-surface-variant">
                       {listing.notes}
                     </p>
+                  )}
+                  {requestingListingId === listing.id ? (
+                    <form onSubmit={(event) => handleRequest(event, listing)} className="mt-4 border-t border-outline/10 pt-4 flex flex-col gap-3">
+                      <p className="text-sm font-semibold text-on-surface">Request this surplus</p>
+                      <label className="flex flex-col gap-1 text-sm font-medium text-on-surface">
+                        Quantity
+                        <input
+                          type="number"
+                          min="1"
+                          max={listing.quantity_available}
+                          value={requestQuantity}
+                          onChange={(event) => setRequestQuantity(event.target.value)}
+                          required
+                          className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2 text-on-surface"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-sm font-medium text-on-surface">
+                        Urgency
+                        <select value={requestUrgency} onChange={(event) => setRequestUrgency(event.target.value)} className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2 text-on-surface">
+                          <option value="normal">Normal</option>
+                          <option value="high">High</option>
+                          <option value="critical">Critical</option>
+                        </select>
+                      </label>
+                      <label className="flex flex-col gap-1 text-sm font-medium text-on-surface">
+                        Receiving department <span className="font-normal text-on-surface-variant">(optional)</span>
+                        <input value={requestDepartment} onChange={(event) => setRequestDepartment(event.target.value)} maxLength="120" placeholder="e.g. Emergency Department" className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2 text-on-surface" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-sm font-medium text-on-surface">
+                        Message <span className="font-normal text-on-surface-variant">(optional)</span>
+                        <textarea value={requestNotes} onChange={(event) => setRequestNotes(event.target.value)} maxLength="1000" rows="2" placeholder="Add pickup timing or clinical need" className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2 text-on-surface" />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="submit" disabled={isRequesting} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary disabled:opacity-50">{isRequesting ? 'Sending...' : 'Send request'}</button>
+                        <button type="button" onClick={closeRequestForm} disabled={isRequesting} className="rounded-lg border border-outline/30 px-3 py-2 text-sm font-medium text-on-surface disabled:opacity-50">Cancel</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button type="button" onClick={() => openRequestForm(listing)} className="mt-4 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary">
+                      Request surplus
+                    </button>
                   )}
                 </article>
               ))}

@@ -13,6 +13,8 @@ from app.schemas import (
     HospitalAgreementRead,
     HospitalAgreementStatusUpdate,
 )
+from app.services.geography import MAX_HOSPITAL_DISTANCE_KM, distance_between_hospitals
+from app.services.realtime import publish_hospital_event
 
 
 router = APIRouter(prefix="/agreements", tags=["Hospital Agreements"])
@@ -67,6 +69,18 @@ def create_agreement(
         raise HTTPException(status_code=404, detail="Partner hospital not found")
     if partner.id == identity.hospital_id:
         raise HTTPException(status_code=422, detail="An agreement must be with another hospital")
+    current_hospital = db.get(Hospital, identity.hospital_id)
+    distance = distance_between_hospitals(current_hospital, partner)
+    if distance is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Both hospitals must have valid latitude and longitude before creating an MOU",
+        )
+    if distance > MAX_HOSPITAL_DISTANCE_KM:
+        raise HTTPException(
+            status_code=422,
+            detail=f"MOU hospitals must be within {MAX_HOSPITAL_DISTANCE_KM:g} km of each other",
+        )
     existing = db.scalar(
         select(HospitalAgreement).where(
             or_(
@@ -98,6 +112,11 @@ def create_agreement(
     db.add(agreement)
     db.commit()
     db.refresh(agreement)
+    publish_hospital_event(
+        {identity.hospital_id, partner.id},
+        "agreements.updated",
+        agreement_id=str(agreement.id),
+    )
     return serialize_agreement(db, agreement)
 
 
@@ -125,4 +144,9 @@ def update_agreement_status(
     agreement.status = payload.status
     db.commit()
     db.refresh(agreement)
+    publish_hospital_event(
+        {agreement.hospital_id, agreement.partner_hospital_id},
+        "agreements.updated",
+        agreement_id=str(agreement.id),
+    )
     return serialize_agreement(db, agreement)

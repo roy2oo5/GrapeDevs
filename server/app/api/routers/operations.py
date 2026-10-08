@@ -7,6 +7,8 @@ from app.api.routers.auth import get_current_hospital_admin
 from app.db.session import get_db
 from app.models import Hospital, InventoryBatch, ScenarioRun
 from app.schemas import HospitalAdminIdentity, HospitalRead, HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
+from app.services.geography import hospital_coordinates
+from app.services.realtime import publish_hospital_event
 
 
 router = APIRouter(prefix="/operations", tags=["Hospital Operations"])
@@ -29,9 +31,17 @@ def update_hospital_settings(
     hospital = db.get(Hospital, identity.hospital_id)
     if hospital is None:
         raise HTTPException(status_code=404, detail="Hospital not found")
-    hospital.settings = payload.settings
+    merged_settings = {**(hospital.settings or {}), **payload.settings}
+    has_latitude = "latitude" in merged_settings
+    has_longitude = "longitude" in merged_settings
+    if has_latitude != has_longitude or (
+        has_latitude and hospital_coordinates(merged_settings) is None
+    ):
+        raise HTTPException(status_code=422, detail="Latitude and longitude must be valid coordinates")
+    hospital.settings = merged_settings
     db.commit()
     db.refresh(hospital)
+    publish_hospital_event({identity.hospital_id}, "hospital.updated")
     return hospital
 
 

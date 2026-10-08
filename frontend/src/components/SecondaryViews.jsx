@@ -6,8 +6,13 @@ import { MOUPartnersView } from './MOUPartnersView';
 import { CollaborationMOUView } from './CollaborationMOUView';
 import { ScenarioSimulationView } from './ScenarioSimulationView';
 import { HospitalSettingsView } from './HospitalSettingsView';
+import { ForecastDataEntry } from './ForecastDataEntry';
 
 export function SecondaryViews({ view, onToast }) {
+  if (view === 'forecast-data') {
+    return <ForecastDataEntry onToast={onToast} />;
+  }
+
   if (view === 'outbreak-surveillance' || view === 'risk-intelligence') {
     return <RiskForecastingView onToast={onToast} />;
   }

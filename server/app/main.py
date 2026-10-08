@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.api.routers.system import router as system_router
+from app.api.routers.realtime import router as realtime_router
 from app.core.config import get_settings
 from app.core.lifespan import lifespan
 
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
         )
 
     application.include_router(system_router)
+    application.include_router(realtime_router)
     application.include_router(api_router)
     return application
 

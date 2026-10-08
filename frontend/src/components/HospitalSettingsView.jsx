@@ -10,6 +10,8 @@ export function HospitalSettingsView({ onToast }) {
   // Sliders
   const [shortageWindow, setShortageWindow] = useState(72);
   const [confidenceThreshold, setConfidenceThreshold] = useState(85);
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
 
   // Modals
   const [isMQTTModalOpen, setIsMQTTModalOpen] = useState(false);
@@ -121,6 +123,8 @@ export function HospitalSettingsView({ onToast }) {
         const saved = hospital.settings || {};
         if (Number.isFinite(saved.shortage_window_hours)) setShortageWindow(saved.shortage_window_hours);
         if (Number.isFinite(saved.confidence_threshold_pct)) setConfidenceThreshold(saved.confidence_threshold_pct);
+        if (saved.latitude !== undefined) setLatitude(String(saved.latitude));
+        if (saved.longitude !== undefined) setLongitude(String(saved.longitude));
         if (Array.isArray(saved.medication_parameters)) setMedications(saved.medication_parameters);
         setUnsavedChanges(0);
       })
@@ -164,6 +168,8 @@ export function HospitalSettingsView({ onToast }) {
       await saveHospitalSettings({
         shortage_window_hours: shortageWindow,
         confidence_threshold_pct: confidenceThreshold,
+        latitude: latitude === '' ? undefined : Number(latitude),
+        longitude: longitude === '' ? undefined : Number(longitude),
         medication_parameters: medications,
       });
       setUnsavedChanges(0);
@@ -188,6 +194,40 @@ export function HospitalSettingsView({ onToast }) {
   return (
     <div className="flex flex-col w-full animate-fadeIn">
       {settingsError && <div role="alert" className="mb-space-md rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{settingsError}</div>}
+      <section className="mb-space-lg rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">Hospital location</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Location is used to show MOU hospitals and surplus stock within 50 km.
+        </p>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-on-surface">
+            Latitude
+            <input
+              type="number"
+              min="-90"
+              max="90"
+              step="any"
+              value={latitude}
+              onChange={(event) => { setLatitude(event.target.value); setUnsavedChanges((count) => count + 1); }}
+              placeholder="e.g. 12.9716"
+              className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2.5 text-on-surface"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-on-surface">
+            Longitude
+            <input
+              type="number"
+              min="-180"
+              max="180"
+              step="any"
+              value={longitude}
+              onChange={(event) => { setLongitude(event.target.value); setUnsavedChanges((count) => count + 1); }}
+              placeholder="e.g. 77.5946"
+              className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2.5 text-on-surface"
+            />
+          </label>
+        </div>
+      </section>
       {/* Top Command Context Bar */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-space-md mb-space-lg">
         <div className="flex flex-col gap-space-xs">

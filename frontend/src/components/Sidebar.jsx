@@ -4,6 +4,7 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'M
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'grid_view' },
     { id: 'inventory-and-skus', label: 'Inventory & SKUs', icon: 'inventory_2' },
+    { id: 'forecast-data', label: 'Forecast Data', icon: 'database' },
     { id: 'outbreak-surveillance', label: 'Outbreak Surveillance', icon: 'coronavirus' },
     { id: 'transfers-and-logistics', label: 'Transfers & Logistics', icon: 'local_shipping' },
     { id: 'mou-partners', label: 'Surplus Marketplace', icon: 'storefront' },

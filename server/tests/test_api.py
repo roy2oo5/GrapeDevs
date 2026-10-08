@@ -339,11 +339,10 @@ def test_transfer_status_requires_valid_transition_and_hospital_scope(authorized
     assert create_response.json()["requesting_hospital_id"] == str(client.test_hospital_id)
 
     approve_response = client.patch(f"/api/transfers/{transfer_id}", json={"status": "approved"})
-    assert approve_response.status_code == 200
-    assert approve_response.json()["status"] == "approved"
+    assert approve_response.status_code == 403
 
     invalid_response = client.patch(f"/api/transfers/{transfer_id}", json={"status": "completed"})
-    assert invalid_response.status_code == 409
+    assert invalid_response.status_code == 403
 
 
 def test_hospital_data_routes_require_bearer_token(client):
@@ -386,6 +385,11 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
     listing = listing_response.json()
     assert listing["quantity_available"] == 50
     assert listing["expires_on"] == (date.today() + timedelta(days=20)).isoformat()
+    source_location = client.put(
+        "/api/operations/settings",
+        json={"settings": {"latitude": 12.9716, "longitude": 77.5946}},
+    )
+    assert source_location.status_code == 200
 
     other_hospital = client.post(
         "/api/auth/register",
@@ -406,6 +410,11 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
         hospital_id=other_hospital_id,
         hospital_name="Other City Hospital",
     )
+    partner_location = client.put(
+        "/api/operations/settings",
+        json={"settings": {"latitude": 12.9717, "longitude": 77.5947}},
+    )
+    assert partner_location.status_code == 200
 
     requested = client.post(
         f"/api/marketplace/listings/{listing['id']}/request",
@@ -415,21 +424,40 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
     assert requested.json()["transfer"]["quantity"] == 20
     assert requested.json()["transfer"]["source_hospital_id"] == listing["hospital_id"]
     assert requested.json()["listing"]["quantity_available"] == 30
+    transfer_id = requested.json()["transfer"]["id"]
+    duplicate = client.post(
+        f"/api/marketplace/listings/{listing['id']}/request",
+        json={"quantity": 5},
+    )
+    assert duplicate.status_code == 409
 
     fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
         administrator_id="TEST-ADMIN-001",
         hospital_id=client.test_hospital_id,
         hospital_name="Test General Hospital",
     )
+    rejected = client.patch(f"/api/transfers/{transfer_id}", json={"status": "rejected"})
+    assert rejected.status_code == 200
+    audit = client.get(f"/api/transfers/{transfer_id}/audit")
+    assert audit.status_code == 200
+    assert [event["to_status"] for event in audit.json()] == ["requested", "rejected"]
+    restored_listing = client.get("/api/marketplace/mine").json()[0]
+    assert restored_listing["quantity_available"] == 50
+
     own_listings = client.get("/api/marketplace/mine")
     assert own_listings.status_code == 200
     assert own_listings.json()[0]["buyers"][0]["hospital_name"] == "Other City Hospital"
     assert own_listings.json()[0]["buyers"][0]["quantity"] == 20
-    assert own_listings.json()[0]["buyers"][0]["status"] == "requested"
+    assert own_listings.json()[0]["buyers"][0]["status"] == "rejected"
 
 
 def test_agreement_create_and_partner_can_accept(authorized_client, client, db_session_factory):
     client = authorized_client
+    source_location = client.put(
+        "/api/operations/settings",
+        json={"settings": {"latitude": 12.9716, "longitude": 77.5946}},
+    )
+    assert source_location.status_code == 200
     other_hospital = client.post(
         "/api/auth/register",
         json={
@@ -443,6 +471,21 @@ def test_agreement_create_and_partner_can_accept(authorized_client, client, db_s
         },
     )
     partner_id = other_hospital.json()["hospital_id"]
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="PARTNER-ADMIN-001",
+        hospital_id=UUID(partner_id),
+        hospital_name="Partner Hospital",
+    )
+    partner_location = client.put(
+        "/api/operations/settings",
+        json={"settings": {"latitude": 12.9717, "longitude": 77.5947}},
+    )
+    assert partner_location.status_code == 200
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="TEST-ADMIN-001",
+        hospital_id=client.test_hospital_id,
+        hospital_name="Test General Hospital",
+    )
     created = client.post(
         "/api/agreements",
         json={
