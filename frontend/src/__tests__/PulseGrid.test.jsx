@@ -579,29 +579,16 @@ describe('PulseGrid Control Tower Test Suite', () => {
   });
 
   describe('CollaborationMOUView Component (Screen 6)', () => {
-    it('renders collaboration directory, KPI metrics, and policy switches', () => {
+    it('renders direct MOU request sections', async () => {
       render(<CollaborationMOUView onToast={vi.fn()} />);
 
-      expect(screen.getByText('Collaboration & MOU Management')).toBeInTheDocument();
-      expect(screen.getByText('6 Hospitals')).toBeInTheDocument();
-      expect(screen.getByText('8,400 Units')).toBeInTheDocument();
-      expect(screen.getByText('1 Agreement')).toBeInTheDocument();
-      expect(screen.getByText('18 Months')).toBeInTheDocument();
-
-      // Check Directory listings
-      expect(screen.getAllByText('Valley Trauma Center').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('St. Jude Regional Hospital').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('North District Community Clinic')).toBeInTheDocument();
-
-      // Check Section A policy switches & Section B table
-      expect(screen.getByText(/Section A: Global Exchange Protocols/i)).toBeInTheDocument();
-      expect(screen.getByText('Emergency Transfers Allowed')).toBeInTheDocument();
-      expect(screen.getByText('Requires Bilateral Approval')).toBeInTheDocument();
-      expect(screen.getByText(/Section B: Category-Specific Supply Inclusions/i)).toBeInTheDocument();
-      expect(screen.getByText('Critical Injectables & Anaesthetics')).toBeInTheDocument();
+      expect(screen.getByText('Direct MOUs')).toBeInTheDocument();
+      expect(screen.getByText('Send an MOU request')).toBeInTheDocument();
+      expect(screen.getByText('Requests sent by me')).toBeInTheDocument();
+      expect(screen.getByText('Requests received')).toBeInTheDocument();
     });
 
-    it('allows opening Create New MOU modal and submitting', async () => {
+    it('sends a direct MOU request', async () => {
       const handleToast = vi.fn();
       vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
         if (String(url).includes('/api/hospitals/me')) {
@@ -629,25 +616,12 @@ describe('PulseGrid Control Tower Test Suite', () => {
       }));
       render(<CollaborationMOUView onToast={handleToast} />);
 
-      fireEvent.click(screen.getByRole('button', { name: /\+ Create New MOU/i }));
-      expect(screen.getByText('Initiate Bilateral MOU Compact')).toBeInTheDocument();
-
-      const form = screen.getByText('Initiate Bilateral MOU Compact').closest('.bg-surface-container-lowest').querySelector('form');
-      fireEvent.change(form.querySelector('[name="partner_hospital_id"]'), { target: { value: 'hospital-partner' } });
-      fireEvent.change(form.querySelector('[name="signatory"]'), { target: { value: 'Alex Morgan' } });
-      fireEvent.change(form.querySelector('[name="title"]'), { target: { value: 'Emergency Hospital Mutual Aid' } });
-      fireEvent.submit(form);
+      await waitFor(() => expect(screen.getByRole('option', { name: 'Partner Hospital' })).toBeInTheDocument());
+      fireEvent.change(screen.getByLabelText('Hospital'), { target: { value: 'hospital-partner' } });
+      fireEvent.click(screen.getByRole('checkbox', { name: /I confirm that I have authority/i }));
+      fireEvent.submit(screen.getByRole('button', { name: /Send MOU request/i }).closest('form'));
       await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/agreements'), expect.objectContaining({ method: 'POST' })));
-      await waitFor(() => expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('sent to the partner')));
-    });
-
-    it('allows opening and closing Export Compliance Ledger modal', () => {
-      render(<CollaborationMOUView onToast={vi.fn()} />);
-
-      const exportBtn = screen.getByRole('button', { name: /Export Compliance Ledger/i });
-      fireEvent.click(exportBtn);
-      expect(screen.getAllByText('Export Compliance Ledger').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('Download Archive')).toBeInTheDocument();
+      await waitFor(() => expect(handleToast).toHaveBeenCalledWith('MOU request sent.'));
     });
   });
 

@@ -78,6 +78,7 @@ create table if not exists public.hospital_agreements (
     signatory varchar(160) not null,
     agreement_type varchar(120) not null,
     valid_until date,
+    terms_and_conditions text not null default '',
     status varchar(24) not null default 'pending' check (status in ('pending', 'active', 'rejected', 'archived')),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),

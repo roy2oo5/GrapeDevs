@@ -31,6 +31,7 @@ def serialize_agreement(db: Session, agreement: HospitalAgreement) -> dict:
         "signatory": agreement.signatory,
         "agreement_type": agreement.agreement_type,
         "valid_until": agreement.valid_until,
+        "terms_and_conditions": agreement.terms_and_conditions,
         "status": agreement.status,
         "created_at": agreement.created_at,
         "updated_at": agreement.updated_at,
@@ -66,6 +67,23 @@ def create_agreement(
         raise HTTPException(status_code=404, detail="Partner hospital not found")
     if partner.id == identity.hospital_id:
         raise HTTPException(status_code=422, detail="An agreement must be with another hospital")
+    existing = db.scalar(
+        select(HospitalAgreement).where(
+            or_(
+                (
+                    (HospitalAgreement.hospital_id == identity.hospital_id)
+                    & (HospitalAgreement.partner_hospital_id == partner.id)
+                ),
+                (
+                    (HospitalAgreement.hospital_id == partner.id)
+                    & (HospitalAgreement.partner_hospital_id == identity.hospital_id)
+                ),
+            ),
+            HospitalAgreement.status.in_(("pending", "active")),
+        )
+    )
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="An active or pending MOU already exists with this hospital")
 
     agreement = HospitalAgreement(
         hospital_id=identity.hospital_id,
@@ -74,6 +92,7 @@ def create_agreement(
         signatory=payload.signatory,
         agreement_type=payload.agreement_type,
         valid_until=payload.valid_until,
+        terms_and_conditions=payload.terms_and_conditions,
         status="pending",
     )
     db.add(agreement)
@@ -92,8 +111,17 @@ def update_agreement_status(
     agreement = db.get(HospitalAgreement, agreement_id)
     if agreement is None or identity.hospital_id not in {agreement.hospital_id, agreement.partner_hospital_id}:
         raise HTTPException(status_code=404, detail="Hospital agreement not found")
-    if agreement.status != "pending":
-        raise HTTPException(status_code=409, detail="Only pending agreements can be reviewed")
+    is_sender = identity.hospital_id == agreement.hospital_id
+    if agreement.status == "pending":
+        if payload.status in {"active", "rejected"} and is_sender:
+            raise HTTPException(status_code=403, detail="Only the receiving hospital can review this request")
+        if payload.status == "archived" and not is_sender:
+            raise HTTPException(status_code=403, detail="Only the sending hospital can revoke this request")
+    elif agreement.status == "active":
+        if payload.status != "archived":
+            raise HTTPException(status_code=409, detail="An active MOU can only be revoked")
+    else:
+        raise HTTPException(status_code=409, detail="This MOU request is already closed")
     agreement.status = payload.status
     db.commit()
     db.refresh(agreement)
