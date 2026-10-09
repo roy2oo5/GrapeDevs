@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     SUPABASE_PUBLISHABLE_KEY: str = ""
     SUPABASE_SECRET_KEY: str = ""
     DATABASE_URL: str = ""
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "https://grape-devs.vercel.app"
+    )
     AUTH_TOKEN_SECRET: str = ""
     AUTH_TOKEN_TTL_MINUTES: int = 60
     FORECAST_SERVICE_URL: str = "https://modeling-dopk.onrender.com"

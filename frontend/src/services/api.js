@@ -1,6 +1,6 @@
-// Use the same-origin Vite proxy by default so LAN clients call the dev server's
-// backend proxy instead of trying to reach their own localhost:8000.
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// Development uses Vite's same-origin proxy; production defaults to the hosted API.
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? 'https://grapedevs.onrender.com' : '');
 const ACCESS_TOKEN_KEY = 'pulsegrid_access_token';
 
 export function getAccessToken() {
@@ -23,9 +23,8 @@ export function getCurrentHospitalId() {
 export function openRealtimeConnection({ onMessage, onClose } = {}) {
   const token = getAccessToken();
   if (!token) return null;
-  const configuredUrl = import.meta.env.VITE_API_URL;
-  const websocketBase = configuredUrl
-    ? configuredUrl.replace(/^http/, 'ws')
+  const websocketBase = API_BASE_URL
+    ? API_BASE_URL.replace(/^http/, 'ws')
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
   const websocket = new WebSocket(`${websocketBase}/api/ws?token=${encodeURIComponent(token)}`);
   websocket.addEventListener('message', (event) => {

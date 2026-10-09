@@ -67,6 +67,19 @@ def test_hospital_data_search_validates_query_length(authorized_client):
     assert authorized_client.get("/api/hospital-data/search?q=x").status_code == 422
 
 
+def test_cors_allows_hosted_vercel_frontend(client):
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": "https://grape-devs.vercel.app",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://grape-devs.vercel.app"
+
+
 @pytest.fixture
 def db_session_factory():
     engine = create_engine(
