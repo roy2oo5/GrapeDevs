@@ -1,27 +1,51 @@
 import React, { useState, useEffect } from 'react';
+import { searchHospitalData } from '../services/api';
 
 export function CommandPalette({ isOpen, onClose, onSelectAction }) {
   const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   const items = [
-    { type: 'SKU', label: 'Paracetamol 500mg IV Infusion', detail: '140 vials • 1.7d depletion • CRITICAL', action: 'Paracetamol 500mg IV' },
-    { type: 'SKU', label: 'Propofol 10mg/mL Injectable Emulsion', detail: '28 ampoules • 0.9d runout • SURGERY QUOTA', action: 'Propofol 10mg/mL' },
-    { type: 'SKU', label: 'Ceftriaxone 1g Powder for Injection', detail: '310 vials • 4.1d buffer • PO Pending', action: 'Ceftriaxone 1g Injection' },
-    { type: 'SKU', label: 'Enoxaparin Sodium 40mg/0.4mL', detail: '150 syringes • Outbound swap to Valley Trauma', action: 'Enoxaparin Sodium' },
-    { type: 'SKU', label: 'Sevoflurane Inhalation Liquid (250ml)', detail: '24 bottles • Inbound borrow from St. Jude', action: 'Sevoflurane 250ml' },
     { type: 'ACTION', label: 'Emergency Stock Request', detail: 'Initiate emergency clinical borrow under MOU', action: 'emergency-request' },
-    { type: 'ACTION', label: 'Export Audit Telemetry', detail: 'Download signed FIPS 140-3 cryptographic logs', action: 'export-audit' },
-    { type: 'ACTION', label: 'Run AI Redistribution Optimizer', detail: 'Execute linear solver across all 6 facilities', action: 'run-optimizer' },
-    { type: 'HOSPITAL', label: 'St. Jude Regional Hospital', detail: 'Node 03 • 600u Paracetamol Available', action: 'node-stjude' },
-    { type: 'HOSPITAL', label: 'Valley Trauma Center', detail: 'Node 02 • 420u Propofol Surplus', action: 'node-valley' },
+    { type: 'ACTION', label: 'Open Inventory', detail: 'Search and manage hospital stock', action: 'open-inventory' },
+    { type: 'ACTION', label: 'Open Transfers', detail: 'View sending and received transfers', action: 'open-transfers' },
+    { type: 'ACTION', label: 'Open Forecasting', detail: 'Review demand and shortage risk', action: 'open-forecasting' },
   ];
 
-  const filtered = items.filter(
-    (i) =>
-      i.label.toLowerCase().includes(query.toLowerCase()) ||
-      i.detail.toLowerCase().includes(query.toLowerCase()) ||
-      i.type.toLowerCase().includes(query.toLowerCase())
-  );
+  useEffect(() => {
+    if (!isOpen || query.trim().length < 2) {
+      setResults([]);
+      setSearching(false);
+      setSearchError('');
+      return undefined;
+    }
+    let active = true;
+    setSearching(true);
+    setSearchError('');
+    const timer = window.setTimeout(() => {
+      searchHospitalData(query)
+        .then((response) => {
+          if (active) setResults(response.results);
+        })
+        .catch((error) => {
+          if (active) setSearchError(error.message || 'Could not search hospital data.');
+        })
+        .finally(() => {
+          if (active) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [isOpen, query]);
+
+  const filteredActions = items.filter((item) => (
+    item.label.toLowerCase().includes(query.toLowerCase())
+    || item.detail.toLowerCase().includes(query.toLowerCase())
+  ));
 
   // Global keyboard shortcut
   useEffect(() => {
@@ -55,7 +79,7 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a SKU name, hospital, or system command..."
+            placeholder="Search medicine, transfers, MOUs, or hospitals..."
             className="flex-1 bg-transparent text-on-surface font-body-lg text-body-lg focus:outline-none placeholder:text-outline"
           />
           <button
@@ -70,13 +94,31 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
 
         {/* Results List */}
         <div className="p-2 max-h-96 overflow-y-auto divide-y divide-surface-container/40">
-          {filtered.length > 0 ? (
-            filtered.map((item, idx) => (
+          {query.trim().length < 2 && filteredActions.length > 0 && filteredActions.map((item) => (
+            <button
+              key={item.action}
+              type="button"
+              onClick={() => {
+                onSelectAction(item.action);
+                onClose();
+              }}
+              className="w-full p-3 text-left hover:bg-surface-container-low rounded-xl flex items-center justify-between transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-tertiary-fixed text-on-tertiary-fixed-variant">ACTION</span>
+                <div>
+                  <div className="font-semibold text-on-surface text-sm group-hover:text-primary">{item.label}</div>
+                  <div className="text-secondary text-xs">{item.detail}</div>
+                </div>
+              </div>
+            </button>
+          ))}
+          {query.trim().length >= 2 && results.length > 0 && results.map((item) => (
               <button
-                key={idx}
+                key={`${item.type}-${item.id}`}
                 type="button"
                 onClick={() => {
-                  onSelectAction(item.action);
+                  onSelectAction('search-result', item);
                   onClose();
                 }}
                 className="w-full p-3 text-left hover:bg-surface-container-low rounded-xl flex items-center justify-between transition-colors cursor-pointer group"
@@ -84,18 +126,14 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
                 <div className="flex items-center gap-3">
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                      item.type === 'SKU'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant'
-                        : item.type === 'ACTION'
-                        ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
-                        : 'bg-secondary-container text-on-secondary-fixed'
+                      'bg-primary-fixed text-on-primary-fixed-variant'
                     }`}
                   >
                     {item.type}
                   </span>
                   <div>
                     <div className="font-semibold text-on-surface text-sm group-hover:text-primary transition-colors">
-                      {item.label}
+                      {item.title}
                     </div>
                     <div className="text-secondary text-xs">{item.detail}</div>
                   </div>
@@ -104,11 +142,16 @@ export function CommandPalette({ isOpen, onClose, onSelectAction }) {
                   arrow_forward
                 </span>
               </button>
-            ))
-          ) : (
+            ))}
+          {searching && <p className="p-4 text-center text-sm text-on-surface-variant">Searching hospital data...</p>}
+          {searchError && <p role="alert" className="p-4 text-center text-sm text-error">{searchError}</p>}
+          {query.trim().length >= 2 && !searching && !searchError && results.length === 0 && (
             <div className="p-8 text-center text-secondary text-sm">
-              No matching SKUs or telemetry records found for "{query}".
+              No matching hospital records found for "{query}".
             </div>
+          )}
+          {query.trim().length < 2 && filteredActions.length === 0 && (
+            <div className="p-8 text-center text-secondary text-sm">Type at least 2 characters to search hospital data.</div>
           )}
         </div>
       </div>

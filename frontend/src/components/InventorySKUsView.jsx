@@ -1,26 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { createInventoryBatch, deleteInventoryBatch, fetchInventory } from '../services/api';
+import { ConfirmationDialog } from './ConfirmationDialog';
 
-export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
+export function InventorySKUsView({ onToast, onSendStock }) {
   const [expandedRows, setExpandedRows] = useState({ para: true });
   const [isAddBatchOpen, setIsAddBatchOpen] = useState(false);
   const [batchForm, setBatchForm] = useState({
     sku_code: '',
     medicine_name: '',
     quantity: '',
-    average_daily_use: '0',
     lot_number: '',
     expires_on: '',
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showAllRows, setShowAllRows] = useState(false);
   const [storageFilter, setStorageFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [activePin, setActivePin] = useState(null); // 'cold' | 'reorder' | 'transit' | 'quarantine' | null
+  const [activePin, setActivePin] = useState(null);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [inventoryError, setInventoryError] = useState('');
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [deletingBatchId, setDeletingBatchId] = useState(null);
+  const [batchPendingDeletion, setBatchPendingDeletion] = useState(null);
 
   // Lot States for Paracetamol
   const [lots, setLots] = useState([
@@ -315,6 +315,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
       statusClass: isCritical ? 'bg-error-container text-on-error-container' : isLow ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-tertiary-fixed/30 text-on-tertiary-fixed-variant',
       ping: isCritical,
       category: 'Hospital Inventory',
+      expiresOn: batch.expires_on,
       subContent: `Lot ${batch.lot_number || 'not recorded'} • ${batch.quantity} ${batch.unit} • ${expiryText} • Average daily use: ${batch.average_daily_use}`,
     };
   };
@@ -326,6 +327,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
       const batches = await fetchInventory();
       setSkus(batches.map(toInventoryRow));
     } catch (error) {
+      setSkus([]);
       setInventoryError(error.message || 'Could not load hospital inventory.');
     } finally {
       setInventoryLoading(false);
@@ -349,12 +351,11 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
         quantity,
         lot_number: batchForm.lot_number.trim() || null,
         expires_on: batchForm.expires_on || null,
-        average_daily_use: Number(batchForm.average_daily_use) || 0,
       });
       const row = toInventoryRow(created);
       setSkus((current) => [row, ...current.filter((item) => item.id !== row.id)]);
       setExpandedRows((current) => ({ ...current, [row.key]: true }));
-      setBatchForm({ sku_code: '', medicine_name: '', quantity: '', average_daily_use: '0', lot_number: '', expires_on: '' });
+      setBatchForm({ sku_code: '', medicine_name: '', quantity: '', lot_number: '', expires_on: '' });
       setIsAddBatchOpen(false);
       if (onToast) onToast(`Inventory batch saved: ${code} (${created.quantity} ${created.unit}).`);
     } catch (error) {
@@ -363,15 +364,17 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
   };
 
   const handleDeleteBatch = async (batch) => {
-    if (!batch.id || !window.confirm(`Delete ${batch.name} (${batch.code}) from this hospital's inventory?`)) return;
+    if (!batch.id) return;
     setDeletingBatchId(batch.id);
     setInventoryError('');
     try {
       await deleteInventoryBatch(batch.id);
       setSkus((current) => current.filter((item) => item.id !== batch.id));
       setActiveMenuId(null);
+      setBatchPendingDeletion(null);
       if (onToast) onToast(`Inventory batch deleted: ${batch.code}.`);
     } catch (error) {
+      setBatchPendingDeletion(null);
       setInventoryError(error.message || 'Could not delete inventory batch.');
     } finally {
       setDeletingBatchId(null);
@@ -386,17 +389,33 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
         item.atc.toLowerCase().includes(searchQuery.toLowerCase());
       if (!match) return false;
     }
-    if (categoryFilter !== 'all' && item.category !== categoryFilter) return false;
     if (storageFilter === 'cold' && item.storageType !== 'cold') return false;
     if (storageFilter === 'ambient' && item.storageType !== 'ambient') return false;
     if (activePin === 'cold' && item.storageType !== 'cold') return false;
     if (activePin === 'reorder' && item.status !== 'Critical Lead Time' && item.status !== 'Reorder Now' && item.status !== 'Buffer Warning') return false;
-    if (activePin === 'transit' && item.inbound === '0 units') return false;
     return true;
   });
+  const displayedSKUs = inventoryLoading ? [] : filteredSKUs.slice(0, showAllRows ? filteredSKUs.length : 5);
+  const totalStock = skus.reduce((sum, item) => sum + (Number.parseInt(item.stock, 10) || 0), 0);
+  const riskBatchCount = skus.filter((item) => item.status === 'Critical Lead Time' || item.status === 'Buffer Warning').length;
+  const expiringBatchCount = skus.filter((item) => {
+    if (!item.expiresOn) return false;
+    const days = (new Date(`${item.expiresOn}T00:00:00`) - new Date(new Date().toISOString().slice(0, 10))) / 86400000;
+    return days >= 0 && days <= 30;
+  }).length;
 
   return (
     <div className="flex flex-col w-full pb-12 animate-fadeIn">
+      {batchPendingDeletion && (
+        <ConfirmationDialog
+          title="Delete inventory batch?"
+          message={`Delete ${batchPendingDeletion.name} (${batchPendingDeletion.code}) from this hospital's inventory?`}
+          confirmLabel="Delete batch"
+          isConfirming={deletingBatchId === batchPendingDeletion.id}
+          onCancel={() => setBatchPendingDeletion(null)}
+          onConfirm={() => handleDeleteBatch(batchPendingDeletion)}
+        />
+      )}
       {/* Breadcrumb & Control Tower Operational Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-space-md pb-space-lg">
         <div className="flex flex-col gap-1">
@@ -414,12 +433,9 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
               Inventory &amp; Supply Chain
             </h1>
-            <span className="hidden md:inline-flex px-2 py-0.5 rounded-md bg-surface-container-high font-label-sm text-label-sm text-on-surface-variant font-semibold">
-              DSCSA Ledger v4.19
-            </span>
           </div>
           <p className="font-body-md text-body-md text-on-surface-variant max-w-3xl leading-relaxed">
-            Real-time SKU monitoring, temperature-regulated cold chain tracking, and lot-level batch verification across hospital nodes.
+            Review your recorded medicine quantities, usage, expiry dates, and stockout risk.
           </p>
         </div>
 
@@ -432,14 +448,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
             <span>Add Inventory</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onToast && onToast('Stock manifest exported (CSV & PDF).')}
-            className="flex items-center gap-2 px-space-md py-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container-high text-on-surface transition-all font-label-md text-label-md shadow-sm active:scale-95 cursor-pointer border border-surface-container-high/60"
-          >
-            <span className="material-symbols-outlined text-[18px] text-outline">description</span>
-            <span>Export Stock Manifest</span>
           </button>
         </div>
       </div>
@@ -513,18 +521,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
-                Average daily use
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={batchForm.average_daily_use}
-                  onChange={(event) => setBatchForm({ ...batchForm, average_daily_use: event.target.value })}
-                  placeholder="0"
-                  className="h-10 rounded-lg border border-surface-container-high bg-surface-container-low px-3 font-normal"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">
                 Lot number
                 <input
                   maxLength={100}
@@ -569,52 +565,17 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
         </div>
       )}
 
-      {/* Summary KPI Cards Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pb-space-lg">
-        {/* Card 1 */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-container-high/40">
-          <div className="flex items-center justify-between pb-space-sm">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">
-              Total Active SKUs
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-            </div>
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        {[
+          ['Inventory batches', inventoryLoading ? '…' : skus.length],
+          ['Units on hand', inventoryLoading ? '…' : totalStock.toLocaleString()],
+          ['At-risk / expiring batches', inventoryLoading ? '…' : `${riskBatchCount} / ${expiringBatchCount}`],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-surface-container-high/40 bg-surface-container-lowest p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-outline">{label}</p>
+            <p className="mt-1 text-xl font-bold text-on-surface">{value}</p>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-headline-lg text-headline-lg text-on-surface font-bold">{inventoryLoading ? '…' : skus.length}</span>
-            <span className="font-label-sm text-label-sm text-outline">Inventory batches</span>
-          </div>
-          <div className="flex items-center gap-1.5 pt-space-xs mt-2">
-            <span className="w-2 h-2 rounded-full bg-tertiary"></span>
-            <span className="font-body-sm text-body-sm text-tertiary font-semibold">98.2%</span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">in optimal buffer window</span>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-transparent opacity-40"></div>
-        </div>
-
-        {/* Card 2 */}
-        <div className="relative overflow-hidden p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-container-high/40">
-          <div className="flex items-center justify-between pb-space-sm">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">
-              Cold Chain Monitored
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-primary-container">
-              <span className="material-symbols-outlined text-[18px]">ac_unit</span>
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-headline-lg text-headline-lg text-on-surface font-bold">318</span>
-            <span className="font-label-sm text-label-sm text-outline">Cryo / Refrigerated</span>
-          </div>
-          <div className="flex items-center gap-1.5 pt-space-xs mt-2">
-            <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed/30 text-on-tertiary-fixed-variant font-label-sm text-label-sm font-semibold">
-              2°C - 8°C Strict
-            </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">Telemetry online (100%)</span>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary-container to-transparent opacity-40"></div>
-        </div>
+        ))}
       </div>
 
       {/* Filtration & Tactical Search Bar */}
@@ -639,25 +600,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
 
           {/* Dropdown Filters */}
           <div className="flex items-center gap-space-sm flex-wrap">
-            {/* Category Selector */}
-            <div className="relative">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container font-label-md text-label-md text-on-surface outline-none cursor-pointer transition-colors border border-surface-container-high/60"
-              >
-                <option value="all">All Categories</option>
-                <option value="Antibiotics & Anti-infectives">Antibiotics &amp; Anti-infectives</option>
-                <option value="Anaesthetics & Sedatives">Anaesthetics &amp; Sedatives</option>
-                <option value="Analgesics & Antipyretics">Analgesics &amp; Antipyretics</option>
-                <option value="Cardiovascular">Cardiovascular</option>
-                <option value="Emergency & Critical Care">Emergency &amp; Critical Care</option>
-              </select>
-              <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-outline text-[16px] pointer-events-none">
-                expand_more
-              </span>
-            </div>
-
             {/* Storage Selector */}
             <div className="relative">
               <select
@@ -674,33 +616,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
               </span>
             </div>
 
-            {/* Status Selector */}
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container font-label-md text-label-md text-on-surface outline-none cursor-pointer transition-colors border border-surface-container-high/60"
-              >
-                <option value="all">Stock Status: All</option>
-                <option value="optimal">Optimal</option>
-                <option value="reorder">Reorder Required</option>
-                <option value="low">Low Stock / Buffer Warning</option>
-                <option value="critical">Critical Stockout Risk</option>
-              </select>
-              <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-outline text-[16px] pointer-events-none">
-                expand_more
-              </span>
-            </div>
-
-            {/* Density toggle */}
-            <button
-              type="button"
-              onClick={() => onToast && onToast('Table column layout customized.')}
-              className="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container text-outline hover:text-on-surface transition-colors cursor-pointer border border-surface-container-high/60"
-              title="Toggle Table View Columns"
-            >
-              <span className="material-symbols-outlined text-[18px]">view_column</span>
-            </button>
           </div>
         </div>
 
@@ -733,18 +648,6 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
             <span className="material-symbols-outlined text-[14px] text-error">crisis_alert</span>
             <span>Below Reorder Point</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setActivePin(activePin === 'transit' ? null : 'transit')}
-            className={`px-2.5 py-1 rounded-full font-label-sm text-label-sm flex items-center gap-1.5 transition-colors cursor-pointer border ${
-              activePin === 'transit'
-                ? 'bg-secondary-fixed text-on-secondary-fixed font-bold border-secondary'
-                : 'bg-surface-container-low hover:bg-surface-container-high text-on-surface border-surface-container-high/50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px] text-secondary">local_shipping</span>
-            <span>Active Transit</span>
-          </button>
           {activePin && (
             <button
               type="button"
@@ -768,13 +671,13 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                 <th className="py-3 px-4 font-semibold min-w-[280px]">Generic Name &amp; Classification</th>
                 <th className="py-3 px-4 font-semibold min-w-[190px]">Current Stock</th>
                 <th className="py-3 px-4 font-semibold min-w-[180px]">Inbound Transit</th>
-                <th className="py-3 px-4 font-semibold min-w-[140px]">Reorder Buffer</th>
+                <th className="py-3 px-4 font-semibold min-w-[140px]">Expiry Date</th>
                 <th className="py-3 px-4 font-semibold min-w-[140px]">Status</th>
                 <th className="py-3 px-4 text-right pr-6">Command</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container/60" id="inventoryTableBody">
-              {filteredSKUs.map((sku) => {
+              {displayedSKUs.map((sku) => {
                 const isExpanded = !!expandedRows[sku.key];
                 return (
                   <React.Fragment key={sku.key}>
@@ -820,15 +723,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-baseline justify-between">
-                            <span className={`font-label-lg text-label-lg ${sku.bufferColor}`}>{sku.stock}</span>
-                            <span className={`font-label-sm text-label-sm ${sku.bufferColor}`}>{sku.bufferPct} Buffer</span>
-                          </div>
-                          <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${sku.bufferBar}`} style={{ width: sku.bufferPct.replace(/[^0-9]/g, '') ? `${sku.bufferPct.replace(/[^0-9]/g, '')}%` : '50%' }}></div>
-                          </div>
-                        </div>
+                        <span className={`font-label-lg text-label-lg ${sku.bufferColor}`}>{sku.stock}</span>
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex flex-col">
@@ -842,10 +737,9 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-label-md text-label-md text-on-surface font-medium">{sku.reorder}</span>
-                          <span className="font-body-sm text-body-sm text-outline">Min safety: {sku.minSafety}</span>
-                        </div>
+                        <span className="font-label-md text-label-md text-on-surface font-medium">
+                          {sku.expiresOn ? new Date(`${sku.expiresOn}T00:00:00`).toLocaleDateString() : 'Not recorded'}
+                        </span>
                       </td>
                       <td className="py-4 px-4">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-sm text-label-sm font-semibold ${sku.statusClass}`}>
@@ -855,6 +749,13 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                       </td>
                       <td className="py-4 px-4 text-right pr-6" onClick={(e) => e.stopPropagation()}>
                         <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() => onSendStock?.({ sku_name: sku.name, sku_code: sku.code, unit: sku.unit })}
+                            className="mr-2 rounded-lg border border-primary/30 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
+                          >
+                            Send stock
+                          </button>
                           <button
                             type="button"
                             onClick={() => setActiveMenuId((current) => current === sku.key ? null : sku.key)}
@@ -873,7 +774,7 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                                   type="button"
                                   role="menuitem"
                                   disabled={deletingBatchId === sku.id}
-                                  onClick={() => handleDeleteBatch(sku)}
+                                  onClick={() => setBatchPendingDeletion(sku)}
                                   className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-error hover:bg-error-container/50 disabled:opacity-50"
                                 >
                                   {deletingBatchId === sku.id ? 'Deleting…' : 'Delete inventory batch'}
@@ -970,61 +871,26 @@ export function InventorySKUsView({ onToast, onOpenReceiveShipment }) {
                   </React.Fragment>
                 );
               })}
+              {!inventoryLoading && filteredSKUs.length > 5 && (
+                <tr>
+                  <td colSpan={8} className="p-3 text-center">
+                    <button type="button" onClick={() => setShowAllRows((visible) => !visible)} className="text-sm font-semibold text-primary">
+                      {showAllRows ? 'Show top 5' : `Show all ${filteredSKUs.length} batches`}
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {!inventoryLoading && filteredSKUs.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-6 text-center text-sm text-on-surface-variant">
+                    {inventoryError ? 'Inventory is unavailable.' : 'No inventory matches your search.'}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Table Pagination & Audit Footer */}
-        <div className="p-space-md bg-surface-container-lowest flex flex-col md:flex-row items-center justify-between gap-space-md border-t border-surface-container">
-          <div className="flex items-center gap-space-sm text-on-surface-variant font-body-sm text-body-sm">
-            <span>
-              Showing <strong className="text-on-surface font-semibold">1-{filteredSKUs.length}</strong> of{' '}
-              <strong className="text-on-surface font-semibold">1,420</strong> registered pharmaceutical SKUs
-            </span>
-          </div>
-
-          {/* Pagination Buttons */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled
-              className="px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md disabled:opacity-40 transition-colors"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="w-8 h-8 rounded-lg bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center font-semibold"
-            >
-              1
-            </button>
-            <button
-              type="button"
-              className="w-8 h-8 rounded-lg hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center transition-colors cursor-pointer"
-            >
-              2
-            </button>
-            <button
-              type="button"
-              className="w-8 h-8 rounded-lg hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center transition-colors cursor-pointer"
-            >
-              3
-            </button>
-            <span className="px-1 text-outline font-label-md text-label-md">...</span>
-            <button
-              type="button"
-              className="w-8 h-8 rounded-lg hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center transition-colors cursor-pointer"
-            >
-              71
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors cursor-pointer"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Regulatory Ledger & Compliance Verification Banner */}

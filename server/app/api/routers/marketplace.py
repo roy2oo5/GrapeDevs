@@ -81,6 +81,7 @@ def serialize_listing(
 def list_listings(
     sku_code: str | None = None,
     min_quantity: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
@@ -95,6 +96,7 @@ def list_listings(
             (SurplusListing.expires_on.is_(None) | (SurplusListing.expires_on >= date.today())),
         )
         .order_by(SurplusListing.expires_on.asc().nullslast(), SurplusListing.created_at.desc())
+        .limit(limit)
     )
     if sku_code:
         statement = statement.where(SurplusListing.sku_code == sku_code)
@@ -109,6 +111,7 @@ def list_listings(
 
 @router.get("/mine", response_model=list[SurplusListingRead])
 def list_my_listings(
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
@@ -118,6 +121,7 @@ def list_my_listings(
         .join(hospital, SurplusListing.hospital_id == hospital.id)
         .where(SurplusListing.hospital_id == identity.hospital_id)
         .order_by(SurplusListing.created_at.desc())
+        .limit(limit)
     ))
     buyers_by_listing = get_buyers_by_listing(db, [listing for listing, _ in listing_rows])
     return [

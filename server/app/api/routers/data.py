@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -80,10 +80,16 @@ def create_usage(
 
 @router.get("/usage", response_model=list[MedicineDailyUsageRead])
 def list_usage(
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
-    return list(db.scalars(select(MedicineDailyUsage).where(MedicineDailyUsage.hospital_id == identity.hospital_id).order_by(MedicineDailyUsage.usage_date.desc())))
+    return list(db.scalars(
+        select(MedicineDailyUsage)
+        .where(MedicineDailyUsage.hospital_id == identity.hospital_id)
+        .order_by(MedicineDailyUsage.usage_date.desc())
+        .limit(limit)
+    ))
 
 
 @router.post("/surveillance", response_model=HospitalSurveillanceRead, status_code=status.HTTP_201_CREATED)
@@ -113,7 +119,13 @@ def create_surveillance(
 
 @router.get("/surveillance", response_model=list[HospitalSurveillanceRead])
 def list_surveillance(
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
-    return list(db.scalars(select(HospitalSurveillance).where(HospitalSurveillance.hospital_id == identity.hospital_id).order_by(HospitalSurveillance.report_date.desc())))
+    return list(db.scalars(
+        select(HospitalSurveillance)
+        .where(HospitalSurveillance.hospital_id == identity.hospital_id)
+        .order_by(HospitalSurveillance.report_date.desc())
+        .limit(limit)
+    ))

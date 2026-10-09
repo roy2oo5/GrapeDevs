@@ -16,6 +16,7 @@ import { MOUPartnersView } from '../components/MOUPartnersView';
 import { CollaborationMOUView } from '../components/CollaborationMOUView';
 import { HospitalSettingsView } from '../components/HospitalSettingsView';
 import { InventorySKUsView } from '../components/InventorySKUsView';
+import { RiskForecastingView } from '../components/RiskForecastingView';
 import App from '../App';
 
 describe('PulseGrid Control Tower Test Suite', () => {
@@ -233,9 +234,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<DashboardHeader currentHospital="MedCare General Hospital" onOpenSearch={vi.fn()} />);
 
       expect(screen.getAllByText('MedCare General Hospital').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('person')).not.toBeInTheDocument();
     });
 
-    it('renders DashboardView KPI cards and attention alerts', () => {
+    it('renders real inventory risk metrics and supply priorities', () => {
       const handleToast = vi.fn();
       const handleEmergency = vi.fn();
       render(
@@ -258,16 +260,16 @@ describe('PulseGrid Control Tower Test Suite', () => {
         />
       );
 
-      expect(screen.getByText('Executive Command Console')).toBeInTheDocument();
-      expect(screen.getByText('1,240,000 Units')).toBeInTheDocument();
-      expect(screen.getByText('45,800 Units')).toBeInTheDocument();
-      expect(screen.getByText('18 Requests')).toBeInTheDocument();
-      expect(screen.getByText('5 Pending MOUs')).toBeInTheDocument();
+      expect(screen.getByText('Medical Supply Intelligence')).toBeInTheDocument();
+      expect(screen.getByText('113.0 units/day')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByText('Priority supplies')).toBeInTheDocument();
 
       expect(screen.getByText('Paracetamol 500mg IV Infusion (100ml)')).toBeInTheDocument();
       expect(screen.getByText('Propofol 10mg/mL Injectable Emulsion (20ml)')).toBeInTheDocument();
+      expect(screen.queryByText('Add usage/surveillance data')).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByText('Emergency Stock Request'));
+      fireEvent.click(screen.getByText('Request stock'));
       expect(handleEmergency).toHaveBeenCalledTimes(1);
     });
   });
@@ -287,7 +289,6 @@ describe('PulseGrid Control Tower Test Suite', () => {
         storage_regime: 'ambient',
         average_daily_use: 0,
       };
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const fetchMock = vi.fn((url, options = {}) => {
         if (options.method === 'DELETE') return Promise.resolve({ ok: true, status: 204, json: async () => null });
         return Promise.resolve({ ok: true, json: async () => [batch] });
@@ -298,12 +299,17 @@ describe('PulseGrid Control Tower Test Suite', () => {
       await screen.findByText('MED-DELETE-001');
       fireEvent.click(screen.getByRole('button', { name: /Inventory actions for Delete Test Medicine/i }));
       fireEvent.click(screen.getByRole('menuitem', { name: /Delete inventory batch/i }));
+      expect(screen.getByRole('alertdialog')).toHaveTextContent('Delete Test Medicine');
+      expect(fetchMock).not.toHaveBeenCalledWith(
+        expect.stringContaining('/api/inventory/batches/batch-delete-001'),
+        expect.objectContaining({ method: 'DELETE' }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Delete batch' }));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/api/inventory/batches/batch-delete-001'),
         expect.objectContaining({ method: 'DELETE' }),
       ));
-      expect(confirmSpy).toHaveBeenCalled();
       await waitFor(() => expect(screen.queryByText('MED-DELETE-001')).not.toBeInTheDocument());
       expect(onToast).toHaveBeenCalledWith(expect.stringContaining('Inventory batch deleted'));
     });
@@ -333,6 +339,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
       fireEvent.click(screen.getByRole('button', { name: /Add Inventory/i }));
       expect(screen.queryByLabelText(/^Unit$/i)).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/Storage regime/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Average daily use/i)).not.toBeInTheDocument();
+      expect(screen.getByText('Expiry Date')).toBeInTheDocument();
+      expect(screen.queryByText('Reorder Buffer')).not.toBeInTheDocument();
       fireEvent.change(screen.getByLabelText(/SKU code/i), {
         target: { value: 'MED-TEST-001' },
       });
@@ -353,6 +362,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(await screen.findByText('MED-TEST-001')).toBeInTheDocument();
       expect(screen.getByText('Test Saline Infusion')).toBeInTheDocument();
       expect(screen.getByText('24 units')).toBeInTheDocument();
+      const createCall = fetch.mock.calls.find(([, options]) => options?.method === 'POST');
+      expect(createCall).toBeDefined();
+      expect(JSON.parse(createCall[1].body)).not.toHaveProperty('average_daily_use');
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/inventory/batches'),
         expect.objectContaining({ method: 'POST' }),
@@ -361,16 +373,84 @@ describe('PulseGrid Control Tower Test Suite', () => {
     });
   });
 
+  describe('RiskForecastingView', () => {
+    it('removes the demand chart and sorts shortage rows by severity', async () => {
+      const batches = [
+        { id: 'in-range-id', sku_code: 'IN-1', sku_name: 'In Range Medicine', quantity: 100, unit: 'units', storage_regime: 'ambient', average_daily_use: 1 },
+        { id: 'critical-id', sku_code: 'CR-1', sku_name: 'Critical Medicine', quantity: 2, unit: 'units', storage_regime: 'ambient', average_daily_use: 1 },
+        { id: 'at-risk-id', sku_code: 'AR-1', sku_name: 'At Risk Medicine', quantity: 10, unit: 'units', storage_regime: 'ambient', average_daily_use: 1 },
+      ];
+      const forecasts = [
+        { inventory_batch_id: 'in-range-id', sku_code: 'IN-1', medicine_name: 'In Range Medicine', current_quantity: 100, average_daily_use: 1, days_until_stockout: 100, stockout_within_horizon: false, horizon_days: 7, risk_level: 'no_shortage_projected', projected_quantity: 93, data_source: 'daily_usage_records', surveillance_status: 'no_recent_surveillance', surveillance_multiplier: 1, daily_forecast: [{ predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }] },
+        { inventory_batch_id: 'critical-id', sku_code: 'CR-1', medicine_name: 'Critical Medicine', current_quantity: 2, average_daily_use: 1, days_until_stockout: 2, stockout_within_horizon: true, horizon_days: 7, risk_level: 'critical_shortage', projected_quantity: 0, data_source: 'daily_usage_records', surveillance_status: 'no_recent_surveillance', surveillance_multiplier: 1, daily_forecast: [{ predicted_demand: 2 }, { predicted_demand: 2 }, { predicted_demand: 2 }, { predicted_demand: 2 }, { predicted_demand: 2 }, { predicted_demand: 2 }, { predicted_demand: 2 }] },
+        { inventory_batch_id: 'at-risk-id', sku_code: 'AR-1', medicine_name: 'At Risk Medicine', current_quantity: 10, average_daily_use: 1, days_until_stockout: 10, stockout_within_horizon: true, horizon_days: 7, risk_level: 'shortage_within_horizon', projected_quantity: 3, data_source: 'daily_usage_records', surveillance_status: 'watch', surveillance_multiplier: 1.1, daily_forecast: [{ predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }, { predicted_demand: 1 }] },
+      ];
+      vi.stubGlobal('fetch', vi.fn((url) => {
+        if (String(url).includes('/api/inventory/forecast')) {
+          return Promise.resolve({ ok: true, json: async () => ({ forecasts }) });
+        }
+        if (String(url).includes('/api/inventory/batches')) {
+          return Promise.resolve({ ok: true, json: async () => batches });
+        }
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }));
+      render(<RiskForecastingView />);
+
+      const critical = await screen.findByText('Critical Medicine');
+      const table = critical.closest('table');
+      const rowNames = [...table.querySelectorAll('tbody tr')].map((row) => row.cells[0].textContent.trim());
+      expect(rowNames).toEqual(['Critical MedicineCR-1', 'At Risk MedicineAR-1', 'In Range MedicineIN-1']);
+      expect(screen.queryByText('Expected daily demand')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Forecast result')).not.toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'In Range Medicine — 100 units available' })).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Medicine in your inventory'), { target: { value: 'in-range-id' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Check forecast' }));
+      expect(await screen.findByRole('status')).toHaveTextContent('Using previous usage data.');
+      expect(screen.getByLabelText('Forecast result')).toHaveTextContent('100 units');
+      expect(screen.getByLabelText('Forecast result')).toHaveTextContent('About 7 units');
+      expect(screen.getByLabelText('Forecast result')).toHaveTextContent('About 100 days');
+      expect(screen.queryByText(/LightGBM|horizon|surveillance/i)).not.toBeInTheDocument();
+    });
+  });
+
   describe('CommandPalette & ActionModals', () => {
     it('filters items in CommandPalette', () => {
       const handleAction = vi.fn();
       render(<CommandPalette isOpen={true} onClose={vi.fn()} onSelectAction={handleAction} />);
 
-      expect(screen.getByPlaceholderText(/Type a SKU name/i)).toBeInTheDocument();
-      expect(screen.getByText('Paracetamol 500mg IV Infusion')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Search medicine, transfers/i)).toBeInTheDocument();
+      expect(screen.getByText('Open Inventory')).toBeInTheDocument();
 
       fireEvent.click(screen.getByText('Emergency Stock Request'));
       expect(handleAction).toHaveBeenCalledWith('emergency-request');
+    });
+
+    it('searches real hospital records and navigates with the result', async () => {
+      const handleAction = vi.fn();
+      window.sessionStorage.setItem(
+        'pulsegrid_access_token',
+        `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-current' }))}.signature`,
+      );
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          results: [{
+            type: 'Inventory',
+            id: 'batch-1',
+            title: 'Actual medicine',
+            detail: 'MED-001 · 12 units',
+            view: 'inventory-and-skus',
+          }],
+        }),
+      }));
+      render(<CommandPalette isOpen onClose={vi.fn()} onSelectAction={handleAction} />);
+      fireEvent.change(screen.getByPlaceholderText(/Search medicine, transfers/i), { target: { value: 'Actual medicine' } });
+
+      fireEvent.click(await screen.findByText('Actual medicine'));
+      expect(handleAction).toHaveBeenCalledWith('search-result', expect.objectContaining({
+        id: 'batch-1',
+        view: 'inventory-and-skus',
+      }));
     });
 
     it('submits Emergency Stock Request in ActionModal', async () => {
@@ -422,6 +502,22 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByPlaceholderText('SKU code')).toBeInTheDocument();
       expect(screen.getByLabelText('Destination hospital')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Create transfer' })).toBeInTheDocument();
+    });
+
+    it('prefills a transfer when started from an inventory item', async () => {
+      const onInitialDraftConsumed = vi.fn();
+      render(
+        <TransfersLogisticsView
+          onToast={vi.fn()}
+          initialDraft={{ sku_name: 'Actual medicine', sku_code: 'MED-001', unit: 'packs' }}
+          onInitialDraftConsumed={onInitialDraftConsumed}
+        />,
+      );
+
+      expect(await screen.findByDisplayValue('Actual medicine')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('MED-001')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('packs')).toBeInTheDocument();
+      expect(onInitialDraftConsumed).toHaveBeenCalledTimes(1);
     });
 
     it('sends a transfer directly in transit to the selected destination', async () => {
@@ -668,6 +764,12 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       const deleteButton = await screen.findByRole('button', { name: /Delete Owned surplus surplus/i });
       fireEvent.click(deleteButton);
+      expect(screen.getByRole('alertdialog')).toHaveTextContent('Remove Owned surplus');
+      expect(fetch).not.toHaveBeenCalledWith(
+        expect.stringContaining('/api/marketplace/listings/listing-owned-001'),
+        expect.objectContaining({ method: 'DELETE' }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Remove listing' }));
 
       await waitFor(() => expect(handleToast).toHaveBeenCalledWith('Surplus listing removed.'));
       expect(fetch).toHaveBeenCalledWith(
@@ -686,6 +788,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('Send an MOU request')).toBeInTheDocument();
       expect(screen.getByText('Requests sent by me')).toBeInTheDocument();
       expect(screen.getByText('Requests received')).toBeInTheDocument();
+      expect(screen.getByText(/Surplus sharing is commercial/)).toBeInTheDocument();
     });
 
     it('sends a direct MOU request', async () => {
@@ -818,7 +921,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       render(<App />);
 
-      expect(await screen.findByText('Executive Command Console')).toBeInTheDocument();
+      expect(await screen.findByText('Medical Supply Intelligence')).toBeInTheDocument();
       expect(screen.getAllByText('North District Hospital').length).toBeGreaterThan(0);
       const hospitalRequest = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/hospitals/me'));
       expect(hospitalRequest[1].headers.get('Authorization')).toBe('Bearer saved-hospital-token');

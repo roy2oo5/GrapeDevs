@@ -8,21 +8,32 @@ import { ScenarioSimulationView } from './ScenarioSimulationView';
 import { HospitalSettingsView } from './HospitalSettingsView';
 import { ForecastDataEntry } from './ForecastDataEntry';
 
-export function SecondaryViews({ view, onToast }) {
+export function SecondaryViews({
+  view,
+  onToast,
+  onNavigate,
+  transferDraft,
+  onTransferDraftConsumed,
+  onFindSupply,
+}) {
   if (view === 'forecast-data') {
     return <ForecastDataEntry onToast={onToast} />;
   }
 
   if (view === 'outbreak-surveillance' || view === 'risk-intelligence') {
-    return <RiskForecastingView onToast={onToast} />;
+    return <RiskForecastingView onToast={onToast} onFindSupply={onFindSupply} />;
   }
 
   if (view === 'inventory-and-skus' || view === 'inventory') {
-    return <InventorySKUsView onToast={onToast} />;
+    return <InventorySKUsView onToast={onToast} onSendStock={onFindSupply} />;
   }
 
   if (view === 'transfers-and-logistics') {
-    return <TransfersLogisticsView onToast={onToast} />;
+    return <TransfersLogisticsView
+      onToast={onToast}
+      initialDraft={transferDraft}
+      onInitialDraftConsumed={onTransferDraftConsumed}
+    />;
   }
 
   if (view === 'mou-partners' || view === 'pulsegrid-safe-surplus-network-and-mou-marketplace' || view === 'surplus-marketplace') {

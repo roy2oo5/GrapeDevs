@@ -14,12 +14,22 @@ const STATUS_LABELS = {
   canceled: 'Canceled',
 };
 
-export function TransfersLogisticsView({ onToast }) {
+export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftConsumed }) {
   const [transfers, setTransfers] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const [draft, setDraft] = useState(initialDraft || {});
+
+  useEffect(() => {
+    if (!initialDraft) return;
+    setDraft(initialDraft);
+    setShowForm(true);
+    onInitialDraftConsumed?.();
+  }, [initialDraft, onInitialDraftConsumed]);
 
   const hospitalNames = useMemo(
     () => Object.fromEntries(hospitals.map((hospital) => [hospital.id, hospital.name])),
@@ -159,19 +169,36 @@ export function TransfersLogisticsView({ onToast }) {
 
   const outgoingTransfers = transfers.filter((transfer) => transfer.source_hospital_id === currentHospitalId);
   const incomingTransfers = transfers.filter((transfer) => transfer.requesting_hospital_id === currentHospitalId);
-  const renderTransferGroup = (title, direction, rows) => (
+  const renderTransferGroup = (title, direction, rows) => {
+    const filteredRows = rows.filter((transfer) => [
+      transfer.sku_name,
+      transfer.sku_code,
+      transfer.status,
+      transfer.notes,
+      hospitalNames[direction === 'sending' ? transfer.requesting_hospital_id : transfer.source_hospital_id],
+    ].some((value) => String(value || '').toLowerCase().includes(searchQuery.trim().toLowerCase())));
+    const visibleRows = showAll ? filteredRows : filteredRows.slice(0, 5);
+    return (
     <section className="rounded-xl border border-outline/20 bg-surface-container-lowest p-4">
       <div className="mb-4 flex items-center justify-between border-b border-outline/20 pb-3">
         <h2 className="font-semibold text-on-surface">{title}</h2>
-        <span className="rounded-full bg-surface-container-high px-2 py-1 text-xs text-on-surface-variant">{rows.length}</span>
+        <span className="rounded-full bg-surface-container-high px-2 py-1 text-xs text-on-surface-variant">{filteredRows.length}</span>
       </div>
-      {rows.length === 0 ? (
-        <p className="py-3 text-sm text-on-surface-variant">No {direction} transfers.</p>
+      {filteredRows.length === 0 ? (
+        <p className="py-3 text-sm text-on-surface-variant">{searchQuery ? 'No transfers match your search.' : `No ${direction} transfers.`}</p>
       ) : (
-        <div className="space-y-3">{rows.map((transfer) => renderTransferCard(transfer, direction))}</div>
+        <div className="space-y-3">
+          {visibleRows.map((transfer) => renderTransferCard(transfer, direction))}
+          {!showAll && filteredRows.length > 5 && (
+            <button type="button" onClick={() => setShowAll(true)} className="w-full py-2 text-sm font-semibold text-primary">
+              Show all {filteredRows.length} transfers
+            </button>
+          )}
+        </div>
       )}
     </section>
-  );
+    );
+  };
 
   return (
     <div className="flex w-full flex-col gap-5 animate-fadeIn">
@@ -187,16 +214,20 @@ export function TransfersLogisticsView({ onToast }) {
       </header>
 
       {error && <div role="alert" className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{error}</div>}
+      <label className="block">
+        <span className="sr-only">Search transfers</span>
+        <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search transfers by medicine, hospital, or status" className="w-full rounded-lg border border-outline/30 bg-surface-container-lowest px-3 py-2 text-sm" />
+      </label>
 
       {showForm && (
         <form onSubmit={create} className="grid gap-3 rounded-xl border border-outline/20 bg-surface-container-lowest p-4 md:grid-cols-2">
           <p className="text-xs text-on-surface-variant md:col-span-2">
             Stock is reserved when sent and leaves your inventory when the receiving hospital accepts delivery.
           </p>
-          <input name="sku_name" required placeholder="Medicine name" className="rounded-lg border border-outline/30 px-3 py-2" />
-          <input name="sku_code" required placeholder="SKU code" className="rounded-lg border border-outline/30 px-3 py-2" />
+          <input key={`name-${draft.sku_name || ''}`} name="sku_name" required defaultValue={draft.sku_name || ''} placeholder="Medicine name" className="rounded-lg border border-outline/30 px-3 py-2" />
+          <input key={`code-${draft.sku_code || ''}`} name="sku_code" required defaultValue={draft.sku_code || ''} placeholder="SKU code" className="rounded-lg border border-outline/30 px-3 py-2" />
           <input name="quantity" required min="1" type="number" placeholder="Quantity" className="rounded-lg border border-outline/30 px-3 py-2" />
-          <input name="unit" defaultValue="units" placeholder="Unit" className="rounded-lg border border-outline/30 px-3 py-2" />
+          <input key={`unit-${draft.unit || ''}`} name="unit" defaultValue={draft.unit || 'units'} placeholder="Unit" className="rounded-lg border border-outline/30 px-3 py-2" />
           <label htmlFor="transfer-destination-hospital" className="sr-only">Destination hospital</label>
           <select id="transfer-destination-hospital" name="destination_hospital_id" required className="rounded-lg border border-outline/30 px-3 py-2">
             <option value="">Choose destination hospital</option>

@@ -34,7 +34,7 @@ async def predict_forecast(payload: ForecastRequest):
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Forecasting service is unavailable. Start the forecasting service on port 8010.",
+            detail="The hosted forecasting service is unavailable. Please try again shortly.",
         ) from exc
 
     if response.status_code >= 400:

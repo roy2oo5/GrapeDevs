@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ConfirmationDialog } from './ConfirmationDialog';
 import {
   fetchInventory,
   fetchMySurplusListings,
@@ -23,6 +24,7 @@ export function MOUPartnersView({ onToast }) {
   const [notes, setNotes] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [deletingListingId, setDeletingListingId] = useState(null);
+  const [listingPendingDeletion, setListingPendingDeletion] = useState(null);
   const [requestingListingId, setRequestingListingId] = useState(null);
   const [requestQuantity, setRequestQuantity] = useState('');
   const [requestUrgency, setRequestUrgency] = useState('normal');
@@ -31,6 +33,9 @@ export function MOUPartnersView({ onToast }) {
   const [isRequesting, setIsRequesting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAllListings, setShowAllListings] = useState(false);
+  const [showAllOwnListings, setShowAllOwnListings] = useState(false);
 
   const loadMarketplace = async () => {
     setIsLoading(true);
@@ -52,15 +57,15 @@ export function MOUPartnersView({ onToast }) {
   };
 
   const handleDelete = async (listing) => {
-    if (!window.confirm(`Remove ${listing.sku_name} from the surplus marketplace?`)) return;
-
     setDeletingListingId(listing.id);
     setError('');
     try {
       await deleteSurplusListing(listing.id);
       setMyListings((currentListings) => currentListings.filter((item) => item.id !== listing.id));
+      setListingPendingDeletion(null);
       onToast?.('Surplus listing removed.');
     } catch (deleteError) {
+      setListingPendingDeletion(null);
       setError(deleteError.message || 'Could not remove surplus listing.');
     } finally {
       setDeletingListingId(null);
@@ -115,6 +120,14 @@ export function MOUPartnersView({ onToast }) {
   }, []);
 
   const selectedBatch = inventoryBatches.find((batch) => batch.id === selectedBatchId);
+  const matchesSearch = (listing) => [
+    listing.sku_name,
+    listing.sku_code,
+    listing.hospital_name,
+    listing.status,
+  ].some((value) => String(value || '').toLowerCase().includes(searchQuery.trim().toLowerCase()));
+  const filteredListings = listings.filter(matchesSearch);
+  const filteredOwnListings = myListings.filter(matchesSearch);
 
   const handleBatchChange = (event) => {
     const batchId = event.target.value;
@@ -152,6 +165,16 @@ export function MOUPartnersView({ onToast }) {
 
   return (
     <div className="flex flex-col w-full gap-space-lg animate-fadeIn">
+      {listingPendingDeletion && (
+        <ConfirmationDialog
+          title="Remove surplus listing?"
+          message={`Remove ${listingPendingDeletion.sku_name} from the surplus marketplace?`}
+          confirmLabel="Remove listing"
+          isConfirming={deletingListingId === listingPendingDeletion.id}
+          onCancel={() => setListingPendingDeletion(null)}
+          onConfirm={() => handleDelete(listingPendingDeletion)}
+        />
+      )}
       <header className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
         <div className="flex flex-col gap-space-xs">
           <span className="font-label-sm text-label-sm text-primary uppercase tracking-wider">
@@ -171,6 +194,10 @@ export function MOUPartnersView({ onToast }) {
           {error}
         </div>
       )}
+      <label>
+        <span className="sr-only">Search surplus listings</span>
+        <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search surplus by medicine or hospital" className="w-full rounded-lg border border-outline/30 bg-surface-container-lowest px-3 py-2 text-sm" />
+      </label>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-space-lg items-start">
         <form onSubmit={handlePost} className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
@@ -260,11 +287,11 @@ export function MOUPartnersView({ onToast }) {
           <p className="mt-1 text-sm text-on-surface-variant">
             Track what you shared and see which hospitals requested it.
           </p>
-          {myListings.length === 0 ? (
+          {filteredOwnListings.length === 0 ? (
             <p className="mt-6 text-sm text-on-surface-variant">You have not posted any surplus yet.</p>
           ) : (
             <div className="mt-4 flex flex-col gap-3">
-              {myListings.map((listing) => (
+              {(showAllOwnListings ? filteredOwnListings : filteredOwnListings.slice(0, 5)).map((listing) => (
                 <article key={listing.id} className="rounded-lg border border-outline/20 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -283,7 +310,7 @@ export function MOUPartnersView({ onToast }) {
                       {listing.status === 'active' && (
                         <button
                           type="button"
-                          onClick={() => handleDelete(listing)}
+                          onClick={() => setListingPendingDeletion(listing)}
                           disabled={deletingListingId === listing.id}
                           aria-label={`Delete ${listing.sku_name} surplus`}
                           className="rounded-lg border border-error/30 px-2.5 py-1.5 text-xs font-medium text-error hover:bg-error-container/30 disabled:cursor-not-allowed disabled:opacity-50"
@@ -305,6 +332,9 @@ export function MOUPartnersView({ onToast }) {
                             </span>
                           </div>
                         ))}
+                        {!showAllOwnListings && filteredOwnListings.length > 5 && (
+                          <button type="button" onClick={() => setShowAllOwnListings(true)} className="py-2 text-sm font-semibold text-primary">Show all {filteredOwnListings.length} listings</button>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-on-surface-variant">No buyer found yet.</p>
@@ -336,7 +366,7 @@ export function MOUPartnersView({ onToast }) {
 
           {isLoading ? (
             <p className="py-8 text-center text-sm text-on-surface-variant">Loading surplus listings...</p>
-          ) : listings.length === 0 ? (
+          ) : filteredListings.length === 0 ? (
             <div className="rounded-lg border border-dashed border-outline/30 px-4 py-8 text-center">
               <p className="font-medium text-on-surface">No surplus listings yet</p>
               <p className="mt-1 text-sm text-on-surface-variant">
@@ -345,7 +375,7 @@ export function MOUPartnersView({ onToast }) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {listings.map((listing) => (
+              {(showAllListings ? filteredListings : filteredListings.slice(0, 5)).map((listing) => (
                 <article key={listing.id} className="rounded-lg border border-outline/20 p-4">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div>
@@ -409,6 +439,9 @@ export function MOUPartnersView({ onToast }) {
                   )}
                 </article>
               ))}
+              {!showAllListings && filteredListings.length > 5 && (
+                <button type="button" onClick={() => setShowAllListings(true)} className="py-2 text-sm font-semibold text-primary">Show all {filteredListings.length} listings</button>
+              )}
             </div>
           )}
         </section>

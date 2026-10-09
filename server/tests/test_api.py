@@ -21,6 +21,52 @@ from app.schemas import HospitalAdminIdentity
 from app.services.auth import hash_terminal_access_key
 
 
+def test_hospital_data_search_and_export_are_hospital_scoped(authorized_client, db_session_factory):
+    current_hospital_id = authorized_client.test_hospital_id
+    with db_session_factory() as db:
+        other_hospital = Hospital(
+            name="Other General Hospital",
+            administrator_name="Other Admin",
+            administrator_email="other-admin@example.org",
+            classification="tertiary",
+            node_role="coordinator",
+            status="active",
+        )
+        db.add(other_hospital)
+        db.flush()
+        db.add_all([
+            InventoryBatch(
+                hospital_id=current_hospital_id,
+                sku_code="MED-ALPHA-001",
+                sku_name="Medicine Alpha",
+                quantity=12,
+                unit="packs",
+            ),
+            InventoryBatch(
+                hospital_id=other_hospital.id,
+                sku_code="MED-ALPHA-002",
+                sku_name="Medicine Alpha Other",
+                quantity=99,
+                unit="packs",
+            ),
+        ])
+        db.commit()
+
+    search = authorized_client.get("/api/hospital-data/search?q=Medicine%20Alpha")
+    assert search.status_code == 200
+    assert [row["title"] for row in search.json()["results"] if row["type"] == "Inventory"] == ["Medicine Alpha"]
+
+    export = authorized_client.get("/api/hospital-data/export")
+    assert export.status_code == 200
+    payload = export.json()
+    assert payload["hospital"]["id"] == str(current_hospital_id)
+    assert [row["sku_name"] for row in payload["inventory"]] == ["Medicine Alpha"]
+
+
+def test_hospital_data_search_validates_query_length(authorized_client):
+    assert authorized_client.get("/api/hospital-data/search?q=x").status_code == 422
+
+
 @pytest.fixture
 def db_session_factory():
     engine = create_engine(

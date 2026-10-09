@@ -83,7 +83,7 @@ async def inventory_forecast(
             surveillance_multiplier = 1.25
         elif latest_surveillance.alert_level == "watch":
             surveillance_multiplier = 1.10
-    forecast_client = httpx.AsyncClient(timeout=15.0) if horizon_days in (7, 14) else None
+    forecast_client = httpx.AsyncClient(timeout=60.0) if horizon_days in (7, 14) else None
     settings = get_settings()
     try:
       for batch in batches:
@@ -372,10 +372,14 @@ def list_inventory_batches(
     hospital_id: UUID | None = None,
     sku_code: str | None = None,
     expiring_within_days: int | None = Query(default=None, ge=0, le=3650),
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity=Depends(get_current_hospital_admin),
 ):
-    statement = select(InventoryBatch).order_by(InventoryBatch.expires_on.asc().nullslast())
+    statement = select(InventoryBatch).order_by(
+        InventoryBatch.expires_on.asc().nullslast(),
+        InventoryBatch.created_at.desc(),
+    )
     if hospital_id is not None and hospital_id != identity.hospital_id:
         raise HTTPException(status_code=403, detail="Inventory can only be viewed for your hospital")
     statement = statement.where(InventoryBatch.hospital_id == identity.hospital_id)
@@ -388,7 +392,7 @@ def list_inventory_batches(
             InventoryBatch.expires_on >= today,
             InventoryBatch.expires_on <= cutoff,
         )
-    return list(db.scalars(statement))
+    return list(db.scalars(statement.limit(limit)))
 
 
 @router.patch("/batches/{batch_id}", response_model=InventoryBatchRead)

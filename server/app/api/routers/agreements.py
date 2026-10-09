@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,7 @@ def serialize_agreement(db: Session, agreement: HospitalAgreement) -> dict:
 
 @router.get("", response_model=list[HospitalAgreementRead])
 def list_agreements(
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
@@ -54,6 +55,7 @@ def list_agreements(
             )
         )
         .order_by(HospitalAgreement.created_at.desc())
+        .limit(limit)
     )
     return [serialize_agreement(db, agreement) for agreement in agreements]
 

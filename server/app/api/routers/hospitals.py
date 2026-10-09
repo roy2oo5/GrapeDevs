@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,7 @@ def get_my_hospital(
 
 @router.get("", response_model=list[HospitalDirectoryEntry])
 def list_hospitals(
+    limit: int = Query(default=100, ge=1, le=500),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
     db: Session = Depends(get_db),
 ):
@@ -30,6 +31,7 @@ def list_hospitals(
         select(Hospital)
         .where(Hospital.status == "active", Hospital.id != identity.hospital_id)
         .order_by(Hospital.name)
+        .limit(limit)
     )
     if current_hospital is None:
         return []

@@ -11,12 +11,13 @@ export function RiskForecastingView({ onToast }) {
   const [forecastError, setForecastError] = useState('');
   const [inventoryBatches, setInventoryBatches] = useState([]);
   const [selectedInventoryBatch, setSelectedInventoryBatch] = useState('');
-  const [forecastHorizon, setForecastHorizon] = useState(7);
   const [demandForecast, setDemandForecast] = useState(null);
   const [isDemandForecasting, setIsDemandForecasting] = useState(false);
   const [partnerAvailability, setPartnerAvailability] = useState(null);
   const [mouRequest, setMouRequest] = useState(null);
   const [isMouRequesting, setIsMouRequesting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAllRiskRows, setShowAllRiskRows] = useState(false);
 
   // Modal State for Inter-Hospital MOU Dispatch
   const [mouDialog, setMouDialog] = useState(null); // { title, sku, hospital, route }
@@ -36,7 +37,7 @@ export function RiskForecastingView({ onToast }) {
     setIsDemandForecasting(true);
     setForecastError('');
     try {
-      const result = await fetchInventoryForecast(forecastHorizon);
+      const result = await fetchInventoryForecast(7);
       const selected = result.forecasts.find((forecast) => forecast.inventory_batch_id === selectedInventoryBatch);
       if (!selected) throw new Error('The selected inventory batch could not be forecast.');
       setDemandForecast(selected);
@@ -51,15 +52,8 @@ export function RiskForecastingView({ onToast }) {
   const handleLoadForecast = async () => {
     setForecastError('');
     try {
-      const forecast = await fetchInventoryForecast(forecastHorizon);
+      const forecast = await fetchInventoryForecast(7);
       setForecastRows(forecast.forecasts);
-      const firstForecast = forecast.forecasts.find(
-        (item) => item.inventory_batch_id === selectedInventoryBatch,
-      ) || forecast.forecasts[0];
-      if (firstForecast) {
-        setSelectedInventoryBatch(firstForecast.inventory_batch_id);
-        setDemandForecast(firstForecast);
-      }
       if (onToast) onToast(`Forecast calculated for ${forecast.forecasts.length} inventory batches.`);
     } catch (error) {
       setForecastError(error.message || 'Could not calculate hospital inventory forecasts.');
@@ -69,8 +63,8 @@ export function RiskForecastingView({ onToast }) {
   const handleInventorySelection = (event) => {
     const batchId = event.target.value;
     setSelectedInventoryBatch(batchId);
-    const selectedForecast = forecastRows.find((item) => item.inventory_batch_id === batchId);
-    if (selectedForecast) setDemandForecast(selectedForecast);
+    setDemandForecast(null);
+    setForecastError('');
   };
 
   const handleOpenBorrow = async (sku, hospital, code) => {
@@ -135,41 +129,37 @@ export function RiskForecastingView({ onToast }) {
       hospitalMatch: 'Select partner in transfers',
       rank: index,
     };
+  }).sort((a, b) => {
+    const severity = { Critical: 0, 'At Risk': 1, 'In Range': 2 };
+    return severity[a.status] - severity[b.status] || a.rank - b.rank;
   });
-
+  const filteredShortageData = shortageData.filter((item) => (
+    `${item.sku} ${item.code} ${item.status}`.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  ));
+  const visibleShortageData = showAllRiskRows ? filteredShortageData : filteredShortageData.slice(0, 5);
+  const forecastableBatches = inventoryBatches.filter((batch) => Number(batch.quantity) > 0);
+  const selectedBatch = inventoryBatches.find(
+    (batch) => String(batch.id) === String(demandForecast?.inventory_batch_id),
+  );
+  const forecastUnit = selectedBatch?.unit || 'units';
+  const expectedUse = demandForecast?.daily_forecast?.reduce(
+    (total, day) => total + Number(day.predicted_demand || 0),
+    0,
+  ) ?? null;
+  const daysUntilStockout = demandForecast?.days_until_stockout;
+  const stockoutEstimate = daysUntilStockout == null
+    ? 'Not enough information'
+    : `About ${Math.max(1, Math.round(daysUntilStockout))} days`;
   return (
     <div className="flex flex-col w-full gap-space-lg pb-12 animate-fadeIn">
-      {/* Top Operational Context / Breadcrumb & Header Action Strip */}
       <section className="flex flex-col xl:flex-row xl:items-end justify-between gap-space-md">
         <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary font-semibold">
-              Clinical Intelligence
-            </span>
-            <span className="text-outline text-xs">/</span>
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">
-              Predictive Modeling
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-fixed font-label-sm text-label-sm font-semibold ml-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-              Inventory forecast ready
-            </span>
-          </div>
-          <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
-            Risk Intelligence &amp; AI Forecasting
-          </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant max-w-3xl leading-relaxed">
-            Automatic forecast for every medicine batch in your hospital inventory. Review shortage risk first, then check active MOU hospitals for the same medicine.
-          </p>
+          <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">Medicine forecast</h1>
         </div>
       </section>
       <section className="rounded-2xl bg-surface-container-lowest p-space-lg shadow-md border border-primary/20">
         <div className="flex flex-col gap-1">
-          <span className="font-label-sm uppercase tracking-wider text-primary font-semibold">Your inventory forecast</span>
-          <h2 className="font-headline-sm text-headline-sm text-on-surface">Medicine demand and shortage forecast</h2>
-          <p className="text-sm text-on-surface-variant">
-            Select a medicine batch from your hospital inventory. The forecast uses its current quantity and recorded average daily use.
-          </p>
+          <p className="text-sm text-on-surface-variant">Choose a medicine with stock to see expected use and when it may run out.</p>
         </div>
         {forecastError && <div role="alert" className="mt-4 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{forecastError}</div>}
         <div className="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] gap-3 items-end">
@@ -178,22 +168,15 @@ export function RiskForecastingView({ onToast }) {
             <select
               value={selectedInventoryBatch}
               onChange={handleInventorySelection}
-              disabled={!inventoryBatches.length}
+              disabled={!forecastableBatches.length}
               className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2.5 text-on-surface"
             >
-              {!inventoryBatches.length && <option>Loading your inventory...</option>}
-              {inventoryBatches.map((batch) => (
+              <option value="">Select a medicine</option>
+              {forecastableBatches.map((batch) => (
                 <option key={batch.id} value={batch.id}>
-                  {batch.sku_name} ({batch.quantity} {batch.unit})
+                  {batch.sku_name} — {batch.quantity} {batch.unit} available
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-on-surface">
-            Forecast period
-            <select value={forecastHorizon} onChange={(event) => setForecastHorizon(Number(event.target.value))} className="rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2.5 text-on-surface">
-              <option value={7}>7 days</option>
-              <option value={14}>14 days</option>
             </select>
           </label>
           <button
@@ -202,129 +185,42 @@ export function RiskForecastingView({ onToast }) {
             disabled={isDemandForecasting || !selectedInventoryBatch}
             className="rounded-lg bg-primary px-4 py-2.5 font-semibold text-on-primary disabled:opacity-50"
           >
-            {isDemandForecasting ? 'Loading...' : 'Refresh forecast'}
+            {isDemandForecasting ? 'Checking...' : 'Check forecast'}
           </button>
         </div>
         {demandForecast && (
           <div className="mt-5">
-            <div className={`mb-3 rounded-lg border px-4 py-3 text-sm ${
+            <div role="status" className={`rounded-lg border px-4 py-3 text-sm font-semibold ${
               demandForecast.data_source === 'lightgbm_real_history'
                 ? 'border-tertiary/40 bg-tertiary-container/50 text-on-tertiary-container'
                 : demandForecast.data_source === 'inventory_batch_average'
                   ? 'border-secondary/40 bg-secondary-container/50 text-on-secondary-container'
                   : 'border-outline/30 bg-surface-container-low text-on-surface'
             }`}>
-              <strong>
-                {demandForecast.data_source === 'lightgbm_real_history'
-                  ? 'ML forecast active'
-                  : demandForecast.data_source === 'inventory_batch_average'
-                    ? 'Not enough history yet'
-                    : 'Using database fallback'}
-              </strong>
-              <span className="ml-2">
-                {demandForecast.data_source === 'lightgbm_real_history'
-                  ? 'LightGBM is using this medicine’s real usage history.'
-                  : demandForecast.data_source === 'inventory_batch_average'
-                    ? 'Add 28 consecutive daily usage records to activate ML forecasting.'
-                    : 'This forecast uses your recorded usage data, not the ML model.'}
-              </span>
+              {demandForecast.data_source === 'lightgbm_real_history'
+                ? 'ML is running.'
+                : demandForecast.data_source === 'inventory_batch_average'
+                  ? 'Previous usage data is required.'
+                  : 'Using previous usage data.'}
             </div>
-            <div className={`rounded-lg border px-4 py-3 ${
-              demandForecast.risk_level === 'critical_shortage'
-                ? 'border-error/40 bg-error-container/50 text-on-error-container'
-                : demandForecast.risk_level === 'shortage_within_horizon'
-                  ? 'border-secondary/40 bg-secondary-container/60 text-on-secondary-container'
-                  : 'border-tertiary/40 bg-tertiary-container/50 text-on-tertiary-container'
-            }`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide">Predicted demand risk</div>
-                  <div className="mt-1 text-lg font-bold capitalize">
-                    {demandForecast.risk_level.replaceAll('_', ' ')}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs">Projected remaining stock</div>
-                  <div className="text-lg font-bold">
-                    {Number(demandForecast.projected_quantity).toFixed(0)} units
-                  </div>
-                </div>
+            <div aria-label="Forecast result" className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-surface-container-low px-3 py-3">
+                <span className="block text-xs text-on-surface-variant">Stock available now</span>
+                <strong className="mt-1 block text-base text-on-surface">
+                  {demandForecast.current_quantity} {forecastUnit}
+                </strong>
               </div>
-              <p className="mt-2 text-sm">
-                Current stock: {demandForecast.current_quantity} units.
-                Expected use: {Number(demandForecast.average_daily_use).toFixed(1)} units/day.
-                <span className="block mt-1">
-                  Source: {demandForecast.data_source === 'lightgbm_real_history'
-                    ? `LightGBM trained on ${demandForecast.ml_model_version || 'your real history'}`
-                    : demandForecast.data_source === 'daily_usage_records'
-                      ? 'your daily usage records'
-                      : 'inventory average'}.
-                  {demandForecast.surveillance_status !== 'no_recent_surveillance'
-                    ? ` Surveillance: ${demandForecast.surveillance_status} (${Math.round((demandForecast.surveillance_multiplier - 1) * 100)}% demand adjustment).`
-                    : ' No recent surveillance adjustment.'}
+              <div className="rounded-lg bg-surface-container-low px-3 py-3">
+                <span className="block text-xs text-on-surface-variant">
+                  Estimated use in {demandForecast.horizon_days} days
                 </span>
-                {demandForecast.days_until_stockout === null
-                  ? ' No usage rate is recorded yet.'
-                  : ` Estimated stockout in ${demandForecast.days_until_stockout} days.`}
-              </p>
-            </div>
-            <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-              <div className="rounded-lg bg-surface-container-low px-3 py-2">
-                <span className="block text-xs text-on-surface-variant">Current stock</span>
-                <strong className="text-on-surface">{demandForecast.current_quantity} units</strong>
-              </div>
-              <div className="rounded-lg bg-surface-container-low px-3 py-2">
-                <span className="block text-xs text-on-surface-variant">Daily demand</span>
-                <strong className="text-on-surface">{Number(demandForecast.average_daily_use).toFixed(1)} units</strong>
-              </div>
-              <div className="rounded-lg bg-surface-container-low px-3 py-2">
-                <span className="block text-xs text-on-surface-variant">Stockout estimate</span>
-                <strong className="text-on-surface">
-                  {demandForecast.days_until_stockout === null ? 'Unknown' : `${demandForecast.days_until_stockout} days`}
+                <strong className="mt-1 block text-base text-on-surface">
+                  {expectedUse === null ? 'Not available' : `About ${Math.round(expectedUse)} ${forecastUnit}`}
                 </strong>
               </div>
-              <div className="rounded-lg bg-surface-container-low px-3 py-2">
-                <span className="block text-xs text-on-surface-variant">Data used</span>
-                <strong className="text-on-surface">
-                  {demandForecast.data_source === 'lightgbm_real_history'
-                    ? 'LightGBM + real history'
-                    : demandForecast.data_source === 'daily_usage_records'
-                      ? 'Daily records'
-                      : 'Inventory average'}
-                </strong>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-4 text-sm text-on-surface-variant mt-4">
-              <span>Medicine: <strong className="text-on-surface">{demandForecast.medicine_name}</strong></span>
-              <span>SKU: <strong className="text-on-surface">{demandForecast.sku_code}</strong></span>
-              <span>Horizon: <strong className="text-on-surface">{demandForecast.horizon_days} days</strong></span>
-            </div>
-            <div className="mt-4 rounded-xl border border-outline/20 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-on-surface">Expected daily demand</h3>
-                  <p className="text-xs text-on-surface-variant">Bars show expected use. Labels show projected stock after use.</p>
-                </div>
-                <span className="text-xs text-on-surface-variant">{demandForecast.horizon_days} days</span>
-              </div>
-              <div className="mt-5 flex h-48 items-end gap-1.5 overflow-x-auto border-b border-outline/20 px-1">
-                {demandForecast.daily_forecast.map((prediction) => {
-                  const maximum = Math.max(...demandForecast.daily_forecast.map((item) => Number(item.predicted_demand)), 1);
-                  const height = Math.max(8, (Number(prediction.predicted_demand) / maximum) * 100);
-                  return (
-                    <div key={prediction.date} className="flex h-full min-w-[38px] flex-1 flex-col items-center justify-end gap-1">
-                      <span className="text-[10px] font-semibold text-on-surface">
-                        {Number(prediction.predicted_demand).toFixed(0)}
-                      </span>
-                      <div
-                        className="w-full rounded-t-md bg-primary transition-all"
-                        style={{ height: `${height}%` }}
-                        title={`${prediction.date}: ${Number(prediction.predicted_demand).toFixed(1)} units expected; ${prediction.projected_quantity} remaining`}
-                      />
-                      <span className="text-[10px] text-on-surface-variant">{prediction.date.slice(5)}</span>
-                    </div>
-                  );
-                })}
+              <div className="rounded-lg bg-surface-container-low px-3 py-3">
+                <span className="block text-xs text-on-surface-variant">Stock may run out in</span>
+                <strong className="mt-1 block text-base text-on-surface">{stockoutEstimate}</strong>
               </div>
             </div>
           </div>
@@ -351,6 +247,10 @@ export function RiskForecastingView({ onToast }) {
             </div>
 
             {/* Shortage Risks Table Layout */}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search forecasts by medicine or status" className="min-w-0 flex-1 rounded-lg border border-outline/30 bg-surface-container-lowest px-3 py-2 text-sm" />
+              <span className="text-xs text-on-surface-variant">{filteredShortageData.length} forecast records</span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -364,7 +264,7 @@ export function RiskForecastingView({ onToast }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y-0 text-body-sm">
-                  {shortageData.map((item) => (
+                  {visibleShortageData.map((item) => (
                     <tr key={item.id} className="hover:bg-surface-container-low/50 transition-colors group">
                       <td className="py-3 px-3">
                         <div className="flex flex-col min-w-0">
@@ -410,9 +310,16 @@ export function RiskForecastingView({ onToast }) {
                       </td>
                     </tr>
                   ))}
+                  {visibleShortageData.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-sm text-on-surface-variant">No forecasts match your search.</td></tr>}
                 </tbody>
               </table>
             </div>
+            {!showAllRiskRows && filteredShortageData.length > 5 && (
+              <button type="button" onClick={() => setShowAllRiskRows(true)} className="mt-3 w-full py-2 text-sm font-semibold text-primary">Show all {filteredShortageData.length} forecasts</button>
+            )}
+            {showAllRiskRows && filteredShortageData.length > 5 && (
+              <button type="button" onClick={() => setShowAllRiskRows(false)} className="mt-3 w-full py-2 text-sm font-semibold text-primary">Show top 5 forecasts</button>
+            )}
           </div>
 
         </div>
@@ -421,7 +328,7 @@ export function RiskForecastingView({ onToast }) {
       {/* MOU partner inventory details */}
       {mouDialog && (
         <div className="fixed inset-0 bg-inverse-surface/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl max-w-lg w-full p-space-lg flex flex-col gap-space-md border border-surface-container-high">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl max-w-xl w-full p-space-xl flex flex-col gap-space-md border border-surface-container-high">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-primary-fixed/40 flex items-center justify-center text-primary">
@@ -429,7 +336,6 @@ export function RiskForecastingView({ onToast }) {
                 </div>
                 <div className="flex flex-col">
                   <h4 className="font-headline-sm text-headline-sm text-on-surface font-semibold">{mouDialog.title}</h4>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant">District 4 Rapid Stock Redistribution</span>
                 </div>
               </div>
               <button

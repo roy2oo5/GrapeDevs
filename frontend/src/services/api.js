@@ -93,6 +93,24 @@ export function fetchDashboard() {
   return request('/api/dashboard', {}, true);
 }
 
+export function searchHospitalData(query) {
+  const params = new URLSearchParams({ q: query.trim() });
+  return request(`/api/hospital-data/search?${params}`, {}, true);
+}
+
+export async function exportHospitalData() {
+  const data = await request('/api/hospital-data/export', {}, true);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `hospital-data-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function fetchInventory(params = {}) {
   const query = new URLSearchParams(params);
   return request(`/api/inventory/batches${query.size ? `?${query}` : ''}`, {}, true);

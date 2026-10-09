@@ -17,7 +17,7 @@ function statusLabel(status) {
 }
 
 const STANDARD_MOU_TERMS = [
-  'Surplus sharing is non-commercial and subject to availability; this MOU does not guarantee supply, purchase, or delivery.',
+  'Surplus sharing is commercial and subject to availability; price and payment must be agreed for each transfer. This MOU does not guarantee supply or delivery.',
   'Every transfer requires a separate request and approval by the releasing hospital.',
   'Supplies must be unopened, authentic, within expiry, and stored and transported according to manufacturer instructions.',
   'The receiving hospital arranges collection and reasonable transport costs unless otherwise agreed for a specific transfer.',
@@ -37,6 +37,8 @@ export function CollaborationMOUView({ onToast }) {
   const [updatingId, setUpdatingId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAllAgreements, setShowAllAgreements] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -73,6 +75,13 @@ export function CollaborationMOUView({ onToast }) {
     () => agreements.filter((agreement) => agreement.status === 'active'),
     [agreements],
   );
+  const filterAgreements = (rows) => rows.filter((agreement) => [
+    agreement.title,
+    agreement.hospital_name,
+    agreement.partner_hospital_name,
+    agreement.status,
+    agreement.agreement_type,
+  ].some((value) => String(value || '').toLowerCase().includes(searchQuery.trim().toLowerCase())));
 
   const sendRequest = async (event) => {
     event.preventDefault();
@@ -167,6 +176,10 @@ export function CollaborationMOUView({ onToast }) {
         </p>
       </header>
       {error && <div role="alert" className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-on-error-container">{error}</div>}
+      <label>
+        <span className="sr-only">Search MOUs</span>
+        <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search MOUs by hospital or status" className="w-full rounded-lg border border-outline/30 bg-surface-container-lowest px-3 py-2 text-sm" />
+      </label>
 
       <form onSubmit={sendRequest} className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
         <div>
@@ -203,20 +216,23 @@ export function CollaborationMOUView({ onToast }) {
         <section className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
           <h2 className="font-headline-sm text-headline-sm text-on-surface">Requests sent by me</h2>
           <div className="mt-4 flex flex-col gap-3">
-            {isLoading ? <p className="text-sm text-on-surface-variant">Loading...</p> : outgoing.length === 0 ? <p className="text-sm text-on-surface-variant">No outgoing MOU requests.</p> : outgoing.map((agreement) => requestCard(agreement, 'outgoing'))}
+            {isLoading ? <p className="text-sm text-on-surface-variant">Loading...</p> : filterAgreements(outgoing).length === 0 ? <p className="text-sm text-on-surface-variant">No outgoing MOU requests.</p> : filterAgreements(outgoing).slice(0, showAllAgreements ? undefined : 5).map((agreement) => requestCard(agreement, 'outgoing'))}
+            {!showAllAgreements && filterAgreements(outgoing).length > 5 && <button type="button" onClick={() => setShowAllAgreements(true)} className="py-2 text-sm font-semibold text-primary">Show all {filterAgreements(outgoing).length} requests</button>}
           </div>
         </section>
         <section className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
           <h2 className="font-headline-sm text-headline-sm text-on-surface">Requests received</h2>
           <div className="mt-4 flex flex-col gap-3">
-            {isLoading ? <p className="text-sm text-on-surface-variant">Loading...</p> : incoming.length === 0 ? <p className="text-sm text-on-surface-variant">No incoming MOU requests.</p> : incoming.map((agreement) => requestCard(agreement, 'incoming'))}
+            {isLoading ? <p className="text-sm text-on-surface-variant">Loading...</p> : filterAgreements(incoming).length === 0 ? <p className="text-sm text-on-surface-variant">No incoming MOU requests.</p> : filterAgreements(incoming).slice(0, showAllAgreements ? undefined : 5).map((agreement) => requestCard(agreement, 'incoming'))}
+            {!showAllAgreements && filterAgreements(incoming).length > 5 && <button type="button" onClick={() => setShowAllAgreements(true)} className="py-2 text-sm font-semibold text-primary">Show all {filterAgreements(incoming).length} requests</button>}
           </div>
         </section>
       </div>
       <section className="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
         <h2 className="font-headline-sm text-headline-sm text-on-surface">Active MOUs</h2>
         <div className="mt-4 flex flex-col gap-3">
-          {isLoading ? <p className="text-sm text-on-surface-variant">Loading...</p> : activeAgreements.length === 0 ? <p className="text-sm text-on-surface-variant">No active MOUs.</p> : activeAgreements.map((agreement) => requestCard(agreement, agreement.hospital_id === currentHospital?.id ? 'outgoing' : 'incoming'))}
+          {isLoading ? <p className="text-sm text-on-surface-variant">Loading...</p> : filterAgreements(activeAgreements).length === 0 ? <p className="text-sm text-on-surface-variant">No active MOUs.</p> : filterAgreements(activeAgreements).slice(0, showAllAgreements ? undefined : 5).map((agreement) => requestCard(agreement, agreement.hospital_id === currentHospital?.id ? 'outgoing' : 'incoming'))}
+          {!showAllAgreements && filterAgreements(activeAgreements).length > 5 && <button type="button" onClick={() => setShowAllAgreements(true)} className="py-2 text-sm font-semibold text-primary">Show all {filterAgreements(activeAgreements).length} MOUs</button>}
         </div>
       </section>
     </div>

@@ -35,13 +35,7 @@ for inventory, transfers, surplus listings, MOUs, hospital settings, and
 forecast data. The frontend reconnects automatically and refreshes the active
 view when an event arrives.
 
-Start the forecasting API from `C:\LightGBM-forecasting\intelligence`:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn src.api.main:app --host 127.0.0.1 --port 8010
-```
-
-The GrapeDevs API proxies authenticated forecast requests through `/api/forecast/predict`, using `FORECAST_SERVICE_URL`. Inventory forecasts use `/predict/real-history` automatically when one hospital/SKU has at least 28 consecutive daily usage records. That endpoint trains a small LightGBM series model using the real UUID/SKU history and surveillance flags; shorter or gapped histories are labeled as database fallbacks instead. The browser therefore only needs to connect to the frontend and its existing `/api` proxy.
+The GrapeDevs API uses the hosted forecasting service at `https://modeling-dopk.onrender.com` by default. Override `FORECAST_SERVICE_URL` in `server/.env` or your deployment environment only if you need to use a different service. Inventory forecasts send real hospital/SKU usage history to `/predict/real-history` when at least 28 usage records are available; shorter histories continue to use the existing database-based estimate. The browser only connects to the GrapeDevs API, so the hosted service URL stays server-side.
 
 ```powershell
 Copy-Item .env.example .env

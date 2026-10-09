@@ -198,6 +198,7 @@ def create_transfer(
 def list_transfers(
     status_filter: str | None = Query(default=None, alias="status"),
     hospital_id: UUID | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     identity=Depends(get_current_hospital_admin),
 ):
@@ -217,6 +218,7 @@ def list_transfers(
     )
     if status_filter:
         statement = statement.where(TransferRequest.status == status_filter)
+    statement = statement.limit(limit)
     return [
         serialize_transfer(db, transfer, requesting_name, source_name)
         for transfer, requesting_name, source_name in db.execute(statement)

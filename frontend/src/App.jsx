@@ -19,6 +19,7 @@ import {
   fetchHealth,
   fetchInventory,
   fetchTransfers,
+  exportHospitalData,
   getAccessToken,
   openRealtimeConnection,
   updateTransferStatus,
@@ -30,6 +31,7 @@ export default function App() {
   const [currentHospital, setCurrentHospital] = useState('');
   const [backendStatus, setBackendStatus] = useState('checking');
   const [dashboardData, setDashboardData] = useState({});
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [hospitalTransfers, setHospitalTransfers] = useState([]);
   const [hospitalInventory, setHospitalInventory] = useState([]);
   const [dashboardError, setDashboardError] = useState('');
@@ -79,6 +81,7 @@ export default function App() {
   }, []);
 
   const loadHospitalDashboard = async () => {
+    setDashboardLoading(true);
     try {
       const [summary, transfers, inventory] = await Promise.all([fetchDashboard(), fetchTransfers(), fetchInventory()]);
       setDashboardData(summary);
@@ -87,6 +90,8 @@ export default function App() {
       setDashboardError('');
     } catch (error) {
       setDashboardError(error.message || 'Could not load hospital data.');
+    } finally {
+      setDashboardLoading(false);
     }
   };
 
@@ -133,6 +138,7 @@ export default function App() {
     setUser(null);
     setCurrentHospital('');
     setDashboardData({});
+    setDashboardLoading(true);
     setHospitalTransfers([]);
     setHospitalInventory([]);
     setAppMode('auth');
@@ -152,16 +158,32 @@ export default function App() {
     }
   };
 
-  const handleCommandAction = (action) => {
+  const [transferDraft, setTransferDraft] = useState(null);
+
+  const handleCommandAction = (action, payload) => {
     if (action === 'open-search') {
       setIsSearchOpen(true);
     } else if (action === 'emergency-request') {
       setActionModal({ type: 'emergency-request' });
-    } else if (action === 'run-optimizer') {
-      addToast('Constrained Optimization Engine executed across all facilities. Transfers recommended.');
-      setCurrentView('transfers-and-logistics');
+    } else if (action === 'open-inventory' || action === 'open-transfers' || action === 'open-forecasting') {
+      setCurrentView({
+        'open-inventory': 'inventory-and-skus',
+        'open-transfers': 'transfers-and-logistics',
+        'open-forecasting': 'outbreak-surveillance',
+      }[action]);
+    } else if (action === 'search-result' && payload?.view) {
+      if (payload.type === 'Inventory') {
+        setTransferDraft({
+          sku_name: payload.title,
+          sku_code: payload.sku_code,
+          unit: payload.unit,
+        });
+        setCurrentView('transfers-and-logistics');
+      } else {
+        setCurrentView(payload.view);
+      }
     } else {
-      setActionModal({ type: 'take-action', payload: action });
+      setActionModal({ type: 'take-action', payload });
     }
   };
 
@@ -186,6 +208,14 @@ export default function App() {
             <DashboardHeader
               currentHospital={currentHospital}
               onOpenSearch={() => setIsSearchOpen(true)}
+              onExportData={async () => {
+                try {
+                  await exportHospitalData();
+                  addToast('Hospital data exported as JSON.');
+                } catch (error) {
+                  addToast(`Export failed: ${error.message}`);
+                }
+              }}
               user={user}
             />
 
@@ -200,6 +230,7 @@ export default function App() {
                 <DashboardView
                   onToast={addToast}
                   dashboardData={dashboardData}
+                  isLoading={dashboardLoading}
                   inventoryBatches={hospitalInventory}
                   pendingTransfers={hospitalTransfers.filter((transfer) => transfer.status === 'requested')}
                   onResolveTransfer={async (transferId, status) => {
@@ -207,7 +238,15 @@ export default function App() {
                     await loadHospitalDashboard();
                   }}
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}
-                  onTakeAction={(sku) => setActionModal({ type: 'take-action', payload: sku })}
+                  onNavigate={setCurrentView}
+                  onFindSupply={(batch) => {
+                    setTransferDraft({
+                      sku_name: batch.sku_name,
+                      sku_code: batch.sku_code,
+                      unit: batch.unit,
+                    });
+                    setCurrentView('transfers-and-logistics');
+                  }}
                 />
               ) : (
                 <SecondaryViews
@@ -215,6 +254,17 @@ export default function App() {
                   view={currentView}
                   onToast={addToast}
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}
+                  onNavigate={setCurrentView}
+                  transferDraft={transferDraft}
+                  onTransferDraftConsumed={() => setTransferDraft(null)}
+                  onFindSupply={(batch) => {
+                    setTransferDraft({
+                      sku_name: batch.sku_name,
+                      sku_code: batch.sku_code,
+                      unit: batch.unit,
+                    });
+                    setCurrentView('transfers-and-logistics');
+                  }}
                 />
               )}
             </main>
