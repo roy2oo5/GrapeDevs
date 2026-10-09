@@ -1,5 +1,4 @@
-from datetime import date, timedelta
-from math import ceil
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,7 +8,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.api.routers.auth import get_current_hospital_admin
 from app.db.session import get_db
-from app.models import Hospital, InventoryBatch, MedicineDailyUsage, SurplusListing, TransferAuditEvent, TransferRequest
+from app.models import Hospital, InventoryBatch, SurplusListing, TransferAuditEvent, TransferRequest
 from app.schemas import (
     HospitalAdminIdentity,
     SurplusListingCreate,
@@ -19,6 +18,7 @@ from app.schemas import (
 )
 from app.services.geography import is_within_hospital_radius
 from app.services.realtime import publish_hospital_event
+from app.services.stock import seven_day_stock_reserve
 
 
 router = APIRouter(prefix="/marketplace", tags=["Surplus Marketplace"])
@@ -33,26 +33,7 @@ def supplier_stock_state(db: Session, hospital_id: UUID, sku_code: str) -> tuple
             (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today())),
         )
     ) or 0
-    recent_usage = db.scalar(
-        select(func.sum(MedicineDailyUsage.quantity_dispensed)).where(
-            MedicineDailyUsage.hospital_id == hospital_id,
-            MedicineDailyUsage.sku_code == sku_code,
-            MedicineDailyUsage.usage_date >= date.today() - timedelta(days=6),
-            MedicineDailyUsage.usage_date <= date.today(),
-        )
-    )
-    if recent_usage is None:
-        average_daily_use = db.scalar(
-            select(func.max(InventoryBatch.average_daily_use)).where(
-                InventoryBatch.hospital_id == hospital_id,
-                InventoryBatch.sku_code == sku_code,
-                InventoryBatch.quantity > 0,
-                (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today())),
-            )
-        )
-        reserve_quantity = ceil(max(0, float(average_daily_use or 0)) * 7)
-    else:
-        reserve_quantity = int(recent_usage)
+    reserve_quantity = seven_day_stock_reserve(db, hospital_id, sku_code)
     return int(available_quantity), reserve_quantity
 
 
@@ -83,6 +64,34 @@ def active_allocated_quantity_by_batch(
     )
     for batch_id, quantity in transfer_rows:
         quantities[batch_id] = quantities.get(batch_id, 0) + int(quantity or 0)
+    pending_mou_quantity = int(db.scalar(
+        select(func.coalesce(func.sum(TransferRequest.quantity), 0)).where(
+            TransferRequest.source_hospital_id == hospital_id,
+            TransferRequest.sku_code == sku_code,
+            TransferRequest.surplus_listing_id.is_(None),
+            TransferRequest.status == "requested",
+        )
+    ) or 0)
+    if pending_mou_quantity:
+        batches = db.scalars(
+            select(InventoryBatch)
+            .where(
+                InventoryBatch.hospital_id == hospital_id,
+                InventoryBatch.sku_code == sku_code,
+                InventoryBatch.quantity > 0,
+                InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today()),
+            )
+            .order_by(InventoryBatch.expires_on.asc().nullslast(), InventoryBatch.created_at.asc())
+        )
+        for batch in batches:
+            allocated = min(
+                max(0, batch.quantity - batch.reserved_quantity - quantities.get(batch.id, 0)),
+                pending_mou_quantity,
+            )
+            quantities[batch.id] = quantities.get(batch.id, 0) + allocated
+            pending_mou_quantity -= allocated
+            if pending_mou_quantity <= 0:
+                break
     return quantities
 
 

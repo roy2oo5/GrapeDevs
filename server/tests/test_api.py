@@ -15,8 +15,8 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as fastapi_app
 from app.models import (
-    Hospital, HospitalAdminAccount, HospitalAgreement, InventoryBatch, MedicineDailyUsage, TransferItem,
-    TransferRequest,
+    Hospital, HospitalAdminAccount, HospitalAgreement, InventoryBatch, MedicineDailyUsage,
+    TransferAuditEvent, TransferItem, TransferRequest,
 )
 from app.schemas import HospitalAdminIdentity
 from app.services.auth import hash_terminal_access_key
@@ -621,12 +621,24 @@ def test_sender_prepares_dispatches_and_receiver_accepts_delivery(authorized_cli
     )
     assert dispatched_response.status_code == 200
     assert dispatched_response.json()["status"] == "in_transit"
+    sender_transfers = client.get("/api/transfers").json()
+    assert next(item for item in sender_transfers if item["id"] == transfer_id)["status"] == "in_transit"
+    premature_completion = client.patch(
+        f"/api/transfers/{transfer_id}",
+        json={"status": "completed"},
+    )
+    assert premature_completion.status_code == 403
+    assert next(
+        item for item in client.get("/api/transfers").json() if item["id"] == transfer_id
+    )["status"] == "in_transit"
 
     fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
         administrator_id="DIRECT-RECEIVER-ADMIN",
         hospital_id=receiver_id,
         hospital_name="Direct Delivery Hospital",
     )
+    receiver_transfers = client.get("/api/transfers").json()
+    assert next(item for item in receiver_transfers if item["id"] == transfer_id)["status"] == "in_transit"
     accepted_response = client.post(
         f"/api/transfers/{transfer_id}/receipt",
         json={
@@ -638,6 +650,13 @@ def test_sender_prepares_dispatches_and_receiver_accepts_delivery(authorized_cli
     )
     assert accepted_response.status_code == 200
     assert accepted_response.json()["status"] == "completed"
+    with db_session_factory() as db:
+        audit = db.query(TransferAuditEvent).filter_by(
+            transfer_id=UUID(transfer_id),
+            to_status="completed",
+        ).one()
+        assert audit.from_status == "in_transit"
+        assert audit.to_status == "completed"
     with db_session_factory() as db:
         source_batch = db.get(InventoryBatch, source_batch_id)
         destination_batches = db.query(InventoryBatch).filter_by(
@@ -1077,6 +1096,100 @@ def test_surplus_marketplace_keeps_seven_days_of_recent_use_in_reserve(
     )
     assert blocked_request.status_code == 409
     assert "7-day" in blocked_request.json()["detail"]
+
+
+def test_mou_inventory_shares_stock_above_seven_day_use_reserve(
+    authorized_client, db_session_factory
+):
+    requester_id = authorized_client.test_hospital_id
+    with db_session_factory() as db:
+        requester = db.get(Hospital, requester_id)
+        requester.settings = {"latitude": 12.9716, "longitude": 77.5946}
+        owner = Hospital(
+            name="MOU Supply Hospital",
+            administrator_name="Supply Admin",
+            administrator_email="mou-supply@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+            settings={"latitude": 12.9717, "longitude": 77.5947},
+        )
+        db.add(owner)
+        db.flush()
+        batch = InventoryBatch(
+            hospital_id=owner.id,
+            sku_code="MED-MOU-RESERVE-01",
+            sku_name="MOU Reserve Medicine",
+            quantity=1500,
+            unit="packs",
+            average_daily_use=100,
+        )
+        agreement = HospitalAgreement(
+            hospital_id=requester_id,
+            partner_hospital_id=owner.id,
+            title="Active supply agreement",
+            signatory="Requester Admin",
+            agreement_type="emergency stock sharing",
+            terms_and_conditions="Test agreement",
+            status="active",
+        )
+        db.add_all([batch, agreement])
+        db.flush()
+        db.add_all([
+            MedicineDailyUsage(
+                hospital_id=owner.id,
+                sku_code="MED-MOU-RESERVE-01",
+                sku_name="MOU Reserve Medicine",
+                usage_date=date.today() - timedelta(days=day),
+                quantity_dispensed=100,
+            )
+            for day in range(7)
+        ])
+        db.commit()
+        batch_id = batch.id
+        owner_id = owner.id
+
+    availability = authorized_client.get(
+        "/api/inventory/mou-availability?sku_code=MED-MOU-RESERVE-01"
+    )
+    assert availability.status_code == 200
+    partner = availability.json()["partners"][0]
+    assert partner["quantity_on_hand"] == 1500
+    assert partner["protected_reserve"] == 700
+    assert partner["quantity_shareable"] == 800
+
+    too_much = authorized_client.post(
+        "/api/inventory/mou-availability/request",
+        json={
+            "inventory_batch_id": str(batch_id),
+            "quantity": 801,
+            "notes": "Urgent need",
+        },
+    )
+    assert too_much.status_code == 409
+    shareable = authorized_client.post(
+        "/api/inventory/mou-availability/request",
+        json={
+            "inventory_batch_id": str(batch_id),
+            "quantity": 800,
+            "notes": "Urgent need",
+        },
+    )
+    assert shareable.status_code == 201
+    transfer_id = shareable.json()["transfer"]["id"]
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="MOU-SUPPLY-ADMIN",
+        hospital_id=owner_id,
+        hospital_name="MOU Supply Hospital",
+    )
+    assert authorized_client.get("/api/marketplace/inventory").json() == []
+    approved = authorized_client.patch(
+        f"/api/transfers/{transfer_id}",
+        json={"status": "approved"},
+    )
+    assert approved.status_code == 200
+    with db_session_factory() as db:
+        assert db.get(InventoryBatch, batch_id).reserved_quantity == 800
 
 
 def test_hospital_settings_and_scenario_are_persisted(authorized_client):

@@ -375,7 +375,7 @@ export function RiskForecastingView({ onToast }) {
                     <span className="font-semibold text-primary">{partner.quantity_shareable} shareable</span>
                   </div>
                   <span className="text-on-surface-variant">
-                    {partner.quantity_on_hand} on hand; {partner.protected_reserve} reserved for their 14-day demand
+                    {partner.quantity_on_hand} on hand; {partner.protected_reserve} kept for their 7-day medicine use
                   </span>
                   {partner.expires_on && <span className="text-on-surface-variant">Expires {partner.expires_on}</span>}
                   {partner.quantity_shareable > 0 && (

@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,6 +21,7 @@ from app.schemas import (
 )
 from app.services.realtime import publish_hospital_event
 from app.services.geography import is_within_hospital_radius
+from app.services.stock import seven_day_stock_reserve
 
 
 router = APIRouter(
@@ -29,6 +29,34 @@ router = APIRouter(
     tags=["Transfers"],
     dependencies=[Depends(get_current_hospital_admin)],
 )
+
+
+def allocated_unreserved_quantity(
+    db: Session, hospital_id: UUID, sku_code: str, exclude_transfer_id: UUID | None = None
+) -> int:
+    active_listed = db.scalar(
+        select(func.coalesce(func.sum(SurplusListing.quantity_available), 0)).where(
+            SurplusListing.hospital_id == hospital_id,
+            SurplusListing.sku_code == sku_code,
+            SurplusListing.status == "active",
+            SurplusListing.expires_on.is_(None) | (
+                SurplusListing.expires_on >= datetime.now(timezone.utc).date()
+            ),
+        )
+    ) or 0
+    pending_requests_query = select(
+        func.coalesce(func.sum(TransferRequest.quantity), 0)
+    ).where(
+        TransferRequest.source_hospital_id == hospital_id,
+        TransferRequest.sku_code == sku_code,
+        TransferRequest.status == "requested",
+    )
+    if exclude_transfer_id is not None:
+        pending_requests_query = pending_requests_query.where(
+            TransferRequest.id != exclude_transfer_id
+        )
+    pending_requests = db.scalar(pending_requests_query) or 0
+    return int(active_listed) + int(pending_requests)
 
 
 def serialize_transfer(
@@ -140,23 +168,15 @@ def create_transfer(
             .with_for_update()
         ))
         available_quantity = sum(batch.quantity - batch.reserved_quantity for batch in source_batches)
-        recent_usage = db.scalar(
-            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
-                MedicineDailyUsage.hospital_id == source_hospital_id,
-                MedicineDailyUsage.sku_code == transfer.sku_code,
-                MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=30),
-            )
+        reserve_quantity = seven_day_stock_reserve(db, source_hospital_id, transfer.sku_code)
+        allocated_quantity = allocated_unreserved_quantity(
+            db, source_hospital_id, transfer.sku_code
         )
-        daily_use = (
-            float(recent_usage)
-            if recent_usage is not None
-            else max((batch.average_daily_use for batch in source_batches), default=0)
-        )
-        shareable_quantity = max(0, round(available_quantity - daily_use * 14))
+        shareable_quantity = max(0, available_quantity - reserve_quantity - allocated_quantity)
         if transfer.quantity > shareable_quantity:
             raise HTTPException(
                 status_code=409,
-                detail=f"Only {shareable_quantity} units can be sent after the source hospital's 14-day reserve",
+                detail=f"Only {shareable_quantity} units can be sent after keeping the source hospital's 7-day reserve",
             )
         quantity_to_reserve = transfer.quantity
         for source_batch in source_batches:
@@ -358,48 +378,21 @@ def update_transfer_status(
         available_source_quantity = sum(
             batch.quantity - batch.reserved_quantity for batch in source_batches
         )
-        if transfer.surplus_listing_id:
-            recent_usage = db.scalar(
-                select(func.sum(MedicineDailyUsage.quantity_dispensed)).where(
-                    MedicineDailyUsage.hospital_id == transfer.source_hospital_id,
-                    MedicineDailyUsage.sku_code == transfer.sku_code,
-                    MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=6),
-                    MedicineDailyUsage.usage_date <= datetime.now(timezone.utc).date(),
-                )
-            )
-            daily_use = (
-                float(recent_usage) / 7
-                if recent_usage is not None
-                else max((batch.average_daily_use for batch in source_batches), default=0)
-            )
-            reserved_quantity = ceil(max(0, daily_use) * 7)
-            shareable_quantity = max(0, available_source_quantity - reserved_quantity)
-        else:
-            recent_usage = db.scalar(
-                select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
-                    MedicineDailyUsage.hospital_id == transfer.source_hospital_id,
-                    MedicineDailyUsage.sku_code == transfer.sku_code,
-                    MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=30),
-                )
-            )
-            daily_use = (
-                float(recent_usage)
-                if recent_usage is not None
-                else next((batch.average_daily_use for batch in source_batches if batch.average_daily_use > 0), 0)
-            )
-            days_until_stockout = available_source_quantity / daily_use if daily_use > 0 else None
-            if days_until_stockout is not None and days_until_stockout <= 3:
-                raise HTTPException(
-                    status_code=409,
-                    detail="This medicine is now at critical shortage risk and cannot be approved for sharing",
-                )
-            shareable_quantity = max(0, round(available_source_quantity - (daily_use * 14)))
+        reserve_quantity = seven_day_stock_reserve(
+            db, transfer.source_hospital_id, transfer.sku_code
+        )
+        allocated_quantity = allocated_unreserved_quantity(
+            db, transfer.source_hospital_id, transfer.sku_code, transfer.id
+        )
+        shareable_quantity = max(
+            0, available_source_quantity - reserve_quantity - allocated_quantity
+        )
         if requested_quantity > shareable_quantity:
             raise HTTPException(
                 status_code=409,
                 detail=(
                     f"Only {shareable_quantity} units can be approved after keeping the source hospital's "
-                    f"{'7-day recent-use' if transfer.surplus_listing_id else '14-day'} reserve"
+                    "7-day reserve"
                 ),
             )
         if transfer.surplus_listing_id and (
@@ -804,13 +797,14 @@ def create_receipt(transfer_id: UUID, payload: TransferReceiptCreate, db: Sessio
         )
         if vehicle is not None and vehicle.status == "in_service":
             vehicle.status = "available"
+    previous_status = transfer.status
     transfer.status = "completed"
     transfer.updated_at = datetime.now(timezone.utc)
     stop_active_tracking(db, transfer.id)
     db.add(TransferAuditEvent(
         transfer_id=transfer.id,
         actor_hospital_id=identity.hospital_id,
-        from_status=transfer.status,
+        from_status=previous_status,
         to_status="completed",
         quantity=transfer.quantity,
     ))

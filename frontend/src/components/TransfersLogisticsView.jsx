@@ -6,7 +6,7 @@ const STATUS_LABELS = {
   approved: 'Approved',
   pending_pickup: 'Sending',
   in_transit: 'In transit',
-  arrived_awaiting_inspection: 'Awaiting inspection',
+  arrived_awaiting_inspection: 'In transit',
   completed: 'Delivered',
   rejected: 'Rejected',
   returned: 'Returned',
@@ -200,7 +200,7 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
         <span className="rounded-full bg-surface-container-high px-2 py-1 text-xs text-on-surface-variant">{filteredRows.length}</span>
       </div>
       {filteredRows.length === 0 ? (
-        <p className="py-3 text-sm text-on-surface-variant">{searchQuery ? 'No transfers match your search.' : `No ${direction} transfers.`}</p>
+        <p className="py-3 text-sm text-on-surface-variant">{searchQuery ? 'No transfers match your search.' : `No ${direction === 'receiving' ? 'receiving' : direction} transfers.`}</p>
       ) : (
         <div className="space-y-3">
           {visibleRows.map((transfer) => renderTransferCard(transfer, direction))}
@@ -261,7 +261,7 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
       {loading ? <p className="text-sm text-on-surface-variant">Loading transfers...</p> : (
         <div className="grid gap-4 lg:grid-cols-2">
           {renderTransferGroup('Sending', 'sending', outgoingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
-          {renderTransferGroup('Received', 'received', incomingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
+          {renderTransferGroup('Receiving', 'receiving', incomingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
         </div>
       )}
     </div>

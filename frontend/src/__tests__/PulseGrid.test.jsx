@@ -498,9 +498,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('Internal logistics')).toBeInTheDocument();
       expect(screen.getByText('Transfers')).toBeInTheDocument();
       expect(await screen.findByText('Sending')).toBeInTheDocument();
-      expect(screen.getByText('Received')).toBeInTheDocument();
+      expect(screen.getByText('Receiving')).toBeInTheDocument();
       expect(screen.getByText('No sending transfers.')).toBeInTheDocument();
-      expect(screen.getByText('No received transfers.')).toBeInTheDocument();
+      expect(screen.getByText('No receiving transfers.')).toBeInTheDocument();
     });
 
     it('opens the minimal transfer form', () => {
@@ -635,7 +635,8 @@ describe('PulseGrid Control Tower Test Suite', () => {
           rejected_quantity: 0,
         }));
       });
-      await waitFor(() => expect(screen.getAllByText('Received')).toHaveLength(2));
+      expect(screen.getByText('Receiving')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('Received')).toBeInTheDocument());
     });
 
     it('does not show canceled transfers in the transfer lists', async () => {
@@ -666,7 +667,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       await screen.findByText('No sending transfers.');
       expect(screen.getByText('No sending transfers.')).toBeInTheDocument();
-      expect(screen.getByText('No received transfers.')).toBeInTheDocument();
+      expect(screen.getByText('No receiving transfers.')).toBeInTheDocument();
       expect(screen.queryByText('Canceled medicine')).not.toBeInTheDocument();
       expect(screen.queryByText('Cancelled')).not.toBeInTheDocument();
     });

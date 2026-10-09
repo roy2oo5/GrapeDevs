@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.routers.auth import get_current_hospital_admin
 from app.core.config import get_settings
-from app.models import Hospital, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage, TransferAuditEvent, TransferRequest
+from app.models import Hospital, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage, SurplusListing, TransferAuditEvent, TransferRequest
 from app.schemas import (
     HospitalAdminIdentity,
     InventoryBatchCreate,
@@ -21,6 +21,7 @@ from app.schemas import (
 )
 from app.services.geography import is_within_hospital_radius
 from app.services.realtime import publish_hospital_event
+from app.services.stock import seven_day_stock_reserve
 
 
 router = APIRouter(
@@ -210,7 +211,7 @@ def mou_inventory_availability(
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
-    """Show same-SKU stock at active MOU partners, preserving a 14-day reserve."""
+    """Show same-SKU stock at active MOU partners after their 7-day reserve."""
     partner_ids = db.scalars(
         select(HospitalAgreement.partner_hospital_id).where(
             HospitalAgreement.hospital_id == identity.hospital_id,
@@ -242,37 +243,35 @@ def mou_inventory_availability(
             InventoryBatch.hospital_id.in_(partner_ids),
             InventoryBatch.sku_code == sku_code,
             InventoryBatch.quantity > 0,
+            InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today()),
+        ).order_by(
+            InventoryBatch.hospital_id,
+            InventoryBatch.expires_on.asc().nullslast(),
+            InventoryBatch.created_at.asc(),
         )
     ).all()
     hospitals = {hospital.id: hospital.name for hospital in partner_hospitals if hospital.id in partner_ids}
-    partners = []
+    batches_by_hospital: dict[UUID, list[InventoryBatch]] = {}
     for batch in batches:
-        recent_usage = db.scalar(
-            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
-                MedicineDailyUsage.hospital_id == batch.hospital_id,
-                MedicineDailyUsage.sku_code == batch.sku_code,
-                MedicineDailyUsage.usage_date >= date.today() - timedelta(days=30),
-            )
+        batches_by_hospital.setdefault(batch.hospital_id, []).append(batch)
+    partners = []
+    for hospital_id, hospital_batches in batches_by_hospital.items():
+        total_on_hand, reserve, shareable_by_batch = mou_shareable_quantities(
+            db, hospital_id, sku_code, hospital_batches
         )
-        daily_use = float(recent_usage) if recent_usage is not None else batch.average_daily_use
-        days_until_stockout = batch.quantity / daily_use if daily_use > 0 else None
-        if days_until_stockout is not None and days_until_stockout <= 3:
-            continue
-        reserve = daily_use * 14
-        partners.append(
-            {
+        for batch in hospital_batches:
+            partners.append({
                 "hospital_id": str(batch.hospital_id),
                 "hospital_name": hospitals.get(batch.hospital_id, "MOU hospital"),
                 "sku_code": batch.sku_code,
                 "sku_name": batch.sku_name,
-                "quantity_on_hand": batch.quantity,
+                "quantity_on_hand": total_on_hand,
                 "average_daily_use": batch.average_daily_use,
-                "protected_reserve": round(reserve, 2),
-                "quantity_shareable": max(0, round(batch.quantity - reserve)),
+                "protected_reserve": reserve,
+                "quantity_shareable": shareable_by_batch.get(batch.id, 0),
                 "inventory_batch_id": str(batch.id),
                 "expires_on": batch.expires_on.isoformat() if batch.expires_on else None,
-            }
-        )
+            })
     return {"sku_code": sku_code, "partners": partners}
 
 
@@ -302,26 +301,25 @@ def request_mou_inventory(
     if active_mou is None:
         raise HTTPException(status_code=403, detail="An active MOU is required to request this inventory")
 
-    recent_usage = db.scalar(
-        select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
-            MedicineDailyUsage.hospital_id == batch.hospital_id,
-            MedicineDailyUsage.sku_code == batch.sku_code,
-            MedicineDailyUsage.usage_date >= date.today() - timedelta(days=30),
+    owner_batches = list(db.scalars(
+        select(InventoryBatch).where(
+            InventoryBatch.hospital_id == owner.id,
+            InventoryBatch.sku_code == batch.sku_code,
+            InventoryBatch.quantity > 0,
+            InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today()),
+        ).order_by(
+            InventoryBatch.expires_on.asc().nullslast(),
+            InventoryBatch.created_at.asc(),
         )
+    ))
+    _, _, shareable_by_batch = mou_shareable_quantities(
+        db, owner.id, batch.sku_code, owner_batches
     )
-    daily_use = float(recent_usage) if recent_usage is not None else batch.average_daily_use
-    days_until_stockout = batch.quantity / daily_use if daily_use > 0 else None
-    if days_until_stockout is not None and days_until_stockout <= 3:
-        raise HTTPException(
-            status_code=409,
-            detail="This medicine is at critical shortage risk at the supplying hospital and cannot be requested",
-        )
-    protected_reserve = daily_use * 14
-    shareable = max(0, round(batch.quantity - batch.reserved_quantity - protected_reserve))
+    shareable = shareable_by_batch.get(batch.id, 0)
     if payload.quantity > shareable:
         raise HTTPException(
             status_code=409,
-            detail=f"Only {shareable} units are currently shareable after the owner's 14-day reserve",
+            detail=f"Only {shareable} units are currently shareable after keeping the owner's 7-day reserve",
         )
     duplicate = db.scalar(
         select(TransferRequest).where(
@@ -504,3 +502,42 @@ def update_inventory_usage(
     db.commit()
     db.refresh(batch)
     return batch
+
+
+def mou_shareable_quantities(
+    db: Session, hospital_id: UUID, sku_code: str, batches: list[InventoryBatch]
+) -> tuple[int, int, dict[UUID, int]]:
+    listed_rows = db.execute(
+        select(SurplusListing.inventory_batch_id, func.sum(SurplusListing.quantity_available))
+        .where(
+            SurplusListing.hospital_id == hospital_id,
+            SurplusListing.sku_code == sku_code,
+            SurplusListing.status == "active",
+            SurplusListing.expires_on.is_(None) | (SurplusListing.expires_on >= date.today()),
+        )
+        .group_by(SurplusListing.inventory_batch_id)
+    )
+    listed_by_batch = {batch_id: int(quantity or 0) for batch_id, quantity in listed_rows}
+    pending_requests = int(db.scalar(
+        select(func.coalesce(func.sum(TransferRequest.quantity), 0)).where(
+            TransferRequest.source_hospital_id == hospital_id,
+            TransferRequest.sku_code == sku_code,
+            TransferRequest.status == "requested",
+        )
+    ) or 0)
+    unlisted_by_batch = {
+        batch.id: max(0, batch.quantity - batch.reserved_quantity - listed_by_batch.get(batch.id, 0))
+        for batch in batches
+    }
+    reserve = seven_day_stock_reserve(db, hospital_id, sku_code)
+    remaining_shareable = max(
+        0,
+        sum(unlisted_by_batch.values()) - reserve - pending_requests,
+    )
+    shareable_by_batch = {}
+    for batch in batches:
+        batch_shareable = min(unlisted_by_batch[batch.id], remaining_shareable)
+        if batch_shareable > 0:
+            shareable_by_batch[batch.id] = batch_shareable
+            remaining_shareable -= batch_shareable
+    return sum(batch.quantity for batch in batches), reserve, shareable_by_batch
