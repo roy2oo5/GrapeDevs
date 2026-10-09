@@ -18,6 +18,7 @@ from app.schemas.inventory import (
 )
 from app.schemas.marketplace import (
     SurplusBuyerRead,
+    SurplusInventoryBatchRead,
     SurplusListingCreate,
     SurplusListingRead,
     SurplusRequestCreate,
@@ -61,6 +62,7 @@ __all__ = [
     "SurplusListingRead",
     "SurplusRequestCreate",
     "SurplusBuyerRead",
+    "SurplusInventoryBatchRead",
     "ScenarioRunCreate",
     "ScenarioRunRead",
     "TransferCreate",

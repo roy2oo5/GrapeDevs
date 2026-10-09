@@ -638,7 +638,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
       await waitFor(() => expect(screen.getAllByText('Received')).toHaveLength(2));
     });
 
-    it('shows canceled transfers only in the Cancelled group', async () => {
+    it('does not show canceled transfers in the transfer lists', async () => {
       window.sessionStorage.setItem(
         'pulsegrid_access_token',
         `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-source' }))}.signature`,
@@ -664,10 +664,11 @@ describe('PulseGrid Control Tower Test Suite', () => {
       }));
       render(<TransfersLogisticsView onToast={vi.fn()} />);
 
-      expect(await screen.findAllByText('Cancelled')).toHaveLength(2);
+      await screen.findByText('No sending transfers.');
       expect(screen.getByText('No sending transfers.')).toBeInTheDocument();
       expect(screen.getByText('No received transfers.')).toBeInTheDocument();
-      expect(screen.getByText('To: Destination Hospital')).toBeInTheDocument();
+      expect(screen.queryByText('Canceled medicine')).not.toBeInTheDocument();
+      expect(screen.queryByText('Cancelled')).not.toBeInTheDocument();
     });
 
     it('persists transfer approval and reloads the hospital transfer list', async () => {
@@ -714,14 +715,14 @@ describe('PulseGrid Control Tower Test Suite', () => {
   describe('MOUPartnersView Component (Screen 5)', () => {
     it('renders the surplus posting form and nearby hospital listings', async () => {
       vi.stubGlobal('fetch', vi.fn().mockImplementation((url) => {
-        if (String(url).includes('/api/inventory/batches')) {
+        if (String(url).includes('/api/marketplace/inventory')) {
           return Promise.resolve({
             ok: true,
             json: async () => [{
               id: 'batch-001',
               sku_name: 'Paracetamol 500mg IV',
               sku_code: 'IV-PARA-500',
-              quantity: 100,
+              quantity_available: 100,
               unit: 'vials',
             }],
           });
@@ -757,14 +758,14 @@ describe('PulseGrid Control Tower Test Suite', () => {
         if (options.method === 'POST') {
           return Promise.resolve({ ok: true, json: async () => ({ id: 'listing-new' }) });
         }
-        if (String(url).includes('/api/inventory/batches')) {
+        if (String(url).includes('/api/marketplace/inventory')) {
           return Promise.resolve({
             ok: true,
             json: async () => [{
               id: 'batch-001',
               sku_name: 'Paracetamol 500mg IV',
               sku_code: 'IV-PARA-500',
-              quantity: 100,
+              quantity_available: 100,
               unit: 'vials',
             }],
           });

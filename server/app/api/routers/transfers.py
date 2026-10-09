@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -354,32 +355,52 @@ def update_transfer_status(
         requested_quantity = payload.approved_quantity or transfer.quantity
         if not source_batches:
             raise HTTPException(status_code=409, detail="The requested medicine is no longer in the source inventory")
-        recent_usage = db.scalar(
-            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
-                MedicineDailyUsage.hospital_id == transfer.source_hospital_id,
-                MedicineDailyUsage.sku_code == transfer.sku_code,
-                MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=30),
-            )
-        )
-        daily_use = (
-            float(recent_usage)
-            if recent_usage is not None
-            else next((batch.average_daily_use for batch in source_batches if batch.average_daily_use > 0), 0)
-        )
         available_source_quantity = sum(
             batch.quantity - batch.reserved_quantity for batch in source_batches
         )
-        days_until_stockout = available_source_quantity / daily_use if daily_use > 0 else None
-        if days_until_stockout is not None and days_until_stockout <= 3:
-            raise HTTPException(
-                status_code=409,
-                detail="This medicine is now at critical shortage risk and cannot be approved for sharing",
+        if transfer.surplus_listing_id:
+            recent_usage = db.scalar(
+                select(func.sum(MedicineDailyUsage.quantity_dispensed)).where(
+                    MedicineDailyUsage.hospital_id == transfer.source_hospital_id,
+                    MedicineDailyUsage.sku_code == transfer.sku_code,
+                    MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=6),
+                    MedicineDailyUsage.usage_date <= datetime.now(timezone.utc).date(),
+                )
             )
-        shareable_quantity = max(0, round(available_source_quantity - (daily_use * 14)))
+            daily_use = (
+                float(recent_usage) / 7
+                if recent_usage is not None
+                else max((batch.average_daily_use for batch in source_batches), default=0)
+            )
+            reserved_quantity = ceil(max(0, daily_use) * 7)
+            shareable_quantity = max(0, available_source_quantity - reserved_quantity)
+        else:
+            recent_usage = db.scalar(
+                select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
+                    MedicineDailyUsage.hospital_id == transfer.source_hospital_id,
+                    MedicineDailyUsage.sku_code == transfer.sku_code,
+                    MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=30),
+                )
+            )
+            daily_use = (
+                float(recent_usage)
+                if recent_usage is not None
+                else next((batch.average_daily_use for batch in source_batches if batch.average_daily_use > 0), 0)
+            )
+            days_until_stockout = available_source_quantity / daily_use if daily_use > 0 else None
+            if days_until_stockout is not None and days_until_stockout <= 3:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This medicine is now at critical shortage risk and cannot be approved for sharing",
+                )
+            shareable_quantity = max(0, round(available_source_quantity - (daily_use * 14)))
         if requested_quantity > shareable_quantity:
             raise HTTPException(
                 status_code=409,
-                detail=f"Only {shareable_quantity} units can be approved after the source hospital's 14-day reserve",
+                detail=(
+                    f"Only {shareable_quantity} units can be approved after keeping the source hospital's "
+                    f"{'7-day recent-use' if transfer.surplus_listing_id else '14-day'} reserve"
+                ),
             )
         if transfer.surplus_listing_id and (
             source_batches[0].quantity - source_batches[0].reserved_quantity < requested_quantity

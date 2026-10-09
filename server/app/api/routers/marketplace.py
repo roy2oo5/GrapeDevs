@@ -1,18 +1,20 @@
+from datetime import date, timedelta
+from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.api.routers.auth import get_current_hospital_admin
 from app.db.session import get_db
-from app.models import Hospital, InventoryBatch, SurplusListing, TransferAuditEvent, TransferRequest
+from app.models import Hospital, InventoryBatch, MedicineDailyUsage, SurplusListing, TransferAuditEvent, TransferRequest
 from app.schemas import (
     HospitalAdminIdentity,
     SurplusListingCreate,
     SurplusListingRead,
+    SurplusInventoryBatchRead,
     SurplusRequestCreate,
 )
 from app.services.geography import is_within_hospital_radius
@@ -20,6 +22,126 @@ from app.services.realtime import publish_hospital_event
 
 
 router = APIRouter(prefix="/marketplace", tags=["Surplus Marketplace"])
+
+
+def supplier_stock_state(db: Session, hospital_id: UUID, sku_code: str) -> tuple[int, int]:
+    available_quantity = db.scalar(
+        select(func.coalesce(func.sum(InventoryBatch.quantity - InventoryBatch.reserved_quantity), 0)).where(
+            InventoryBatch.hospital_id == hospital_id,
+            InventoryBatch.sku_code == sku_code,
+            InventoryBatch.quantity > 0,
+            (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today())),
+        )
+    ) or 0
+    recent_usage = db.scalar(
+        select(func.sum(MedicineDailyUsage.quantity_dispensed)).where(
+            MedicineDailyUsage.hospital_id == hospital_id,
+            MedicineDailyUsage.sku_code == sku_code,
+            MedicineDailyUsage.usage_date >= date.today() - timedelta(days=6),
+            MedicineDailyUsage.usage_date <= date.today(),
+        )
+    )
+    if recent_usage is None:
+        average_daily_use = db.scalar(
+            select(func.max(InventoryBatch.average_daily_use)).where(
+                InventoryBatch.hospital_id == hospital_id,
+                InventoryBatch.sku_code == sku_code,
+                InventoryBatch.quantity > 0,
+                (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today())),
+            )
+        )
+        reserve_quantity = ceil(max(0, float(average_daily_use or 0)) * 7)
+    else:
+        reserve_quantity = int(recent_usage)
+    return int(available_quantity), reserve_quantity
+
+
+def active_allocated_quantity_by_batch(
+    db: Session, hospital_id: UUID, sku_code: str
+) -> dict[UUID, int]:
+    rows = db.execute(
+        select(SurplusListing.inventory_batch_id, func.sum(SurplusListing.quantity_available))
+        .where(
+            SurplusListing.hospital_id == hospital_id,
+            SurplusListing.sku_code == sku_code,
+            SurplusListing.status == "active",
+            (SurplusListing.expires_on.is_(None) | (SurplusListing.expires_on >= date.today())),
+        )
+        .group_by(SurplusListing.inventory_batch_id)
+    )
+    quantities = {batch_id: int(quantity or 0) for batch_id, quantity in rows}
+    transfer_rows = db.execute(
+        select(SurplusListing.inventory_batch_id, func.sum(TransferRequest.quantity))
+        .join(TransferRequest, TransferRequest.surplus_listing_id == SurplusListing.id)
+        .where(
+            SurplusListing.hospital_id == hospital_id,
+            SurplusListing.sku_code == sku_code,
+            SurplusListing.expires_on.is_(None) | (SurplusListing.expires_on >= date.today()),
+            TransferRequest.status == "requested",
+        )
+        .group_by(SurplusListing.inventory_batch_id)
+    )
+    for batch_id, quantity in transfer_rows:
+        quantities[batch_id] = quantities.get(batch_id, 0) + int(quantity or 0)
+    return quantities
+
+
+def shareable_quantity_by_batch(
+    batches: list[InventoryBatch],
+    active_listed_quantity: dict[UUID, int],
+    reserve_quantity: int,
+) -> dict[UUID, int]:
+    unlisted_quantities = {
+        batch.id: max(
+            0,
+            batch.quantity - batch.reserved_quantity - active_listed_quantity.get(batch.id, 0),
+        )
+        for batch in batches
+    }
+    remaining_surplus = max(0, sum(unlisted_quantities.values()) - reserve_quantity)
+    result = {}
+    for batch in batches:
+        quantity = min(unlisted_quantities[batch.id], remaining_surplus)
+        if quantity > 0:
+            result[batch.id] = quantity
+            remaining_surplus -= quantity
+    return result
+
+
+@router.get("/inventory", response_model=list[SurplusInventoryBatchRead])
+def list_shareable_inventory(
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    batches = list(db.scalars(
+        select(InventoryBatch).where(
+            InventoryBatch.hospital_id == identity.hospital_id,
+            InventoryBatch.quantity > 0,
+            (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today())),
+        ).order_by(InventoryBatch.sku_name, InventoryBatch.expires_on.asc().nullslast())
+    ))
+    batches_by_sku: dict[str, list[InventoryBatch]] = {}
+    for batch in batches:
+        batches_by_sku.setdefault(batch.sku_code, []).append(batch)
+    result = []
+    for sku_code, sku_batches in batches_by_sku.items():
+        _, reserve_quantity = supplier_stock_state(db, identity.hospital_id, sku_code)
+        active_listed_quantity = active_allocated_quantity_by_batch(db, identity.hospital_id, sku_code)
+        shareable_by_batch = shareable_quantity_by_batch(
+            sku_batches, active_listed_quantity, reserve_quantity
+        )
+        for batch in sku_batches:
+            shareable_quantity = shareable_by_batch.get(batch.id, 0)
+            if shareable_quantity > 0:
+                result.append({
+                    "id": batch.id,
+                    "sku_code": batch.sku_code,
+                    "sku_name": batch.sku_name,
+                    "quantity_available": shareable_quantity,
+                    "unit": batch.unit,
+                    "expires_on": batch.expires_on,
+                })
+    return result
 
 
 def get_buyers_by_listing(db: Session, listings: list[SurplusListing]) -> dict[UUID, list[dict]]:
@@ -101,12 +223,26 @@ def list_listings(
     if sku_code:
         statement = statement.where(SurplusListing.sku_code == sku_code)
     current_hospital = db.get(Hospital, identity.hospital_id)
-    return [
-        serialize_listing(db, listing, hospital_name)
-        for listing, hospital_name in db.execute(statement)
-        if current_hospital is not None
-        and is_within_hospital_radius(current_hospital, db.get(Hospital, listing.hospital_id))
-    ]
+    listing_rows = list(db.execute(statement))
+    safe_listings_by_supplier_sku: dict[tuple[UUID, str], bool] = {}
+    listings = []
+    for listing, hospital_name in listing_rows:
+        supplier = db.get(Hospital, listing.hospital_id)
+        key = (listing.hospital_id, listing.sku_code)
+        if key not in safe_listings_by_supplier_sku:
+            available_quantity, reserve_quantity = supplier_stock_state(db, *key)
+            active_listed_quantity = sum(active_allocated_quantity_by_batch(db, *key).values())
+            safe_listings_by_supplier_sku[key] = (
+                available_quantity >= reserve_quantity + active_listed_quantity
+            )
+        if (
+            current_hospital is not None
+            and supplier is not None
+            and is_within_hospital_radius(current_hospital, supplier)
+            and safe_listings_by_supplier_sku[key]
+        ):
+            listings.append(serialize_listing(db, listing, hospital_name))
+    return listings
 
 
 @router.get("/mine", response_model=list[SurplusListingRead])
@@ -136,11 +272,31 @@ def publish_listing(
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
 ):
-    batch = db.get(InventoryBatch, payload.inventory_batch_id)
+    batch = db.scalar(
+        select(InventoryBatch)
+        .where(InventoryBatch.id == payload.inventory_batch_id)
+        .with_for_update()
+    )
     if batch is None or batch.hospital_id != identity.hospital_id:
         raise HTTPException(status_code=404, detail="Inventory batch not found")
-    if payload.quantity > batch.quantity:
-        raise HTTPException(status_code=409, detail="Listing quantity exceeds the batch quantity")
+    batches = list(db.scalars(
+        select(InventoryBatch).where(
+            InventoryBatch.hospital_id == identity.hospital_id,
+            InventoryBatch.sku_code == batch.sku_code,
+            InventoryBatch.quantity > 0,
+            (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= date.today())),
+        ).order_by(InventoryBatch.expires_on.asc().nullslast())
+    ))
+    _, reserve_quantity = supplier_stock_state(db, identity.hospital_id, batch.sku_code)
+    active_listed_quantity = active_allocated_quantity_by_batch(db, identity.hospital_id, batch.sku_code)
+    batch_shareable = shareable_quantity_by_batch(
+        batches, active_listed_quantity, reserve_quantity
+    ).get(batch.id, 0)
+    if payload.quantity > batch_shareable:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only {batch_shareable} units are available to share from this batch after keeping 7 days of recent use in reserve.",
+        )
     if (
         payload.expires_on is not None
         and batch.expires_on is not None
@@ -194,6 +350,15 @@ def request_listing(
         )
     if payload.quantity > listing.quantity_available:
         raise HTTPException(status_code=409, detail="Requested quantity is no longer available")
+    available_quantity, reserve_quantity = supplier_stock_state(db, listing.hospital_id, listing.sku_code)
+    active_listed_quantity = sum(
+        active_allocated_quantity_by_batch(db, listing.hospital_id, listing.sku_code).values()
+    )
+    if available_quantity < reserve_quantity + active_listed_quantity:
+        raise HTTPException(
+            status_code=409,
+            detail="This surplus is no longer available because the hospital needs to keep its 7-day medicine use in reserve.",
+        )
     if listing.expires_on is not None and listing.expires_on < date.today():
         raise HTTPException(status_code=409, detail="This surplus listing has expired")
     duplicate = db.scalar(

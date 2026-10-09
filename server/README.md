@@ -37,6 +37,10 @@ view when an event arrives.
 
 The GrapeDevs API uses the hosted forecasting service at `https://modeling-dopk.onrender.com` by default. Override `FORECAST_SERVICE_URL` in `server/.env` or your deployment environment only if you need to use a different service. Inventory forecasts send real hospital/SKU usage history to `/predict/real-history` when at least 28 usage records are available; shorter histories continue to use the existing database-based estimate. The browser only connects to the GrapeDevs API, so the hosted service URL stays server-side.
 
+## Render deployment
+
+The repository-root `render.yaml` configures the API service to use `server/` as its root directory, install `requirements.txt`, and start Uvicorn without the development-only `--reload` option. If the existing Render service is not managed by this Blueprint, set its Root Directory to `server`, Build Command to `pip install -r requirements.txt`, and Start Command to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Keep the existing environment variables in the Render dashboard.
+
 ```powershell
 Copy-Item .env.example .env
 ..\.venv\Scripts\python.exe -m pip install -r requirements.txt

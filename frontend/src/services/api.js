@@ -62,7 +62,7 @@ async function request(path, options = {}, authenticated = false) {
   } catch (error) {
     if (error instanceof TypeError) {
       const apiAddress = API_BASE_URL || window.location.origin;
-      throw new Error(`Could not connect to the hospital server (${apiAddress}). Check the server connection and CORS settings.`);
+      throw new Error(`Could not reach the hospital server at ${apiAddress}. Check your internet connection or try again.`);
     }
     throw error;
   }
@@ -248,6 +248,10 @@ export function addTransferLocationPoint(transferId, sessionId, payload) {
 export function fetchSurplusListings(params = {}) {
   const query = new URLSearchParams(params);
   return request(`/api/marketplace/listings${query.size ? `?${query}` : ''}`, {}, true);
+}
+
+export function fetchSurplusInventory() {
+  return request('/api/marketplace/inventory', {}, true);
 }
 
 export function fetchMySurplusListings() {

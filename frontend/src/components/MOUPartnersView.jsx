@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import {
-  fetchInventory,
+  fetchSurplusInventory,
   fetchMySurplusListings,
   fetchSurplusListings,
   deleteSurplusListing,
@@ -44,7 +44,7 @@ export function MOUPartnersView({ onToast }) {
       const [availableListings, ownListings, batches] = await Promise.all([
         fetchSurplusListings(),
         fetchMySurplusListings(),
-        fetchInventory(),
+        fetchSurplusInventory(),
       ]);
       setListings(availableListings);
       setMyListings(ownListings.filter((listing) => listing.status !== 'withdrawn'));
@@ -133,7 +133,7 @@ export function MOUPartnersView({ onToast }) {
     const batchId = event.target.value;
     const batch = inventoryBatches.find((item) => item.id === batchId);
     setSelectedBatchId(batchId);
-    setQuantity(batch ? String(batch.quantity) : '');
+    setQuantity(batch ? String(batch.quantity_available) : '');
     setExpiresOn(batch?.expires_on || '');
   };
 
@@ -204,7 +204,7 @@ export function MOUPartnersView({ onToast }) {
           <div>
             <h2 className="font-headline-sm text-headline-sm text-on-surface">Post your surplus</h2>
             <p className="mt-1 text-sm text-on-surface-variant">
-              Choose an inventory batch and the quantity nearby hospitals can use.
+              Keep 7 days of recent medicine use in reserve. Only the extra stock is available to share.
             </p>
           </div>
 
@@ -219,7 +219,7 @@ export function MOUPartnersView({ onToast }) {
               <option value="">Select a batch</option>
               {inventoryBatches.map((batch) => (
                 <option key={batch.id} value={batch.id}>
-                  {batch.sku_name} ({batch.quantity} {batch.unit})
+                  {batch.sku_name} ({batch.quantity_available} {batch.unit} available)
                 </option>
               ))}
             </select>
@@ -230,7 +230,7 @@ export function MOUPartnersView({ onToast }) {
             <input
               type="number"
               min="1"
-              max={selectedBatch?.quantity || undefined}
+              max={selectedBatch?.quantity_available || undefined}
               value={quantity}
               onChange={(event) => setQuantity(event.target.value)}
               required
@@ -277,7 +277,7 @@ export function MOUPartnersView({ onToast }) {
           </button>
           {inventoryBatches.length === 0 && !isLoading && (
             <p className="text-sm text-on-surface-variant">
-              Add inventory first before posting surplus.
+              No extra inventory is available after keeping 7 days of recent medicine use in reserve.
             </p>
           )}
         </form>

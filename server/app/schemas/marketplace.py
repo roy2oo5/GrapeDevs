@@ -11,6 +11,15 @@ class SurplusListingCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
 
 
+class SurplusInventoryBatchRead(BaseModel):
+    id: UUID
+    sku_code: str
+    sku_name: str
+    quantity_available: int
+    unit: str
+    expires_on: date | None
+
+
 class SurplusBuyerRead(BaseModel):
     hospital_id: UUID
     hospital_name: str

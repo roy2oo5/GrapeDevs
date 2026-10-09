@@ -15,7 +15,8 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as fastapi_app
 from app.models import (
-    Hospital, HospitalAdminAccount, HospitalAgreement, InventoryBatch, TransferItem, TransferRequest,
+    Hospital, HospitalAdminAccount, HospitalAgreement, InventoryBatch, MedicineDailyUsage, TransferItem,
+    TransferRequest,
 )
 from app.schemas import HospitalAdminIdentity
 from app.services.auth import hash_terminal_access_key
@@ -128,7 +129,7 @@ def test_hospital_admin_can_change_access_key(authorized_client, db_session_fact
 
 def test_cors_allows_hosted_vercel_frontend(client):
     response = client.options(
-        "/health",
+        "/api/health",
         headers={
             "Origin": "https://grape-devs.vercel.app",
             "Access-Control-Request-Method": "GET",
@@ -847,7 +848,7 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
         json={
             "sku_code": "MED-PARA-500",
             "sku_name": "Paracetamol 500mg IV",
-            "quantity": 100,
+            "quantity": 155,
             "average_daily_use": 15,
             "unit": "vials",
             "lot_number": "LOT-MKT-1",
@@ -908,6 +909,17 @@ def test_publish_surplus_listing_and_request_creates_transfer(authorized_client)
     assert requested.json()["transfer"]["source_hospital_id"] == listing["hospital_id"]
     assert requested.json()["listing"]["quantity_available"] == 30
     transfer_id = requested.json()["transfer"]["id"]
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="TEST-ADMIN-001",
+        hospital_id=client.test_hospital_id,
+        hospital_name="Test General Hospital",
+    )
+    assert client.get("/api/marketplace/inventory").json() == []
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="OTHER-ADMIN-001",
+        hospital_id=other_hospital_id,
+        hospital_name="Other City Hospital",
+    )
     duplicate = client.post(
         f"/api/marketplace/listings/{listing['id']}/request",
         json={"quantity": 5},
@@ -989,6 +1001,82 @@ def test_agreement_create_and_partner_can_accept(authorized_client, client, db_s
     accepted = client.patch(f"/api/agreements/{created.json()['id']}", json={"status": "active"})
     assert accepted.status_code == 200
     assert accepted.json()["status"] == "active"
+
+
+def test_surplus_marketplace_keeps_seven_days_of_recent_use_in_reserve(
+    authorized_client, client, db_session_factory
+):
+    source_id = authorized_client.test_hospital_id
+    with db_session_factory() as db:
+        source = db.get(Hospital, source_id)
+        source.settings = {"latitude": 12.9716, "longitude": 77.5946}
+        receiver = Hospital(
+            name="Nearby Receiving Hospital",
+            administrator_name="Receiver",
+            administrator_email="nearby-receiver@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+            settings={"latitude": 12.9717, "longitude": 77.5947},
+        )
+        batch = InventoryBatch(
+            hospital_id=source_id,
+            sku_code="MED-RESERVE-01",
+            sku_name="Reserve Test Medicine",
+            quantity=100,
+            unit="packs",
+            average_daily_use=1,
+        )
+        db.add_all([receiver, batch])
+        db.flush()
+        db.add_all([
+            MedicineDailyUsage(
+                hospital_id=source_id,
+                sku_code="MED-RESERVE-01",
+                sku_name="Reserve Test Medicine",
+                usage_date=date.today() - timedelta(days=day),
+                quantity_dispensed=10,
+            )
+            for day in range(7)
+        ])
+        db.commit()
+        receiver_id = receiver.id
+        batch_id = batch.id
+
+    eligible_inventory = authorized_client.get("/api/marketplace/inventory").json()
+    assert eligible_inventory[0]["quantity_available"] == 30
+    posted = authorized_client.post(
+        "/api/marketplace/listings",
+        json={"inventory_batch_id": str(batch_id), "quantity": 10},
+    )
+    assert posted.status_code == 201
+    eligible_inventory = authorized_client.get("/api/marketplace/inventory").json()
+    assert eligible_inventory[0]["quantity_available"] == 20
+
+    with db_session_factory() as db:
+        db.get(InventoryBatch, batch_id).quantity = 65
+        db.commit()
+
+    assert authorized_client.get("/api/marketplace/inventory").json() == []
+    blocked_post = authorized_client.post(
+        "/api/marketplace/listings",
+        json={"inventory_batch_id": str(batch_id), "quantity": 1},
+    )
+    assert blocked_post.status_code == 409
+    assert "7 days" in blocked_post.json()["detail"]
+
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="NEARBY-ADMIN",
+        hospital_id=receiver_id,
+        hospital_name="Nearby Receiving Hospital",
+    )
+    assert client.get("/api/marketplace/listings").json() == []
+    blocked_request = client.post(
+        f"/api/marketplace/listings/{posted.json()['id']}/request",
+        json={"quantity": 1},
+    )
+    assert blocked_request.status_code == 409
+    assert "7-day" in blocked_request.json()["detail"]
 
 
 def test_hospital_settings_and_scenario_are_persisted(authorized_client):

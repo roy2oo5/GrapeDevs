@@ -121,7 +121,7 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
   const renderTransferCard = (transfer, direction) => {
     const isSource = transfer.source_hospital_id === currentHospitalId;
     const isReceivingHospital = transfer.requesting_hospital_id === currentHospitalId;
-    const isSendingDirection = direction === 'sending' || (direction === 'cancelled' && isSource);
+    const isSendingDirection = direction === 'sending';
     const statusAction = (
       (transfer.status === 'requested' && isSource && { label: 'Approve request', next: 'approved' })
       || (transfer.status === 'approved' && isSource && { label: 'Prepare and send', next: 'pending_pickup' })
@@ -184,10 +184,6 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
 
   const outgoingTransfers = transfers.filter((transfer) => transfer.source_hospital_id === currentHospitalId);
   const incomingTransfers = transfers.filter((transfer) => transfer.requesting_hospital_id === currentHospitalId);
-  const canceledTransfers = transfers.filter((transfer) => (
-    transfer.status === 'canceled'
-    && (transfer.source_hospital_id === currentHospitalId || transfer.requesting_hospital_id === currentHospitalId)
-  ));
   const renderTransferGroup = (title, direction, rows) => {
     const filteredRows = rows.filter((transfer) => [
       transfer.sku_name,
@@ -266,7 +262,6 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
         <div className="grid gap-4 lg:grid-cols-2">
           {renderTransferGroup('Sending', 'sending', outgoingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
           {renderTransferGroup('Received', 'received', incomingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
-          {renderTransferGroup('Cancelled', 'cancelled', canceledTransfers)}
         </div>
       )}
     </div>
