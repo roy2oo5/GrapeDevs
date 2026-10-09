@@ -391,7 +391,6 @@ export function InventorySKUsView({ onToast, onSendStock }) {
     }
     if (storageFilter === 'cold' && item.storageType !== 'cold') return false;
     if (storageFilter === 'ambient' && item.storageType !== 'ambient') return false;
-    if (activePin === 'cold' && item.storageType !== 'cold') return false;
     if (activePin === 'reorder' && item.status !== 'Critical Lead Time' && item.status !== 'Reorder Now' && item.status !== 'Buffer Warning') return false;
     return true;
   });
@@ -624,18 +623,6 @@ export function InventorySKUsView({ onToast, onSendStock }) {
           <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider pr-1 font-semibold">
             Filter Pins:
           </span>
-          <button
-            type="button"
-            onClick={() => setActivePin(activePin === 'cold' ? null : 'cold')}
-            className={`px-2.5 py-1 rounded-full font-label-sm text-label-sm flex items-center gap-1.5 transition-colors cursor-pointer border ${
-              activePin === 'cold'
-                ? 'bg-primary-fixed text-on-primary-fixed font-bold border-primary'
-                : 'bg-surface-container-low hover:bg-surface-container-high text-on-surface border-surface-container-high/50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px] text-primary">ac_unit</span>
-            <span>Cold Chain Only</span>
-          </button>
           <button
             type="button"
             onClick={() => setActivePin(activePin === 'reorder' ? null : 'reorder')}
@@ -893,23 +880,6 @@ export function InventorySKUsView({ onToast, onSendStock }) {
 
       </div>
 
-      {/* Regulatory Ledger & Compliance Verification Banner */}
-      <div className="mt-space-md p-space-md rounded-2xl bg-surface-container-low/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md border border-surface-container-high/50">
-        <div className="flex items-center gap-space-sm">
-          <div className="w-10 h-10 rounded-xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm">
-            <span className="material-symbols-outlined text-[22px]">policy</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-label-md text-label-md text-on-surface font-bold">
-              Pharmacopeia Traceability Audit System
-            </span>
-            <span className="font-body-sm text-body-sm text-outline max-w-3xl leading-relaxed">
-              All lot status transitions (Quarantine / Damage declaration) are cryptographically logged to the MedCare Central Pharmacy Ledger pursuant to DSCSA &amp; FDA Title 21 CFR Part 11 compliance.
-            </span>
-          </div>
-        </div>
-
-      </div>
     </div>
   );
 }

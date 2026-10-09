@@ -4,14 +4,14 @@ import { createTransfer, fetchHospitals, fetchTransfers, getCurrentHospitalId, s
 const STATUS_LABELS = {
   requested: 'Requested',
   approved: 'Approved',
-  pending_pickup: 'Pending pickup',
+  pending_pickup: 'Sending',
   in_transit: 'In transit',
   arrived_awaiting_inspection: 'Awaiting inspection',
   completed: 'Delivered',
   rejected: 'Rejected',
   returned: 'Returned',
   exception: 'Exception',
-  canceled: 'Canceled',
+  canceled: 'Cancelled',
 };
 
 export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftConsumed }) {
@@ -32,22 +32,34 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
   }, [initialDraft, onInitialDraftConsumed]);
 
   const hospitalNames = useMemo(
-    () => Object.fromEntries(hospitals.map((hospital) => [hospital.id, hospital.name])),
-    [hospitals],
+    () => ({
+      ...Object.fromEntries(hospitals.map((hospital) => [hospital.id, hospital.name])),
+      ...Object.fromEntries(transfers.flatMap((transfer) => [
+        [transfer.requesting_hospital_id, transfer.requesting_hospital_name],
+        [transfer.source_hospital_id, transfer.source_hospital_name],
+      ]).filter(([id, name]) => id && name)),
+    }),
+    [hospitals, transfers],
   );
 
   const load = async () => {
     setLoading(true);
     setError('');
-    try {
-      const [transferRows, hospitalRows] = await Promise.all([fetchTransfers(), fetchHospitals()]);
-      setTransfers(transferRows);
-      setHospitals(hospitalRows);
-    } catch (requestError) {
-      setError(requestError.message || 'Could not load transfers.');
-    } finally {
-      setLoading(false);
+    const [transferResult, hospitalResult] = await Promise.allSettled([
+      fetchTransfers(),
+      fetchHospitals(),
+    ]);
+    if (transferResult.status === 'fulfilled') {
+      setTransfers(transferResult.value);
+    } else {
+      setError(transferResult.reason.message || 'Could not load transfers.');
     }
+    if (hospitalResult.status === 'fulfilled') {
+      setHospitals(hospitalResult.value);
+    } else if (transferResult.status === 'fulfilled') {
+      setError(hospitalResult.reason.message || 'Could not load the hospital list. Transfer names may be incomplete.');
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -100,7 +112,7 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
       form.reset();
       setShowForm(false);
       await load();
-      onToast?.('Transfer sent. It is now in transit.');
+      onToast?.('Transfer created. Prepare it for sending when ready.');
     } catch (requestError) {
       setError(requestError.message || 'Could not create transfer.');
     }
@@ -109,9 +121,10 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
   const renderTransferCard = (transfer, direction) => {
     const isSource = transfer.source_hospital_id === currentHospitalId;
     const isReceivingHospital = transfer.requesting_hospital_id === currentHospitalId;
+    const isSendingDirection = direction === 'sending' || (direction === 'cancelled' && isSource);
     const statusAction = (
       (transfer.status === 'requested' && isSource && { label: 'Approve request', next: 'approved' })
-      || (transfer.status === 'approved' && isSource && { label: 'Prepare pickup', next: 'pending_pickup' })
+      || (transfer.status === 'approved' && isSource && { label: 'Prepare and send', next: 'pending_pickup' })
       || (transfer.status === 'pending_pickup' && isSource && { label: 'Dispatch shipment', next: 'in_transit' })
       || (transfer.status === 'in_transit' && isSource && { label: 'Confirm returned to source', next: 'returned' })
       || (transfer.status === 'exception' && isReceivingHospital && { label: 'Confirm arrived for inspection', next: 'arrived_awaiting_inspection' })
@@ -131,11 +144,13 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
             <p className="mt-1 text-xs text-on-surface-variant">{transfer.sku_code || 'SKU not provided'} · {transfer.quantity} {transfer.unit}</p>
           </div>
           <span className="shrink-0 rounded-full bg-surface-container-high px-2 py-1 text-xs text-on-surface-variant">
-            {STATUS_LABELS[transfer.status] || transfer.status}
+            {transfer.status === 'completed'
+              ? (direction === 'sending' ? 'Sent' : 'Received')
+              : STATUS_LABELS[transfer.status] || transfer.status}
           </span>
         </div>
         <p className="mt-2 text-xs text-on-surface-variant">
-          {direction === 'sending' ? 'To' : 'From'}: {direction === 'sending'
+          {isSendingDirection ? 'To' : 'From'}: {isSendingDirection
             ? hospitalNames[transfer.requesting_hospital_id] || 'Receiving hospital'
             : hospitalNames[transfer.source_hospital_id] || 'Source hospital'}
         </p>
@@ -147,7 +162,7 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
         )}
         {isReceivingHospital && ['in_transit', 'arrived_awaiting_inspection'].includes(transfer.status) && (
           <button type="button" onClick={() => receive(transfer)} className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary">
-            Accept delivery
+            Received
           </button>
         )}
         {transfer.status === 'requested' && isSource && (
@@ -169,6 +184,10 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
 
   const outgoingTransfers = transfers.filter((transfer) => transfer.source_hospital_id === currentHospitalId);
   const incomingTransfers = transfers.filter((transfer) => transfer.requesting_hospital_id === currentHospitalId);
+  const canceledTransfers = transfers.filter((transfer) => (
+    transfer.status === 'canceled'
+    && (transfer.source_hospital_id === currentHospitalId || transfer.requesting_hospital_id === currentHospitalId)
+  ));
   const renderTransferGroup = (title, direction, rows) => {
     const filteredRows = rows.filter((transfer) => [
       transfer.sku_name,
@@ -222,7 +241,7 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
       {showForm && (
         <form onSubmit={create} className="grid gap-3 rounded-xl border border-outline/20 bg-surface-container-lowest p-4 md:grid-cols-2">
           <p className="text-xs text-on-surface-variant md:col-span-2">
-            Stock is reserved when sent and leaves your inventory when the receiving hospital accepts delivery.
+            Stock is reserved when the transfer is created and leaves your inventory when the receiving hospital accepts delivery.
           </p>
           <input key={`name-${draft.sku_name || ''}`} name="sku_name" required defaultValue={draft.sku_name || ''} placeholder="Medicine name" className="rounded-lg border border-outline/30 px-3 py-2" />
           <input key={`code-${draft.sku_code || ''}`} name="sku_code" required defaultValue={draft.sku_code || ''} placeholder="SKU code" className="rounded-lg border border-outline/30 px-3 py-2" />
@@ -245,8 +264,9 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
 
       {loading ? <p className="text-sm text-on-surface-variant">Loading transfers...</p> : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {renderTransferGroup('Sending', 'sending', outgoingTransfers)}
-          {renderTransferGroup('Received', 'received', incomingTransfers)}
+          {renderTransferGroup('Sending', 'sending', outgoingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
+          {renderTransferGroup('Received', 'received', incomingTransfers.filter((transfer) => transfer.status !== 'canceled'))}
+          {renderTransferGroup('Cancelled', 'cancelled', canceledTransfers)}
         </div>
       )}
     </div>

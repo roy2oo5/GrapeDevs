@@ -67,6 +67,65 @@ def test_hospital_data_search_validates_query_length(authorized_client):
     assert authorized_client.get("/api/hospital-data/search?q=x").status_code == 422
 
 
+def test_hospital_profile_can_be_updated(authorized_client):
+    response = authorized_client.put(
+        "/api/operations/profile",
+        json={"hospital_name": " Updated Hospital ", "administrator_name": " New Admin "},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated Hospital"
+    assert response.json()["administrator_name"] == "New Admin"
+
+
+def test_hospital_admin_can_change_access_key(authorized_client, db_session_factory, monkeypatch):
+    with db_session_factory() as db:
+        db.add(
+            HospitalAdminAccount(
+                hospital_id=authorized_client.test_hospital_id,
+                administrator_id="TEST-ADMIN-001",
+                password_hash=hash_terminal_access_key("CorrectHorseBattery9!"),
+            )
+        )
+        db.commit()
+
+    incorrect = authorized_client.post(
+        "/api/auth/change-access-key",
+        json={
+            "current_access_key": "IncorrectPassword9!",
+            "new_access_key": "AnotherCorrectKey9!",
+        },
+    )
+    assert incorrect.status_code == 400
+
+    changed = authorized_client.post(
+        "/api/auth/change-access-key",
+        json={
+            "current_access_key": "CorrectHorseBattery9!",
+            "new_access_key": "AnotherCorrectKey9!",
+        },
+    )
+    assert changed.status_code == 204
+
+    configure_test_signing(monkeypatch)
+    old_key_login = authorized_client.post(
+        "/api/auth/login",
+        json={
+            "hospital_administrator_id": "TEST-ADMIN-001",
+            "terminal_access_key": "CorrectHorseBattery9!",
+        },
+    )
+    new_key_login = authorized_client.post(
+        "/api/auth/login",
+        json={
+            "hospital_administrator_id": "TEST-ADMIN-001",
+            "terminal_access_key": "AnotherCorrectKey9!",
+        },
+    )
+    assert old_key_login.status_code == 401
+    assert new_key_login.status_code == 200
+
+
 def test_cors_allows_hosted_vercel_frontend(client):
     response = client.options(
         "/health",
@@ -486,7 +545,7 @@ def test_transfer_approval_reserves_stock_after_policy_checks(authorized_client,
         assert item.reserved_quantity == 10
 
 
-def test_sender_can_send_and_receiver_accepts_delivery_in_one_step(authorized_client, db_session_factory):
+def test_sender_prepares_dispatches_and_receiver_accepts_delivery(authorized_client, db_session_factory):
     client = authorized_client
     source_id = client.test_hospital_id
     with db_session_factory() as db:
@@ -539,7 +598,7 @@ def test_sender_can_send_and_receiver_accepts_delivery_in_one_step(authorized_cl
     )
     assert sent_response.status_code == 201
     transfer_id = sent_response.json()["id"]
-    assert sent_response.json()["status"] == "in_transit"
+    assert sent_response.json()["status"] == "approved"
     assert sent_response.json()["source_hospital_id"] == str(source_id)
     assert sent_response.json()["requesting_hospital_id"] == str(receiver_id)
     assert sent_response.json()["destination_hospital_id"] == str(receiver_id)
@@ -548,6 +607,19 @@ def test_sender_can_send_and_receiver_accepts_delivery_in_one_step(authorized_cl
         assert source_batch.quantity == 100
         assert source_batch.reserved_quantity == 10
         assert db.query(TransferItem).filter_by(transfer_id=UUID(transfer_id)).one().reserved_quantity == 10
+
+    prepared_response = client.patch(
+        f"/api/transfers/{transfer_id}",
+        json={"status": "pending_pickup"},
+    )
+    assert prepared_response.status_code == 200
+    assert prepared_response.json()["status"] == "pending_pickup"
+    dispatched_response = client.patch(
+        f"/api/transfers/{transfer_id}",
+        json={"status": "in_transit"},
+    )
+    assert dispatched_response.status_code == 200
+    assert dispatched_response.json()["status"] == "in_transit"
 
     fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
         administrator_id="DIRECT-RECEIVER-ADMIN",

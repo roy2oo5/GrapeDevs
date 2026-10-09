@@ -9,6 +9,11 @@ class HospitalSettingsUpdate(BaseModel):
     settings: dict[str, Any]
 
 
+class HospitalProfileUpdate(BaseModel):
+    hospital_name: str = Field(min_length=2, max_length=180)
+    administrator_name: str = Field(min_length=2, max_length=160)
+
+
 class ScenarioRunCreate(BaseModel):
     scenario_type: str = Field(default="demand_surge", min_length=2, max_length=120)
     demand_multiplier: float = Field(default=1.0, ge=1, le=5)

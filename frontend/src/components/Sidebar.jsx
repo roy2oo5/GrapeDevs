@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrandMark } from './BrandMark';
 
 export function Sidebar({ currentView, onViewChange, onOpenAuth }) {
   const navItems = [
@@ -16,16 +17,13 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth }) {
       <div className="flex flex-col">
         {/* Brand Header */}
         <div className="h-16 px-space-lg flex items-center gap-space-sm bg-surface-container-low/40 border-b border-surface-container/60">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center relative shadow-[0_0_12px_rgba(0,123,185,0.3)]">
-            <span className="material-symbols-outlined text-on-primary text-[20px]">hub</span>
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-tertiary-fixed-dim rounded-full animate-pulse"></span>
-          </div>
+          <BrandMark />
           <div className="flex flex-col">
             <span className="font-headline-sm text-headline-sm text-on-surface leading-tight font-semibold">
-              PulseGrid AI
+              PulseGrid
             </span>
             <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-medium">
-              Supply Control Tower
+              Supply Chain Management
             </span>
           </div>
         </div>

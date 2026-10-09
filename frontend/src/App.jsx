@@ -132,6 +132,11 @@ export default function App() {
     addToast(`Signed in to ${session.hospital_name}.`);
   };
 
+  const handleHospitalUpdated = (hospital) => {
+    setCurrentHospital(hospital.name);
+    setUser((currentUser) => ({ ...currentUser, name: hospital.administrator_name }));
+  };
+
   const handleSignOut = () => {
     clearAccessToken();
     setUser(null);
@@ -255,6 +260,7 @@ export default function App() {
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}
                   onNavigate={setCurrentView}
                   transferDraft={transferDraft}
+                  onHospitalUpdated={handleHospitalUpdated}
                   onTransferDraftConsumed={() => setTransferDraft(null)}
                   onFindSupply={(batch) => {
                     setTransferDraft({
@@ -281,8 +287,6 @@ export default function App() {
               <div className="w-full max-w-5xl bg-surface-container-lowest rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,97,148,0.12),0_8px_24px_-4px_rgba(25,28,30,0.04)] overflow-hidden flex flex-col lg:flex-row relative border border-surface-container-high/40">
                 <LeftTelemetryPanel />
                 <AuthFormPanel
-                  onResetKeyClick={() => setAuthModalType('reset')}
-                  onSSOClick={() => setAuthModalType('sso')}
                   onLoginSuccess={handleLoginSuccess}
                   onRegisterSuccess={(data) => addToast(`${data.hospital_name} is ready for hospital login.`)}
                 />
@@ -309,7 +313,7 @@ export default function App() {
         onConfirm={handleActionConfirm}
       />
 
-      {/* Auth Modals (Terms, Cryptographic Audit, Reset Key, SSO) */}
+      {/* Terms */}
       <InfoModal
         modalType={authModalType !== 'diagnostics' ? authModalType : null}
         onClose={() => setAuthModalType(null)}

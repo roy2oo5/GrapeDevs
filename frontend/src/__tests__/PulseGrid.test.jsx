@@ -27,19 +27,18 @@ describe('PulseGrid Control Tower Test Suite', () => {
   });
 
   describe('Header Component', () => {
-    it('renders PulseGrid brand and clearance indicators', () => {
+    it('renders simple branding and API status without fake security badges', () => {
       render(<Header backendStatus="online" />);
 
       expect(screen.getByText('PulseGrid')).toBeInTheDocument();
-      expect(screen.getByText('Supply Intelligence Control Tower')).toBeInTheDocument();
-      expect(screen.getByText('ENCRYPTED NODE')).toBeInTheDocument();
-      expect(screen.getByText('v2.4.8-SEC')).toBeInTheDocument();
-      expect(screen.getByText('CLEARANCE LEVEL 4')).toBeInTheDocument();
+      expect(screen.getByText('Supply Chain Management')).toBeInTheDocument();
+      expect(screen.getByText('API connected')).toBeInTheDocument();
+      expect(screen.queryByText(/LOCAL NODE|ENCRYPTED NODE|CLEARANCE LEVEL|v2\.4/)).not.toBeInTheDocument();
     });
 
-    it('shows local node indicator when offline', () => {
+    it('shows API availability when offline', () => {
       render(<Header backendStatus="offline" />);
-      expect(screen.getByText('LOCAL NODE')).toBeInTheDocument();
+      expect(screen.getByText('API unavailable')).toBeInTheDocument();
     });
   });
 
@@ -76,9 +75,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<AuthFormPanel />);
 
       expect(screen.getByText('Hospital Login')).toBeInTheDocument();
-      expect(screen.getByText('Access Control Tower')).toBeInTheDocument();
+      expect(screen.getByText(/Sign in to manage your hospital/)).toBeInTheDocument();
 
-      const passInput = screen.getByLabelText(/Terminal Access Key/i);
+      const passInput = screen.getByLabelText('Password');
       expect(passInput).toHaveAttribute('type', 'password');
 
       const toggleBtn = screen.getByLabelText('Toggle password visibility');
@@ -157,14 +156,14 @@ describe('PulseGrid Control Tower Test Suite', () => {
       fireEvent.change(screen.getByLabelText(/Hospital Administrator ID/i), {
         target: { value: 'METRO-ADMIN-001' },
       });
-      fireEvent.change(screen.getByLabelText(/Terminal Access Key/i), {
+      fireEvent.change(screen.getByLabelText('Password'), {
         target: { value: 'validPassword123' },
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /Access Control Tower/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Sign in', exact: true }));
 
       expect(
-        screen.getByText(/Verifying Cryptographic Credentials/i)
+        screen.getByText(/Signing in/i)
       ).toBeInTheDocument();
 
       await waitFor(
@@ -212,16 +211,10 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(window.sessionStorage.getItem('pulsegrid_access_token')).toBeNull();
     });
 
-    it('triggers callbacks for reset access keys and SSO options', () => {
-      const handleReset = vi.fn();
-      const handleSSO = vi.fn();
-      render(<AuthFormPanel onResetKeyClick={handleReset} onSSOClick={handleSSO} />);
-
-      fireEvent.click(screen.getByText('Reset access keys?'));
-      expect(handleReset).toHaveBeenCalledTimes(1);
-
-      fireEvent.click(screen.getByText(/Hospital Network Single Sign-On/i));
-      expect(handleSSO).toHaveBeenCalledTimes(1);
+    it('keeps sign-in focused on the hospital ID and password', () => {
+      render(<AuthFormPanel />);
+      expect(screen.getByLabelText('Password')).toBeInTheDocument();
+      expect(screen.queryByText(/FIPS Hardware Key|Enterprise Directory|Reset access keys/i)).not.toBeInTheDocument();
     });
   });
 
@@ -230,8 +223,8 @@ describe('PulseGrid Control Tower Test Suite', () => {
       const handleView = vi.fn();
       render(<Sidebar currentView="dashboard" onViewChange={handleView} onOpenAuth={vi.fn()} />);
 
-      expect(screen.getByText('PulseGrid AI')).toBeInTheDocument();
-      expect(screen.getByText('Supply Control Tower')).toBeInTheDocument();
+      expect(screen.getByText('PulseGrid')).toBeInTheDocument();
+      expect(screen.getByText('Supply Chain Management')).toBeInTheDocument();
       expect(screen.getByText('Inventory')).toBeInTheDocument();
       expect(screen.getByText('Medicine forecast')).toBeInTheDocument();
       expect(screen.getByText('Transfers')).toBeInTheDocument();
@@ -311,6 +304,8 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<InventorySKUsView onToast={onToast} />);
 
       await screen.findByText('MED-DELETE-001');
+      expect(screen.queryByText('Cold Chain Only')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pharmacopeia Traceability Audit System')).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /Inventory actions for Delete Test Medicine/i }));
       fireEvent.click(screen.getByRole('menuitem', { name: /Delete inventory batch/i }));
       expect(screen.getByRole('alertdialog')).toHaveTextContent('Delete Test Medicine');
@@ -534,25 +529,29 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(onInitialDraftConsumed).toHaveBeenCalledTimes(1);
     });
 
-    it('sends a transfer directly in transit to the selected destination', async () => {
+    it('prepares a transfer before dispatching it in transit', async () => {
       window.sessionStorage.setItem(
         'pulsegrid_access_token',
         `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-source' }))}.signature`,
       );
-      const sentTransfer = {
+      let transfer = {
         id: 'transfer-outbound-001',
         sku_name: 'Paracetamol',
         sku_code: 'MED-01',
         quantity: 12,
         unit: 'vials',
         urgency: 'normal',
-        status: 'in_transit',
+        status: 'approved',
         requesting_hospital_id: 'hospital-destination',
         source_hospital_id: 'hospital-source',
       };
       vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
         if (options.method === 'POST') {
-          return Promise.resolve({ ok: true, json: async () => sentTransfer });
+          return Promise.resolve({ ok: true, json: async () => transfer });
+        }
+        if (options.method === 'PATCH') {
+          transfer = { ...transfer, status: JSON.parse(options.body).status };
+          return Promise.resolve({ ok: true, json: async () => transfer });
         }
         if (String(url).includes('/api/hospitals')) {
           return Promise.resolve({
@@ -563,7 +562,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
             ],
           });
         }
-        return Promise.resolve({ ok: true, json: async () => [sentTransfer] });
+        return Promise.resolve({ ok: true, json: async () => [transfer] });
       }));
       render(<TransfersLogisticsView onToast={vi.fn()} />);
 
@@ -584,6 +583,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
           quantity: 12,
         }));
       });
+      fireEvent.click(await screen.findByRole('button', { name: 'Prepare and send' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dispatch shipment' }));
+      await waitFor(() => expect(screen.getByText('In transit')).toBeInTheDocument());
     });
 
     it('lets the receiving hospital accept an in-transit delivery', async () => {
@@ -621,7 +623,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<TransfersLogisticsView onToast={vi.fn()} />);
 
       await screen.findByText(/transfer-inbound-001/);
-      fireEvent.click(screen.getByRole('button', { name: 'Accept delivery' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Received' }));
 
       await waitFor(() => {
         const receiptCall = fetch.mock.calls.find(([url, options]) => (
@@ -633,7 +635,39 @@ describe('PulseGrid Control Tower Test Suite', () => {
           rejected_quantity: 0,
         }));
       });
-      expect(await screen.findAllByText('Delivered')).toHaveLength(1);
+      await waitFor(() => expect(screen.getAllByText('Received')).toHaveLength(2));
+    });
+
+    it('shows canceled transfers only in the Cancelled group', async () => {
+      window.sessionStorage.setItem(
+        'pulsegrid_access_token',
+        `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-source' }))}.signature`,
+      );
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url) => {
+        if (String(url).includes('/api/hospitals')) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{
+            id: 'transfer-canceled-001',
+            sku_name: 'Canceled medicine',
+            sku_code: 'MED-02',
+            quantity: 4,
+            unit: 'packs',
+            status: 'canceled',
+            source_hospital_id: 'hospital-source',
+            requesting_hospital_id: 'hospital-destination',
+            requesting_hospital_name: 'Destination Hospital',
+          }],
+        });
+      }));
+      render(<TransfersLogisticsView onToast={vi.fn()} />);
+
+      expect(await screen.findAllByText('Cancelled')).toHaveLength(2);
+      expect(screen.getByText('No sending transfers.')).toBeInTheDocument();
+      expect(screen.getByText('No received transfers.')).toBeInTheDocument();
+      expect(screen.getByText('To: Destination Hospital')).toBeInTheDocument();
     });
 
     it('persists transfer approval and reloads the hospital transfer list', async () => {
@@ -844,57 +878,23 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
 
   describe('HospitalSettingsView Component (Screen 8)', () => {
-    it('renders hospital configuration tabs, calibration table, and parameter knobs', () => {
+    it('shows only editable hospital details, location, and password', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          name: 'Metro General Hospital',
+          administrator_name: 'Alex Morgan',
+          settings: { latitude: 12.9716, longitude: 77.5946 },
+        }),
+      }));
       render(<HospitalSettingsView onToast={vi.fn()} />);
 
-      expect(screen.getByText('Settings & Hospital Configuration')).toBeInTheDocument();
-      expect(screen.getByText('MedCare General Hospital (Node #MC-01)')).toBeInTheDocument();
-      expect(screen.getByText('Hospital Profile')).toBeInTheDocument();
-      expect(screen.getByText('Network Preferences')).toBeInTheDocument();
-      expect(screen.getByText('Notification Alerts')).toBeInTheDocument();
-      expect(screen.getByText('Supply Chain Rules')).toBeInTheDocument();
-
-      // Switch to Supply Chain Rules tab
-      fireEvent.click(screen.getByText('Supply Chain Rules'));
-
-      // Check table items
-      expect(screen.getByText('Paracetamol 500mg IV Infusion')).toBeInTheDocument();
-      expect(screen.getByText('Ceftriaxone 1g Powder for Injection')).toBeInTheDocument();
-      expect(screen.getByText('Propofol 10mg/mL Injectable Emulsion')).toBeInTheDocument();
-
-      // Check sensitivity sliders & actions
-      expect(screen.getByText('Global Algorithmic Sensitivity Multipliers')).toBeInTheDocument();
-      expect(screen.getByText('Shortage Window Trigger')).toBeInTheDocument();
-    });
-
-    it('allows opening MQTT IoT Broker modal', () => {
-      render(<HospitalSettingsView onToast={vi.fn()} />);
-
-      // Switch to Supply Chain Rules tab to find Configure MQTT button
-      fireEvent.click(screen.getByText('Supply Chain Rules'));
-
-      fireEvent.click(screen.getByRole('button', { name: /Configure MQTT/i }));
-      expect(screen.getByText('MQTT IoT Broker Settings')).toBeInTheDocument();
-      expect(screen.getByText('Test & Save Broker')).toBeInTheDocument();
-    });
-
-    it('handles saving and deploying parameter changes with toast', () => {
-      const handleToast = vi.fn();
-      render(<HospitalSettingsView onToast={handleToast} />);
-
-      // Make a change first in Supply Chain Rules tab so unsavedChanges > 0
-      fireEvent.click(screen.getByText('Supply Chain Rules'));
-      const reorderInputs = screen.getAllByRole('textbox');
-      if (reorderInputs.length > 1) {
-        fireEvent.change(reorderInputs[1], { target: { value: '500' } });
-      }
-
-      // Click Hospital Profile save button
-      fireEvent.click(screen.getByText('Hospital Profile'));
-      const saveBtn = screen.getByRole('button', { name: /Save Hospital Profile/i });
-      fireEvent.click(saveBtn);
-
-      expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('updated'));
+      expect(await screen.findByDisplayValue('Metro General Hospital')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Alex Morgan')).toBeInTheDocument();
+      expect(screen.getByLabelText('Latitude')).toHaveValue(12.9716);
+      expect(screen.getByLabelText('Longitude')).toHaveValue(77.5946);
+      expect(screen.getByRole('heading', { name: 'Password' })).toBeInTheDocument();
+      expect(screen.queryByText(/Local node|clearance|algorithmic|MQTT/i)).not.toBeInTheDocument();
     });
   });
 

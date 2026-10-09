@@ -6,7 +6,14 @@ from sqlalchemy.orm import Session
 from app.api.routers.auth import get_current_hospital_admin
 from app.db.session import get_db
 from app.models import Hospital, InventoryBatch, ScenarioRun
-from app.schemas import HospitalAdminIdentity, HospitalRead, HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
+from app.schemas import (
+    HospitalAdminIdentity,
+    HospitalProfileUpdate,
+    HospitalRead,
+    HospitalSettingsUpdate,
+    ScenarioRunCreate,
+    ScenarioRunRead,
+)
 from app.services.geography import hospital_coordinates
 from app.services.realtime import publish_hospital_event
 
@@ -22,6 +29,27 @@ def get_hospital_settings(
     return db.get(Hospital, identity.hospital_id)
 
 
+@router.put("/profile", response_model=HospitalRead)
+def update_hospital_profile(
+    payload: HospitalProfileUpdate,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    hospital = db.get(Hospital, identity.hospital_id)
+    if hospital is None:
+        raise HTTPException(status_code=404, detail="Hospital not found")
+    hospital_name = payload.hospital_name.strip()
+    administrator_name = payload.administrator_name.strip()
+    if len(hospital_name) < 2 or len(administrator_name) < 2:
+        raise HTTPException(status_code=422, detail="Enter a valid hospital and administrator name")
+    hospital.name = hospital_name
+    hospital.administrator_name = administrator_name
+    db.commit()
+    db.refresh(hospital)
+    publish_hospital_event({identity.hospital_id}, "hospital.updated")
+    return hospital
+
+
 @router.put("/settings", response_model=HospitalRead)
 def update_hospital_settings(
     payload: HospitalSettingsUpdate,
@@ -34,9 +62,18 @@ def update_hospital_settings(
     merged_settings = {**(hospital.settings or {}), **payload.settings}
     has_latitude = "latitude" in merged_settings
     has_longitude = "longitude" in merged_settings
-    if has_latitude != has_longitude or (
-        has_latitude and hospital_coordinates(merged_settings) is None
-    ):
+    coordinates_cleared = (
+        payload.settings.get("latitude") is None
+        and payload.settings.get("longitude") is None
+        and "latitude" in payload.settings
+        and "longitude" in payload.settings
+    )
+    if coordinates_cleared:
+        merged_settings.pop("latitude", None)
+        merged_settings.pop("longitude", None)
+        has_latitude = False
+        has_longitude = False
+    if has_latitude != has_longitude or (has_latitude and hospital_coordinates(merged_settings) is None):
         raise HTTPException(status_code=422, detail="Latitude and longitude must be valid coordinates")
     hospital.settings = merged_settings
     db.commit()

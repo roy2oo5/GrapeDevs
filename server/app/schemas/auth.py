@@ -9,6 +9,11 @@ class HospitalAdminLogin(BaseModel):
     terminal_access_key: str = Field(min_length=8, max_length=256)
 
 
+class TerminalAccessKeyUpdate(BaseModel):
+    current_access_key: str = Field(min_length=8, max_length=256)
+    new_access_key: str = Field(min_length=8, max_length=256)
+
+
 class HospitalRegistration(BaseModel):
     hospital_name: str = Field(min_length=2, max_length=180)
     administrator_name: str = Field(min_length=2, max_length=160)

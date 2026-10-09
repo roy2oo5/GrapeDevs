@@ -56,7 +56,16 @@ async function request(path, options = {}, authenticated = false) {
     if (token) headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const apiAddress = API_BASE_URL || window.location.origin;
+      throw new Error(`Could not connect to the hospital server (${apiAddress}). Check the server connection and CORS settings.`);
+    }
+    throw error;
+  }
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(payload?.detail || `Request failed with status ${response.status}`);
@@ -283,6 +292,20 @@ export function saveHospitalSettings(settings) {
   return request('/api/operations/settings', {
     method: 'PUT',
     body: JSON.stringify({ settings }),
+  }, true);
+}
+
+export function saveHospitalProfile(profile) {
+  return request('/api/operations/profile', {
+    method: 'PUT',
+    body: JSON.stringify(profile),
+  }, true);
+}
+
+export function changeAccessKey(credentials) {
+  return request('/api/auth/change-access-key', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
   }, true);
 }
 

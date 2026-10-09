@@ -15,6 +15,7 @@ from app.schemas import (
     HospitalAdminSession,
     HospitalRegistration,
     HospitalRegistrationResult,
+    TerminalAccessKeyUpdate,
 )
 from app.services.auth import (
     create_access_token,
@@ -23,6 +24,7 @@ from app.services.auth import (
     hash_terminal_access_key,
     verify_terminal_access_key,
 )
+from app.services.realtime import publish_hospital_event
 
 
 router = APIRouter(prefix="/auth", tags=["Hospital Authentication"])
@@ -138,6 +140,28 @@ def get_current_hospital_admin(
         hospital_id=hospital.id,
         hospital_name=hospital.name,
     )
+
+
+@router.post("/change-access-key", status_code=status.HTTP_204_NO_CONTENT)
+def change_access_key(
+    payload: TerminalAccessKeyUpdate,
+    db: Session = Depends(get_db),
+    identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
+):
+    if payload.current_access_key == payload.new_access_key:
+        raise HTTPException(status_code=422, detail="Choose a new access key different from the current one")
+    account = db.scalar(
+        select(HospitalAdminAccount).where(
+            HospitalAdminAccount.hospital_id == identity.hospital_id,
+            func.lower(HospitalAdminAccount.administrator_id) == identity.administrator_id.lower(),
+        )
+    )
+    if account is None or not verify_terminal_access_key(payload.current_access_key, account.password_hash):
+        raise HTTPException(status_code=400, detail="Current access key is incorrect")
+    account.password_hash = hash_terminal_access_key(payload.new_access_key)
+    db.commit()
+    publish_hospital_event({identity.hospital_id}, "hospital.updated")
+    return None
 
 
 @router.get("/me", response_model=HospitalAdminIdentity)

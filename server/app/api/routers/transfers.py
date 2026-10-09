@@ -98,7 +98,7 @@ def create_transfer(
         )
         if active_mou is None:
             raise HTTPException(status_code=409, detail="An active MOU is required before hospital stock can be transferred")
-        transfer_status = "in_transit"
+        transfer_status = "approved"
     else:
         if payload.requesting_hospital_id is not None and payload.requesting_hospital_id != identity.hospital_id:
             raise HTTPException(status_code=403, detail="A transfer request must belong to your hospital")

@@ -11,7 +11,7 @@ export function DashboardHeader({
       <div className="relative flex items-center gap-space-md">
         <div className="flex items-center gap-space-sm px-space-md py-1.5 rounded-xl bg-surface-container-low border border-surface-container-high/60">
           <div className="flex flex-col text-left">
-            <span className="font-label-lg text-label-lg text-on-surface leading-tight font-semibold">
+            <span className="font-label-lg text-label-lg text-primary leading-tight font-bold">
               {currentHospital}
             </span>
           </div>

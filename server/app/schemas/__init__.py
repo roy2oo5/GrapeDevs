@@ -2,6 +2,7 @@ from app.schemas.auth import (
     HospitalAdminIdentity,
     HospitalAdminLogin,
     HospitalAdminSession,
+    TerminalAccessKeyUpdate,
     HospitalRegistration,
     HospitalRegistrationResult,
 )
@@ -21,7 +22,7 @@ from app.schemas.marketplace import (
     SurplusListingRead,
     SurplusRequestCreate,
 )
-from app.schemas.operations import HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
+from app.schemas.operations import HospitalProfileUpdate, HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
 from app.schemas.transfer import (
     TransferAuditRead, TransferCreate, TransferRead, TransferStatusUpdate,
     DriverCreate, VehicleCreate, LogisticsAssignment, CustodyEventCreate,
@@ -39,12 +40,14 @@ __all__ = [
     "HospitalAdminIdentity",
     "HospitalAdminLogin",
     "HospitalAdminSession",
+    "TerminalAccessKeyUpdate",
     "HospitalRead",
     "HospitalDirectoryEntry",
     "HospitalAgreementCreate",
     "HospitalAgreementRead",
     "HospitalAgreementStatusUpdate",
     "HospitalSettingsUpdate",
+    "HospitalProfileUpdate",
     "HospitalRegistration",
     "HospitalRegistrationResult",
     "InventoryBatchCreate",

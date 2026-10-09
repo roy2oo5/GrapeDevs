@@ -15,6 +15,7 @@ export function SecondaryViews({
   transferDraft,
   onTransferDraftConsumed,
   onFindSupply,
+  onHospitalUpdated,
 }) {
   if (view === 'forecast-data') {
     return <ForecastDataEntry onToast={onToast} />;
@@ -49,7 +50,7 @@ export function SecondaryViews({
   }
 
   if (view === 'system-settings' || view === 'settings' || view === 'hospital-configuration') {
-    return <HospitalSettingsView onToast={onToast} />;
+    return <HospitalSettingsView onToast={onToast} onHospitalUpdated={onHospitalUpdated} />;
   }
 
   // Fallback for other sections

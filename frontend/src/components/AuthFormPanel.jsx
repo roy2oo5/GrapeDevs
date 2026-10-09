@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { loginHospital, registerHospital } from '../services/api';
 
-export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onRegisterSuccess }) {
+export function AuthFormPanel({ onLoginSuccess, onRegisterSuccess }) {
   const [activeTab, setActiveTab] = useState('signin'); // 'signin' | 'register'
 
   // Sign In State
   const [signinAdminId, setSigninAdminId] = useState('');
   const [signinPassword, setSigninPassword] = useState('');
   const [showSigninPassword, setShowSigninPassword] = useState(false);
-  const [rememberTerminal, setRememberTerminal] = useState(false);
   const [signinStatus, setSigninStatus] = useState('idle'); // 'idle' | 'verifying' | 'authenticated'
 
   // Register State
@@ -170,7 +169,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                 Hospital Login
               </h2>
               <p className="font-body-md text-body-md text-secondary mt-1">
-                Access your hospital intelligence node &amp; telemetry console.
+                Sign in to manage your hospital’s medicine and transfers.
               </p>
             </div>
 
@@ -206,15 +205,8 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     className="block font-label-md text-label-md text-on-surface font-semibold"
                     htmlFor="signin-password"
                   >
-                    Terminal Access Key
+                    Password
                   </label>
-                  <button
-                    type="button"
-                    onClick={onResetKeyClick}
-                    className="font-label-sm text-label-sm text-primary hover:text-primary-container font-semibold transition-colors focus:outline-none cursor-pointer"
-                  >
-                    Reset access keys?
-                  </button>
                 </div>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">
@@ -242,29 +234,10 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                 </div>
               </div>
 
-              {/* Checkbox & Hardware Token Option */}
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    id="remember-terminal"
-                    type="checkbox"
-                    checked={rememberTerminal}
-                    onChange={(e) => setRememberTerminal(e.target.checked)}
-                    className="w-4 h-4 rounded text-primary bg-surface-container-low focus:ring-primary focus:ring-offset-0 transition-colors border-outline-variant"
-                  />
-                  <span className="font-label-md text-label-md text-secondary">
-                    Remember this physical terminal
-                  </span>
-                </label>
-                <span className="font-label-sm text-label-sm text-outline-variant flex items-center gap-1 font-medium">
-                  <span className="material-symbols-outlined text-[14px]">usb</span>
-                  FIPS Hardware Key
-                </span>
-              </div>
-
               {/* Submit Button */}
               <button
                 type="submit"
+                aria-label="Sign in"
                 disabled={signinStatus !== 'idle'}
                 className="w-full h-12 mt-2 bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg rounded-xl shadow-[0_4px_16px_rgba(0,97,148,0.25)] hover:shadow-[0_6px_20px_rgba(0,97,148,0.35)] active:scale-[0.99] transition-all duration-150 flex items-center justify-center gap-2 font-semibold cursor-pointer disabled:opacity-85 disabled:cursor-not-allowed"
               >
@@ -273,7 +246,7 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                     <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
-                    <span>Verifying Cryptographic Credentials...</span>
+                    <span>Signing in…</span>
                   </>
                 ) : signinStatus === 'authenticated' ? (
                   <>
@@ -282,30 +255,13 @@ export function AuthFormPanel({ onResetKeyClick, onSSOClick, onLoginSuccess, onR
                   </>
                 ) : (
                   <>
-                    <span>Access Control Tower</span>
+                    <span>Sign in</span>
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </>
                 )}
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="relative my-space-lg flex items-center justify-center">
-              <div className="w-full h-px bg-surface-container-high"></div>
-              <span className="absolute px-3 bg-surface-container-lowest font-label-sm text-label-sm text-secondary uppercase tracking-wider font-medium">
-                Enterprise Directory
-              </span>
-            </div>
-
-            {/* SSO Options */}
-            <button
-              type="button"
-              onClick={onSSOClick}
-              className="w-full h-11 bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md rounded-xl transition-all duration-150 flex items-center justify-center gap-2.5 font-semibold shadow-sm cursor-pointer border border-surface-container-high/60"
-            >
-              <span className="material-symbols-outlined text-[20px] text-primary">local_hospital</span>
-              <span>Hospital Network Single Sign-On (OAuth2 / SAML)</span>
-            </button>
           </div>
         )}
 
