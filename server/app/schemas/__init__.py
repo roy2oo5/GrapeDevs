@@ -22,7 +22,12 @@ from app.schemas.marketplace import (
     SurplusRequestCreate,
 )
 from app.schemas.operations import HospitalSettingsUpdate, ScenarioRunCreate, ScenarioRunRead
-from app.schemas.transfer import TransferAuditRead, TransferCreate, TransferRead, TransferStatusUpdate
+from app.schemas.transfer import (
+    TransferAuditRead, TransferCreate, TransferRead, TransferStatusUpdate,
+    DriverCreate, VehicleCreate, LogisticsAssignment, CustodyEventCreate,
+    TransferReceiptCreate, TransferIncidentCreate, TrackingSessionCreate,
+    LocationPointCreate,
+)
 from app.schemas.usage import (
     HospitalSurveillanceCreate,
     HospitalSurveillanceRead,
@@ -59,6 +64,9 @@ __all__ = [
     "TransferRead",
     "TransferStatusUpdate",
     "TransferAuditRead",
+    "DriverCreate", "VehicleCreate", "LogisticsAssignment", "CustodyEventCreate",
+    "TransferReceiptCreate", "TransferIncidentCreate", "TrackingSessionCreate",
+    "LocationPointCreate",
     "MedicineDailyUsageCreate",
     "MedicineDailyUsageRead",
     "HospitalSurveillanceCreate",

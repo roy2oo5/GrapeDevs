@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchHospitals, getCurrentHospitalId } from '../services/api';
 
 export function ActionModals({ modalData, onClose, onConfirm }) {
   const [reqSku, setReqSku] = useState('Paracetamol 500mg IV Infusion');
   const [reqQty, setReqQty] = useState(200);
   const [reqUrgency, setReqUrgency] = useState('critical');
   const [reqDept, setReqDept] = useState('Trauma Emergency ICU');
+  const [reqSkuCode, setReqSkuCode] = useState('');
+  const [sourceHospitals, setSourceHospitals] = useState([]);
+  const [sourceHospitalId, setSourceHospitalId] = useState('');
+  const [sourceError, setSourceError] = useState('');
+
+  useEffect(() => {
+    if (modalData?.type !== 'emergency-request') return;
+    fetchHospitals()
+      .then((hospitals) => setSourceHospitals(
+        hospitals.filter((hospital) => hospital.id !== getCurrentHospitalId()),
+      ))
+      .catch((error) => setSourceError(error.message || 'Could not load source hospitals.'));
+  }, [modalData?.type]);
 
   if (!modalData) return null;
   const { type, payload } = modalData;
@@ -55,6 +69,8 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
                 onConfirm(
                   `Emergency stock request submitted for ${reqQty} units of ${reqSku}.`,
                   {
+                    source_hospital_id: sourceHospitalId,
+                    sku_code: reqSkuCode.trim(),
                     sku_name: reqSku,
                     quantity: Number(reqQty),
                     urgency: reqUrgency,
@@ -66,10 +82,26 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
               className="space-y-4"
             >
               <div className="p-3 rounded-xl bg-error-container/20 border border-error-container/50 text-xs text-on-error-container">
-                This request broadcasts an urgent surplus request directly to interconnected network hospitals in District 4.
+                Choose the hospital to request stock from and enter the exact SKU used in that hospital's inventory. The source hospital must approve the request.
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label htmlFor="emergency-source-hospital" className="block text-xs font-semibold text-on-surface uppercase mb-1">Source hospital</label>
+                  <select
+                    id="emergency-source-hospital"
+                    required
+                    value={sourceHospitalId}
+                    onChange={(event) => setSourceHospitalId(event.target.value)}
+                    className="w-full h-11 px-3 bg-surface-container-low rounded-xl border border-surface-container-high focus:border-primary focus:outline-none"
+                  >
+                    <option value="">Choose source hospital</option>
+                    {sourceHospitals.map((hospital) => (
+                      <option key={hospital.id} value={hospital.id}>{hospital.name}</option>
+                    ))}
+                  </select>
+                  {sourceError && <p role="alert" className="mt-1 text-xs text-error">{sourceError}</p>}
+                </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-on-surface uppercase mb-1">Medical SKU</label>
                   <select
@@ -82,6 +114,18 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
                     <option value="Norepinephrine 4mg/4ml Ampoules">Norepinephrine 4mg/4ml Ampoules</option>
                     <option value="Normal Saline 1000ml (0.9%)">Normal Saline 1000ml (0.9%)</option>
                   </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label htmlFor="emergency-source-sku" className="block text-xs font-semibold text-on-surface uppercase mb-1">Inventory SKU code</label>
+                  <input
+                    id="emergency-source-sku"
+                    required
+                    value={reqSkuCode}
+                    onChange={(event) => setReqSkuCode(event.target.value)}
+                    placeholder="Enter exact source inventory SKU"
+                    className="w-full h-11 px-3 bg-surface-container-low rounded-xl border border-surface-container-high focus:border-primary focus:outline-none"
+                  />
                 </div>
 
                 <div>
@@ -122,7 +166,7 @@ export function ActionModals({ modalData, onClose, onConfirm }) {
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-error text-on-error font-semibold shadow-md hover:bg-error-container hover:text-on-error-container transition-colors"
                 >
-                  Broadcast Emergency Request
+                  Send stock request
                 </button>
               </div>
             </form>

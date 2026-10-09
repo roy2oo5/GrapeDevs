@@ -6,6 +6,10 @@ from app.models.marketplace import SurplusListing
 from app.models.scenario import ScenarioRun
 from app.models.transfer import TransferAuditEvent, TransferRequest
 from app.models.usage import HospitalSurveillance, MedicineDailyUsage
+from app.models.logistics import (
+    Driver, Vehicle, TransferItem, TransferCustodyEvent, TransferReceipt,
+    TransferIncident, TransferTrackingSession, TransferLocationPoint,
+)
 
 __all__ = [
 	"Hospital",
@@ -18,4 +22,6 @@ __all__ = [
 	"TransferAuditEvent",
 	"MedicineDailyUsage",
 	"HospitalSurveillance",
+	"Driver", "Vehicle", "TransferItem", "TransferCustodyEvent", "TransferReceipt",
+	"TransferIncident", "TransferTrackingSession", "TransferLocationPoint",
 ]

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { createTransfer, runScenario } from '../services/api';
+import React, { useEffect, useState } from 'react';
+import { createTransfer, fetchHospitals, getCurrentHospitalId, runScenario } from '../services/api';
 
 export function ScenarioSimulationView({ onToast }) {
   // Knobs state
@@ -18,6 +18,16 @@ export function ScenarioSimulationView({ onToast }) {
   const [approvedAll, setApprovedAll] = useState(false);
   const [scenarioRun, setScenarioRun] = useState(null);
   const [scenarioError, setScenarioError] = useState('');
+  const [sourceHospitals, setSourceHospitals] = useState([]);
+  const [sourceHospitalId, setSourceHospitalId] = useState('');
+
+  useEffect(() => {
+    fetchHospitals()
+      .then((hospitals) => setSourceHospitals(
+        hospitals.filter((hospital) => hospital.id !== getCurrentHospitalId()),
+      ))
+      .catch((error) => setScenarioError(error.message || 'Could not load source hospitals.'));
+  }, []);
 
   const resetDefaults = () => {
     setMultiplier(2.4);
@@ -55,8 +65,13 @@ export function ScenarioSimulationView({ onToast }) {
       setScenarioError('Run a scenario with inventory usage data before creating mitigation requests.');
       return;
     }
+    if (!sourceHospitalId) {
+      setScenarioError('Choose a source hospital before creating mitigation requests.');
+      return;
+    }
     try {
       await Promise.all(recommendations.map((item) => createTransfer({
+        source_hospital_id: sourceHospitalId,
         sku_code: item.sku_code,
         sku_name: item.medicine_name,
         quantity: item.recommended_replenishment_quantity,
@@ -585,16 +600,30 @@ export function ScenarioSimulationView({ onToast }) {
                 </div>
                 <span className="font-body-sm text-body-sm text-on-surface-variant">Algorithmic Prescriptive Actions ranked by urgency and runout extension yield</span>
               </div>
-              <button
-                type="button"
-                onClick={handleApproveAll}
-                className={`flex items-center gap-1.5 px-space-md py-2 rounded-xl text-on-tertiary font-label-md text-label-md font-semibold transition-all shadow-[0_2px_8px_rgba(0,133,91,0.2)] cursor-pointer ${
-                  approvedAll ? 'bg-tertiary' : 'bg-tertiary-container hover:bg-tertiary'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">{approvedAll ? 'verified' : 'done_all'}</span>
-                <span>{approvedAll ? '3 Transfers Initiated to Logistics' : 'Approve All High-Impact Transfers'}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={sourceHospitalId}
+                  onChange={(event) => setSourceHospitalId(event.target.value)}
+                  className="rounded-xl border border-outline/30 bg-surface-container-low px-3 py-2 text-sm"
+                  aria-label="Source hospital for mitigation requests"
+                >
+                  <option value="">Choose source hospital</option>
+                  {sourceHospitals.map((hospital) => (
+                    <option key={hospital.id} value={hospital.id}>{hospital.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleApproveAll}
+                  disabled={approvedAll || !sourceHospitalId}
+                  className={`flex items-center gap-1.5 px-space-md py-2 rounded-xl text-on-tertiary font-label-md text-label-md font-semibold transition-all shadow-[0_2px_8px_rgba(0,133,91,0.2)] disabled:cursor-not-allowed disabled:opacity-50 ${
+                    approvedAll ? 'bg-tertiary' : 'bg-tertiary-container hover:bg-tertiary'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">{approvedAll ? 'verified' : 'done_all'}</span>
+                  <span>{approvedAll ? 'Requests sent for approval' : 'Request mitigation stock'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Prescriptive Actions List */}

@@ -373,8 +373,16 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(handleAction).toHaveBeenCalledWith('emergency-request');
     });
 
-    it('submits Emergency Stock Request in ActionModal', () => {
+    it('submits Emergency Stock Request in ActionModal', async () => {
       const handleConfirm = vi.fn();
+      window.sessionStorage.setItem(
+        'pulsegrid_access_token',
+        `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-current' }))}.signature`,
+      );
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [{ id: 'hospital-source', name: 'Source Hospital' }],
+      }));
       render(
         <ActionModals
           modalData={{ type: 'emergency-request' }}
@@ -384,52 +392,146 @@ describe('PulseGrid Control Tower Test Suite', () => {
       );
 
       expect(screen.getByText('Initiate Emergency Stock Request')).toBeInTheDocument();
-      fireEvent.click(screen.getByText('Broadcast Emergency Request'));
-      expect(handleConfirm).toHaveBeenCalled();
+      fireEvent.change(await screen.findByLabelText('Source hospital'), { target: { value: 'hospital-source' } });
+      fireEvent.change(screen.getByPlaceholderText('Enter exact source inventory SKU'), { target: { value: 'MED-01' } });
+      fireEvent.click(screen.getByText('Send stock request'));
+      expect(handleConfirm).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ source_hospital_id: 'hospital-source', sku_code: 'MED-01' }),
+      );
     });
   });
 
   describe('TransfersLogisticsView Component (Screen 4)', () => {
-    it('renders Kanban board with 5 columns and KPI ribbons', () => {
+    it('renders the minimal real transfer workflow', async () => {
       render(<TransfersLogisticsView onToast={vi.fn()} />);
 
-      expect(screen.getByText('Redistribution Hub: Stock Movement & MOU Logistics')).toBeInTheDocument();
-      expect(screen.getByText('18 Transfers')).toBeInTheDocument();
-      expect(screen.getByText('6 Convoys')).toBeInTheDocument();
-      expect(screen.getByText('48 mins')).toBeInTheDocument();
-      expect(screen.getAllByText('12 Units').length).toBeGreaterThanOrEqual(1);
-
-      // Check Kanban columns
-      expect(screen.getByText('Proposed')).toBeInTheDocument();
-      expect(screen.getByText('Under Review')).toBeInTheDocument();
-      expect(screen.getByText('Approved')).toBeInTheDocument();
-      expect(screen.getByText('In Transit')).toBeInTheDocument();
-      expect(screen.getByText('Completed')).toBeInTheDocument();
-
-      // Click a transfer card to open drawer
-      const card = screen.getAllByText(/TRX-9402/)[0];
-      fireEvent.click(card);
-
-      // Check selected transfer details in drawer
-      expect(screen.getByText('Transfer Details')).toBeInTheDocument();
-      expect(screen.getAllByText(/Paracetamol 500mg IV Infusion/).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('AI Epidemiologic Surge Match')).toBeInTheDocument();
-      expect(screen.getByText('Approve Transfer & Dispatch')).toBeInTheDocument();
+      expect(screen.getByText('Internal logistics')).toBeInTheDocument();
+      expect(screen.getByText('Transfers')).toBeInTheDocument();
+      expect(await screen.findByText('Sending')).toBeInTheDocument();
+      expect(screen.getByText('Received')).toBeInTheDocument();
+      expect(screen.getByText('No sending transfers.')).toBeInTheDocument();
+      expect(screen.getByText('No received transfers.')).toBeInTheDocument();
     });
 
-    it('allows toggling between Kanban and List view', () => {
+    it('opens the minimal transfer form', () => {
       render(<TransfersLogisticsView onToast={vi.fn()} />);
 
-      const listBtn = screen.getByRole('button', { name: /List View/i });
-      fireEvent.click(listBtn);
+      fireEvent.click(screen.getByRole('button', { name: 'New transfer' }));
+      expect(screen.getByPlaceholderText('Medicine name')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('SKU code')).toBeInTheDocument();
+      expect(screen.getByLabelText('Destination hospital')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Create transfer' })).toBeInTheDocument();
+    });
 
-      expect(screen.getByText('Manifest ID')).toBeInTheDocument();
-      expect(screen.getByText('Origin ➔ Destination')).toBeInTheDocument();
-      expect(screen.getAllByText(/TRX-9402/).length).toBeGreaterThanOrEqual(1);
+    it('sends a transfer directly in transit to the selected destination', async () => {
+      window.sessionStorage.setItem(
+        'pulsegrid_access_token',
+        `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-source' }))}.signature`,
+      );
+      const sentTransfer = {
+        id: 'transfer-outbound-001',
+        sku_name: 'Paracetamol',
+        sku_code: 'MED-01',
+        quantity: 12,
+        unit: 'vials',
+        urgency: 'normal',
+        status: 'in_transit',
+        requesting_hospital_id: 'hospital-destination',
+        source_hospital_id: 'hospital-source',
+      };
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (options.method === 'POST') {
+          return Promise.resolve({ ok: true, json: async () => sentTransfer });
+        }
+        if (String(url).includes('/api/hospitals')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              { id: 'hospital-source', name: 'Source Hospital' },
+              { id: 'hospital-destination', name: 'Destination Hospital' },
+            ],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [sentTransfer] });
+      }));
+      render(<TransfersLogisticsView onToast={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'New transfer' }));
+      await screen.findByRole('option', { name: 'Destination Hospital' });
+      fireEvent.change(screen.getByPlaceholderText('Medicine name'), { target: { value: 'Paracetamol' } });
+      fireEvent.change(screen.getByPlaceholderText('SKU code'), { target: { value: 'MED-01' } });
+      fireEvent.change(screen.getByPlaceholderText('Quantity'), { target: { value: '12' } });
+      fireEvent.change(screen.getByLabelText('Destination hospital'), { target: { value: 'hospital-destination' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Create transfer' }));
+
+      await waitFor(() => {
+        const createCall = fetch.mock.calls.find(([, options]) => options?.method === 'POST');
+        expect(createCall).toBeDefined();
+        expect(JSON.parse(createCall[1].body)).toEqual(expect.objectContaining({
+          destination_hospital_id: 'hospital-destination',
+          sku_code: 'MED-01',
+          quantity: 12,
+        }));
+      });
+    });
+
+    it('lets the receiving hospital accept an in-transit delivery', async () => {
+      window.sessionStorage.setItem(
+        'pulsegrid_access_token',
+        `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-destination' }))}.signature`,
+      );
+      let transfer = {
+        id: 'transfer-inbound-001',
+        sku_name: 'Paracetamol',
+        sku_code: 'MED-01',
+        quantity: 12,
+        unit: 'vials',
+        urgency: 'normal',
+        status: 'in_transit',
+        requesting_hospital_id: 'hospital-destination',
+        source_hospital_id: 'hospital-source',
+      };
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, options = {}) => {
+        if (String(url).endsWith('/receipt') && options.method === 'POST') {
+          transfer = { ...transfer, status: 'completed' };
+          return Promise.resolve({ ok: true, json: async () => ({ status: 'completed' }) });
+        }
+        if (String(url).includes('/api/hospitals')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              { id: 'hospital-source', name: 'Source Hospital' },
+              { id: 'hospital-destination', name: 'Destination Hospital' },
+            ],
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => [transfer] });
+      }));
+      render(<TransfersLogisticsView onToast={vi.fn()} />);
+
+      await screen.findByText(/transfer-inbound-001/);
+      fireEvent.click(screen.getByRole('button', { name: 'Accept delivery' }));
+
+      await waitFor(() => {
+        const receiptCall = fetch.mock.calls.find(([url, options]) => (
+          String(url).endsWith('/receipt') && options?.method === 'POST'
+        ));
+        expect(receiptCall).toBeDefined();
+        expect(JSON.parse(receiptCall[1].body)).toEqual(expect.objectContaining({
+          accepted_quantity: 12,
+          rejected_quantity: 0,
+        }));
+      });
+      expect(await screen.findAllByText('Delivered')).toHaveLength(1);
     });
 
     it('persists transfer approval and reloads the hospital transfer list', async () => {
       const handleToast = vi.fn();
+      window.sessionStorage.setItem(
+        'pulsegrid_access_token',
+        `header.${window.btoa(JSON.stringify({ hospital_id: 'hospital-source' }))}.signature`,
+      );
       const transfer = {
         id: 'transfer-test-001',
         sku_name: 'Paracetamol 500mg IV Infusion',
@@ -453,10 +555,8 @@ describe('PulseGrid Control Tower Test Suite', () => {
       }));
       render(<TransfersLogisticsView onToast={handleToast} />);
 
-      const card = await screen.findByText(/transfer-test-001/);
-      fireEvent.click(card);
-
-      const approveBtn = screen.getByRole('button', { name: /Approve Transfer & Dispatch/i });
+      await screen.findByText(/transfer-test-001/);
+      const approveBtn = await screen.findByRole('button', { name: 'Approve request' });
       fireEvent.click(approveBtn);
 
       await waitFor(() => expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('approved')));

@@ -41,7 +41,7 @@ Start the forecasting API from `C:\LightGBM-forecasting\intelligence`:
 .\.venv\Scripts\python.exe -m uvicorn src.api.main:app --host 127.0.0.1 --port 8010
 ```
 
-The GrapeDevs API proxies authenticated forecast requests through `/api/forecast/predict`, using `FORECAST_SERVICE_URL`. The browser therefore only needs to connect to the frontend and its existing `/api` proxy.
+The GrapeDevs API proxies authenticated forecast requests through `/api/forecast/predict`, using `FORECAST_SERVICE_URL`. Inventory forecasts use `/predict/real-history` automatically when one hospital/SKU has at least 28 consecutive daily usage records. That endpoint trains a small LightGBM series model using the real UUID/SKU history and surveillance flags; shorter or gapped histories are labeled as database fallbacks instead. The browser therefore only needs to connect to the frontend and its existing `/api` proxy.
 
 ```powershell
 Copy-Item .env.example .env
@@ -51,7 +51,7 @@ Copy-Item .env.example .env
 
 Set `AUTH_TOKEN_SECRET` to a random secret of at least 32 characters. If it is unset, the backend derives a separate signing key from `SUPABASE_SECRET_KEY`. Rotating either source invalidates existing access tokens.
 
-Run `python -m scripts.apply_schema` from this directory to migrate existing facility records and create/update the hospital schema. If you manage Supabase SQL manually, run the numbered migrations in [`supabase/migrations/`](supabase/migrations/) once against an existing database, including [`006_forecasting_data.sql`](supabase/migrations/006_forecasting_data.sql) for daily medicine usage and hospital surveillance records. The app intentionally does not mutate production schema at startup. Keep database credentials server-side; never put a service-role key in frontend environment variables. If both the project-root `.env` and `server/.env` exist, the server-local file takes precedence.
+Run `python -m scripts.apply_schema` from this directory to migrate existing facility records and create/update the hospital schema. If you manage Supabase SQL manually, run the numbered migrations in [`supabase/migrations/`](supabase/migrations/) once against an existing database, including [`006_forecasting_data.sql`](supabase/migrations/006_forecasting_data.sql) for daily medicine usage and hospital surveillance records and [`007_internal_logistics.sql`](supabase/migrations/007_internal_logistics.sql) for fleet assignment, reservations, custody, receipts, incidents, and tracking. The app intentionally does not mutate production schema at startup. Keep database credentials server-side; never put a service-role key in frontend environment variables. If both the project-root `.env` and `server/.env` exist, the server-local file takes precedence.
 
 ## MVP routes
 
@@ -62,8 +62,11 @@ Run `python -m scripts.apply_schema` from this directory to migrate existing fac
 - `GET /api/hospitals/me`: current authenticated hospital profile.
 - `GET /api/dashboard`: current hospital inventory, near-expiry, and active-transfer totals.
 - `GET|POST /api/inventory/batches`: list/filter batches and record a batch; `PATCH /api/inventory/batches/{id}` adjusts quantity; `DELETE /api/inventory/batches/{id}` removes a batch. These require a bearer token and are scoped to the authenticated hospital. For `POST`, the hospital is derived from the authenticated admin; `hospital_id` is optional and may only match that hospital. `unit` and `storage_regime` default to `units` and `ambient`.
-- `GET|POST /api/transfers`: list/filter and create a stock request; requires a bearer token.
-- `PATCH /api/transfers/{id}`: advance a request through approved, in-transit, and completed, or reject/cancel it.
+- `GET|POST /api/transfers`: list/filter transfers. To send stock, create a transfer with `destination_hospital_id`; the authenticated hospital is the source, available stock is reserved, and the transfer immediately appears as `in_transit`. Legacy incoming stock requests may still be created with `source_hospital_id`.
+- `PATCH /api/transfers/{id}`: update legacy request workflow statuses. For a direct transfer, the receiving hospital accepts delivery through `/api/transfers/{id}/receipt`, which marks it completed (shown as “Delivered” in the UI).
+- `GET|POST /api/transfers/fleet/drivers` and `/api/transfers/fleet/vehicles`: manage active logistics resources.
+- `PATCH /api/transfers/{id}/assignment`: assign a driver and optional vehicle.
+- `POST /api/transfers/{id}/custody`, `/receipt`, `/incidents`, and `/tracking`: record handovers, delivery acceptance, transport incidents, and optional GPS sessions. Receipt settlement deducts the full dispatched quantity from reserved source batches, adds accepted units to destination batches with lot/expiry traceability, and writes off rejected/damaged units.
 - `POST|GET /api/data/usage`: record or list daily medicine usage for the authenticated hospital. Same hospital, SKU, and date updates the existing record.
 - `POST|GET /api/data/surveillance`: record or list daily syndrome/outbreak surveillance for the authenticated hospital. Same hospital, date, and syndrome updates the existing record.
 

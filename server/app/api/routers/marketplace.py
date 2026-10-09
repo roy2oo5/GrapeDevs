@@ -196,7 +196,10 @@ def request_listing(
         select(TransferRequest).where(
             TransferRequest.surplus_listing_id == listing.id,
             TransferRequest.requesting_hospital_id == identity.hospital_id,
-            TransferRequest.status.in_(("requested", "approved", "in_transit")),
+            TransferRequest.status.in_((
+                "requested", "approved", "pending_pickup", "in_transit",
+                "arrived_awaiting_inspection", "exception",
+            )),
         )
     )
     if duplicate is not None:

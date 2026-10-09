@@ -7,6 +7,19 @@ export function getAccessToken() {
   return window.sessionStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+export function getCurrentHospitalId() {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const encodedPayload = token.split('.')[1];
+    const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')));
+    return payload.hospital_id || null;
+  } catch {
+    return null;
+  }
+}
+
 export function openRealtimeConnection({ onMessage, onClose } = {}) {
   const token = getAccessToken();
   if (!token) return null;
@@ -164,6 +177,46 @@ export function updateTransferStatus(transferId, status) {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   }, true);
+}
+
+export function fetchTransferDrivers() {
+  return request('/api/transfers/fleet/drivers', {}, true);
+}
+
+export function createTransferDriver(payload) {
+  return request('/api/transfers/fleet/drivers', { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function fetchTransferVehicles() {
+  return request('/api/transfers/fleet/vehicles', {}, true);
+}
+
+export function createTransferVehicle(payload) {
+  return request('/api/transfers/fleet/vehicles', { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function assignTransferLogistics(transferId, payload) {
+  return request(`/api/transfers/${transferId}/assignment`, { method: 'PATCH', body: JSON.stringify(payload) }, true);
+}
+
+export function addTransferCustodyEvent(transferId, payload) {
+  return request(`/api/transfers/${transferId}/custody`, { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function submitTransferReceipt(transferId, payload) {
+  return request(`/api/transfers/${transferId}/receipt`, { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function reportTransferIncident(transferId, payload) {
+  return request(`/api/transfers/${transferId}/incidents`, { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function startTransferTracking(transferId, payload) {
+  return request(`/api/transfers/${transferId}/tracking`, { method: 'POST', body: JSON.stringify(payload) }, true);
+}
+
+export function addTransferLocationPoint(transferId, sessionId, payload) {
+  return request(`/api/transfers/${transferId}/tracking/${sessionId}/points`, { method: 'POST', body: JSON.stringify(payload) }, true);
 }
 
 export function fetchSurplusListings(params = {}) {

@@ -14,7 +14,9 @@ from app.api.routers.auth import get_current_hospital_admin
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as fastapi_app
-from app.models import Hospital, HospitalAdminAccount, InventoryBatch
+from app.models import (
+    Hospital, HospitalAdminAccount, HospitalAgreement, InventoryBatch, TransferItem, TransferRequest,
+)
 from app.schemas import HospitalAdminIdentity
 from app.services.auth import hash_terminal_access_key
 
@@ -328,11 +330,35 @@ def test_delete_inventory_batch_all_route_variations(authorized_client):
 
 
 
-def test_transfer_status_requires_valid_transition_and_hospital_scope(authorized_client):
+def test_transfer_status_requires_valid_transition_and_hospital_scope(
+    authorized_client, db_session_factory
+):
     client = authorized_client
+    assert client.post(
+        "/api/transfers",
+        json={"sku_name": "Normal Saline 1000ml", "quantity": 20},
+    ).status_code == 422
+    with db_session_factory() as db:
+        source = Hospital(
+            name="Source General Hospital",
+            administrator_name="Source Admin",
+            administrator_email="source-admin@example.org",
+            classification="tertiary",
+            node_role="coordinator",
+            status="active",
+        )
+        db.add(source)
+        db.commit()
+        source_id = source.id
     create_response = client.post(
         "/api/transfers",
-        json={"sku_name": "Normal Saline 1000ml", "quantity": 20, "urgency": "critical"},
+        json={
+            "source_hospital_id": str(source_id),
+            "sku_code": "MED-SALINE-1000",
+            "sku_name": "Normal Saline 1000ml",
+            "quantity": 20,
+            "urgency": "critical",
+        },
     )
     assert create_response.status_code == 201
     transfer_id = create_response.json()["id"]
@@ -343,6 +369,332 @@ def test_transfer_status_requires_valid_transition_and_hospital_scope(authorized
 
     invalid_response = client.patch(f"/api/transfers/{transfer_id}", json={"status": "completed"})
     assert invalid_response.status_code == 403
+
+
+def test_transfer_approval_reserves_stock_after_policy_checks(authorized_client, db_session_factory):
+    client = authorized_client
+    source_id = client.test_hospital_id
+    with db_session_factory() as db:
+        source = db.get(Hospital, source_id)
+        source.settings = {"latitude": 12.9716, "longitude": 77.5946}
+        receiver = Hospital(
+            name="Shortage Receiving Hospital",
+            administrator_name="Receiver",
+            administrator_email="shortage-receiver@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+            settings={"latitude": 12.975, "longitude": 77.6},
+        )
+        db.add(receiver)
+        db.flush()
+        source_batch = InventoryBatch(
+            hospital_id=source_id,
+            sku_code="MED-APPROVAL-01",
+            sku_name="Approval Test Medicine",
+            quantity=100,
+            unit="vials",
+            average_daily_use=1,
+        )
+        agreement = HospitalAgreement(
+            hospital_id=source_id,
+            partner_hospital_id=receiver.id,
+            title="Active supply MOU",
+            signatory="Source Admin",
+            agreement_type="emergency stock sharing",
+            terms_and_conditions="Test agreement",
+            status="active",
+        )
+        transfer = TransferRequest(
+            requesting_hospital_id=receiver.id,
+            source_hospital_id=source_id,
+            sku_code=source_batch.sku_code,
+            sku_name=source_batch.sku_name,
+            quantity=10,
+            unit="vials",
+            status="requested",
+        )
+        db.add_all([source_batch, agreement, transfer])
+        db.commit()
+        transfer_id = transfer.id
+        source_batch_id = source_batch.id
+
+    response = client.patch(f"/api/transfers/{transfer_id}", json={"status": "approved"})
+    assert response.status_code == 200
+    with db_session_factory() as db:
+        assert db.get(InventoryBatch, source_batch_id).reserved_quantity == 10
+        item = db.query(TransferItem).filter_by(transfer_id=transfer_id).one()
+        assert item.reserved_quantity == 10
+
+
+def test_sender_can_send_and_receiver_accepts_delivery_in_one_step(authorized_client, db_session_factory):
+    client = authorized_client
+    source_id = client.test_hospital_id
+    with db_session_factory() as db:
+        source = db.get(Hospital, source_id)
+        source.settings = {"latitude": 12.9716, "longitude": 77.5946}
+        receiver = Hospital(
+            name="Direct Delivery Hospital",
+            administrator_name="Receiver",
+            administrator_email="direct-receiver@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+            settings={"latitude": 12.975, "longitude": 77.6},
+        )
+        db.add(receiver)
+        db.flush()
+        source_batch = InventoryBatch(
+            hospital_id=source_id,
+            sku_code="MED-DIRECT-01",
+            sku_name="Direct Delivery Medicine",
+            quantity=100,
+            unit="vials",
+            lot_number="DIRECT-LOT",
+            expires_on=date(2027, 1, 1),
+            average_daily_use=2,
+        )
+        agreement = HospitalAgreement(
+            hospital_id=source_id,
+            partner_hospital_id=receiver.id,
+            title="Active supply MOU",
+            signatory="Source Admin",
+            agreement_type="emergency stock sharing",
+            terms_and_conditions="Test agreement",
+            status="active",
+        )
+        db.add_all([receiver, source_batch, agreement])
+        db.commit()
+        receiver_id = receiver.id
+        source_batch_id = source_batch.id
+
+    sent_response = client.post(
+        "/api/transfers",
+        json={
+            "destination_hospital_id": str(receiver_id),
+            "sku_code": "MED-DIRECT-01",
+            "sku_name": "Direct Delivery Medicine",
+            "quantity": 10,
+            "unit": "vials",
+        },
+    )
+    assert sent_response.status_code == 201
+    transfer_id = sent_response.json()["id"]
+    assert sent_response.json()["status"] == "in_transit"
+    assert sent_response.json()["source_hospital_id"] == str(source_id)
+    assert sent_response.json()["requesting_hospital_id"] == str(receiver_id)
+    assert sent_response.json()["destination_hospital_id"] == str(receiver_id)
+    with db_session_factory() as db:
+        source_batch = db.get(InventoryBatch, source_batch_id)
+        assert source_batch.quantity == 100
+        assert source_batch.reserved_quantity == 10
+        assert db.query(TransferItem).filter_by(transfer_id=UUID(transfer_id)).one().reserved_quantity == 10
+
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="DIRECT-RECEIVER-ADMIN",
+        hospital_id=receiver_id,
+        hospital_name="Direct Delivery Hospital",
+    )
+    accepted_response = client.post(
+        f"/api/transfers/{transfer_id}/receipt",
+        json={
+            "received_by_name": "Direct Delivery Hospital",
+            "inspected_at": "2026-10-09T00:00:00Z",
+            "accepted_quantity": 10,
+            "rejected_quantity": 0,
+        },
+    )
+    assert accepted_response.status_code == 200
+    assert accepted_response.json()["status"] == "completed"
+    with db_session_factory() as db:
+        source_batch = db.get(InventoryBatch, source_batch_id)
+        destination_batches = db.query(InventoryBatch).filter_by(
+            hospital_id=receiver_id,
+            sku_code="MED-DIRECT-01",
+        ).all()
+        assert source_batch.quantity == 90
+        assert source_batch.reserved_quantity == 0
+        assert sum(batch.quantity for batch in destination_batches) == 10
+
+
+def test_transfer_receipt_deducts_dispatched_quantity_and_adds_only_accepted_stock(
+    authorized_client, db_session_factory
+):
+    client = authorized_client
+    source_id = client.test_hospital_id
+    with db_session_factory() as db:
+        receiver = Hospital(
+            name="Receiving Hospital",
+            administrator_name="Receiver",
+            administrator_email="receiver@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+        )
+        db.add(receiver)
+        db.flush()
+        batch = InventoryBatch(
+            hospital_id=source_id,
+            sku_code="MED-TEST-01",
+            sku_name="Test Medicine",
+            quantity=60,
+            reserved_quantity=6,
+            unit="vials",
+            lot_number="LOT-01",
+            expires_on=date(2027, 1, 1),
+            storage_regime="cold_chain",
+            average_daily_use=2,
+        )
+        second_batch = InventoryBatch(
+            hospital_id=source_id,
+            sku_code="MED-TEST-01",
+            sku_name="Test Medicine",
+            quantity=40,
+            reserved_quantity=4,
+            unit="vials",
+            lot_number="LOT-02",
+            expires_on=date(2028, 1, 1),
+            storage_regime="cold_chain",
+            average_daily_use=2,
+        )
+        transfer = TransferRequest(
+            requesting_hospital_id=receiver.id,
+            source_hospital_id=source_id,
+            sku_code=batch.sku_code,
+            sku_name=batch.sku_name,
+            quantity=10,
+            unit=batch.unit,
+            status="approved",
+        )
+        db.add_all([batch, second_batch, transfer])
+        db.flush()
+        db.add_all([
+            TransferItem(
+                transfer_id=transfer.id,
+                source_inventory_batch_id=batch.id,
+                requested_quantity=6,
+                reserved_quantity=6,
+            ),
+            TransferItem(
+                transfer_id=transfer.id,
+                source_inventory_batch_id=second_batch.id,
+                requested_quantity=4,
+                reserved_quantity=4,
+            ),
+        ])
+        db.commit()
+        transfer_id = transfer.id
+        receiver_id = receiver.id
+        batch_id = batch.id
+        second_batch_id = second_batch.id
+
+    assert client.patch(
+        f"/api/transfers/{transfer_id}", json={"status": "in_transit"}
+    ).status_code == 403
+    assert client.patch(
+        f"/api/transfers/{transfer_id}", json={"status": "pending_pickup"}
+    ).status_code == 200
+    assert client.patch(
+        f"/api/transfers/{transfer_id}", json={"status": "in_transit"}
+    ).status_code == 200
+    with db_session_factory() as db:
+        assert db.get(InventoryBatch, batch_id).quantity == 60
+        assert db.get(InventoryBatch, batch_id).reserved_quantity == 6
+        assert db.get(InventoryBatch, second_batch_id).quantity == 40
+        assert db.get(InventoryBatch, second_batch_id).reserved_quantity == 4
+
+    fastapi_app.dependency_overrides[get_current_hospital_admin] = lambda: HospitalAdminIdentity(
+        administrator_id="RECEIVER-ADMIN",
+        hospital_id=receiver_id,
+        hospital_name="Receiving Hospital",
+    )
+    assert client.patch(
+        f"/api/transfers/{transfer_id}",
+        json={"status": "arrived_awaiting_inspection"},
+    ).status_code == 200
+    incomplete_receipt = client.post(
+        f"/api/transfers/{transfer_id}/receipt",
+        json={
+            "received_by_name": "Receiver",
+            "inspected_at": "2026-10-09T00:00:00Z",
+            "accepted_quantity": 8,
+            "rejected_quantity": 1,
+        },
+    )
+    assert incomplete_receipt.status_code == 422
+    receipt_response = client.post(
+        f"/api/transfers/{transfer_id}/receipt",
+        json={
+            "received_by_name": "Receiver",
+            "inspected_at": "2026-10-09T00:00:00Z",
+            "accepted_quantity": 8,
+            "rejected_quantity": 2,
+        },
+    )
+    assert receipt_response.status_code == 200
+    assert receipt_response.json()["status"] == "completed"
+
+    with db_session_factory() as db:
+        source_batch = db.get(InventoryBatch, batch_id)
+        second_source_batch = db.get(InventoryBatch, second_batch_id)
+        destination_batches = db.query(InventoryBatch).filter_by(
+            hospital_id=receiver_id, sku_code="MED-TEST-01"
+        ).all()
+        settled_items = db.query(TransferItem).filter_by(transfer_id=transfer_id).all()
+        assert source_batch.quantity + second_source_batch.quantity == 90
+        assert source_batch.reserved_quantity == 0
+        assert second_source_batch.reserved_quantity == 0
+        assert sum(batch.quantity for batch in destination_batches) == 8
+        assert {batch.lot_number for batch in destination_batches} == {"LOT-01", "LOT-02"}
+        assert all(batch.storage_regime == "cold_chain" for batch in destination_batches)
+        assert sum(item.accepted_quantity for item in settled_items) == 8
+        assert sum(item.damaged_quantity for item in settled_items) == 2
+        assert all(item.reserved_quantity == 0 for item in settled_items)
+
+
+def test_usage_cannot_consume_stock_reserved_for_a_transfer(authorized_client, db_session_factory):
+    client = authorized_client
+    batch_response = client.post(
+        "/api/inventory/batches",
+        json={
+            "sku_code": "MED-RESERVED-01",
+            "sku_name": "Reserved Test Medicine",
+            "quantity": 10,
+        },
+    )
+    assert batch_response.status_code == 201
+    batch_id = batch_response.json()["id"]
+
+    with db_session_factory() as db:
+        batch = db.get(InventoryBatch, UUID(batch_id))
+        batch.reserved_quantity = 8
+        db.commit()
+
+    first_usage = client.post(
+        "/api/data/usage",
+        json={
+            "sku_code": "MED-RESERVED-01",
+            "sku_name": "Reserved Test Medicine",
+            "usage_date": "2026-10-09",
+            "quantity_dispensed": 2,
+        },
+    )
+    assert first_usage.status_code == 201
+
+    over_reserved_usage = client.post(
+        "/api/data/usage",
+        json={
+            "sku_code": "MED-RESERVED-01",
+            "sku_name": "Reserved Test Medicine",
+            "usage_date": "2026-10-09",
+            "quantity_dispensed": 3,
+        },
+    )
+    assert over_reserved_usage.status_code == 409
+    with db_session_factory() as db:
+        remaining_batch = db.get(InventoryBatch, UUID(batch_id))
+        assert remaining_batch.quantity == 8
+        assert remaining_batch.reserved_quantity == 8
 
 
 def test_hospital_data_routes_require_bearer_token(client):

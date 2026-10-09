@@ -45,7 +45,10 @@ def dashboard_summary(
     total_units, expiring_units, inventory_count, surplus_units, surplus_batches = inventory_metrics
     active_transfers = db.scalar(
         select(func.count()).select_from(TransferRequest).where(
-            TransferRequest.status.in_(("requested", "approved", "in_transit")),
+            TransferRequest.status.in_((
+                "requested", "approved", "pending_pickup", "in_transit",
+                "arrived_awaiting_inspection", "exception",
+            )),
             (TransferRequest.requesting_hospital_id == identity.hospital_id)
             | (TransferRequest.source_hospital_id == identity.hospital_id),
         )

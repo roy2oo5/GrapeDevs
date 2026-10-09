@@ -17,3 +17,35 @@ def check_database() -> bool:
     except (SQLAlchemyError, RuntimeError) as error:
         logger.error("Database connection failed: %s", type(error).__name__)
         return False
+
+
+def check_logistics_schema() -> list[str]:
+    required_columns = {
+        "inventory_batches": {"reserved_quantity"},
+        "transfer_requests": {"assigned_driver_id", "assigned_vehicle_id"},
+    }
+    missing: list[str] = []
+    try:
+        with get_engine().connect() as connection:
+            for table_name, column_names in required_columns.items():
+                rows = connection.execute(
+                    text(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = :table_name
+                        """
+                    ),
+                    {"table_name": table_name},
+                )
+                existing_columns = {row[0] for row in rows}
+                missing.extend(
+                    f"{table_name}.{column_name}"
+                    for column_name in column_names
+                    if column_name not in existing_columns
+                )
+    except (SQLAlchemyError, RuntimeError) as error:
+        logger.error("Logistics schema check failed: %s", type(error).__name__)
+        return ["database connection"]
+    return missing

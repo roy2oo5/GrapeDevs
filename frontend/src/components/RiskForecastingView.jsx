@@ -207,6 +207,28 @@ export function RiskForecastingView({ onToast }) {
         </div>
         {demandForecast && (
           <div className="mt-5">
+            <div className={`mb-3 rounded-lg border px-4 py-3 text-sm ${
+              demandForecast.data_source === 'lightgbm_real_history'
+                ? 'border-tertiary/40 bg-tertiary-container/50 text-on-tertiary-container'
+                : demandForecast.data_source === 'inventory_batch_average'
+                  ? 'border-secondary/40 bg-secondary-container/50 text-on-secondary-container'
+                  : 'border-outline/30 bg-surface-container-low text-on-surface'
+            }`}>
+              <strong>
+                {demandForecast.data_source === 'lightgbm_real_history'
+                  ? 'ML forecast active'
+                  : demandForecast.data_source === 'inventory_batch_average'
+                    ? 'Not enough history yet'
+                    : 'Using database fallback'}
+              </strong>
+              <span className="ml-2">
+                {demandForecast.data_source === 'lightgbm_real_history'
+                  ? 'LightGBM is using this medicine’s real usage history.'
+                  : demandForecast.data_source === 'inventory_batch_average'
+                    ? 'Add 28 consecutive daily usage records to activate ML forecasting.'
+                    : 'This forecast uses your recorded usage data, not the ML model.'}
+              </span>
+            </div>
             <div className={`rounded-lg border px-4 py-3 ${
               demandForecast.risk_level === 'critical_shortage'
                 ? 'border-error/40 bg-error-container/50 text-on-error-container'
@@ -232,7 +254,11 @@ export function RiskForecastingView({ onToast }) {
                 Current stock: {demandForecast.current_quantity} units.
                 Expected use: {Number(demandForecast.average_daily_use).toFixed(1)} units/day.
                 <span className="block mt-1">
-                  Source: {demandForecast.data_source === 'daily_usage_records' ? 'your daily usage records' : 'inventory average'}.
+                  Source: {demandForecast.data_source === 'lightgbm_real_history'
+                    ? `LightGBM trained on ${demandForecast.ml_model_version || 'your real history'}`
+                    : demandForecast.data_source === 'daily_usage_records'
+                      ? 'your daily usage records'
+                      : 'inventory average'}.
                   {demandForecast.surveillance_status !== 'no_recent_surveillance'
                     ? ` Surveillance: ${demandForecast.surveillance_status} (${Math.round((demandForecast.surveillance_multiplier - 1) * 100)}% demand adjustment).`
                     : ' No recent surveillance adjustment.'}
@@ -260,7 +286,11 @@ export function RiskForecastingView({ onToast }) {
               <div className="rounded-lg bg-surface-container-low px-3 py-2">
                 <span className="block text-xs text-on-surface-variant">Data used</span>
                 <strong className="text-on-surface">
-                  {demandForecast.data_source === 'daily_usage_records' ? 'Daily records' : 'Inventory average'}
+                  {demandForecast.data_source === 'lightgbm_real_history'
+                    ? 'LightGBM + real history'
+                    : demandForecast.data_source === 'daily_usage_records'
+                      ? 'Daily records'
+                      : 'Inventory average'}
                 </strong>
               </div>
             </div>

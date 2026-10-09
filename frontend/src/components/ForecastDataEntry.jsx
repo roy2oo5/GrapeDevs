@@ -34,7 +34,7 @@ export function ForecastDataEntry({ onToast }) {
         quantity_issued: Number(usage.quantity_issued || 0),
       });
       onToast?.('Daily medicine usage saved.');
-      setMessage('Usage saved. The next forecast will use this record.');
+      setMessage('Usage saved and inventory reduced by the dispensed quantity. The next forecast will use this record.');
     } catch (error) {
       setMessage(error.message || 'Could not save usage.');
     } finally {
@@ -79,6 +79,9 @@ export function ForecastDataEntry({ onToast }) {
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-5">
         <form onSubmit={saveUsage} className="rounded-xl border border-outline/20 p-4 space-y-3">
           <h3 className="font-semibold text-on-surface">Medicine daily usage</h3>
+          <p className="text-xs text-on-surface-variant">
+            The dispensed quantity is deducted from inventory. Requested and issued quantities are used for forecasting context.
+          </p>
           <select value={batchId} onChange={(event) => setBatchId(event.target.value)} className="w-full rounded-lg border border-outline/30 bg-surface-container-low px-3 py-2">
             {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.sku_name} ({batch.sku_code})</option>)}
           </select>

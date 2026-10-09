@@ -18,6 +18,7 @@ class InventoryBatch(Base):
     sku_code: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     sku_name: Mapped[str] = mapped_column(String(200), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    reserved_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     unit: Mapped[str] = mapped_column(String(40), nullable=False, default="units")
     lot_number: Mapped[str | None] = mapped_column(String(100))
     expires_on: Mapped[date | None] = mapped_column(Date)

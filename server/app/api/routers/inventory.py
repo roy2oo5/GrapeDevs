@@ -1,12 +1,14 @@
 from datetime import date, timedelta
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.api.routers.auth import get_current_hospital_admin
+from app.core.config import get_settings
 from app.models import Hospital, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage, TransferAuditEvent, TransferRequest
 from app.schemas import (
     HospitalAdminIdentity,
@@ -51,7 +53,7 @@ def create_inventory_batch(
 
 
 @router.get("/forecast")
-def inventory_forecast(
+async def inventory_forecast(
     horizon_days: int = Query(default=30, ge=1, le=90),
     db: Session = Depends(get_db),
     identity: HospitalAdminIdentity = Depends(get_current_hospital_admin),
@@ -81,7 +83,10 @@ def inventory_forecast(
             surveillance_multiplier = 1.25
         elif latest_surveillance.alert_level == "watch":
             surveillance_multiplier = 1.10
-    for batch in batches:
+    forecast_client = httpx.AsyncClient(timeout=15.0) if horizon_days in (7, 14) else None
+    settings = get_settings()
+    try:
+      for batch in batches:
         recent_usage = db.scalar(
             select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
                 MedicineDailyUsage.hospital_id == identity.hospital_id,
@@ -89,24 +94,82 @@ def inventory_forecast(
                 MedicineDailyUsage.usage_date >= date.today() - timedelta(days=30),
             )
         )
+        usage_rows = list(db.scalars(
+            select(MedicineDailyUsage)
+            .where(
+                MedicineDailyUsage.hospital_id == identity.hospital_id,
+                MedicineDailyUsage.sku_code == batch.sku_code,
+            )
+            .order_by(MedicineDailyUsage.usage_date.asc())
+        ))
+        ml_forecast = None
+        if forecast_client is not None and len(usage_rows) >= 28:
+            surveillance_rows = list(db.scalars(
+                select(HospitalSurveillance).where(
+                    HospitalSurveillance.hospital_id == identity.hospital_id,
+                    HospitalSurveillance.report_date.in_([row.usage_date for row in usage_rows]),
+                )
+            ))
+            outbreak_by_date = {
+                row.report_date.isoformat(): int(row.outbreak_flag or row.alert_level == "surge")
+                for row in surveillance_rows
+            }
+            history = [
+                {
+                    "date": row.usage_date.isoformat(),
+                    "quantity_requested": row.quantity_requested or row.quantity_dispensed or row.quantity_issued,
+                    "outbreak_flag": outbreak_by_date.get(row.usage_date.isoformat(), 0),
+                }
+                for row in usage_rows
+            ]
+            try:
+                response = await forecast_client.post(
+                    f"{settings.FORECAST_SERVICE_URL.rstrip('/')}/predict/real-history",
+                    json={
+                        "hospital_id": str(identity.hospital_id),
+                        "medicine_id": batch.sku_code,
+                        "horizon_days": horizon_days,
+                        "outbreak_flag": int(bool(latest_surveillance and (
+                            latest_surveillance.outbreak_flag or latest_surveillance.alert_level == "surge"
+                        ))),
+                        "history": history,
+                    },
+                )
+                if response.status_code < 400:
+                    ml_forecast = response.json()
+            except httpx.RequestError:
+                ml_forecast = None
+
         base_daily_use = float(recent_usage) if recent_usage is not None else batch.average_daily_use
-        daily_use = base_daily_use * surveillance_multiplier
+        if ml_forecast:
+            daily_values = [float(item["predicted_demand"]) for item in ml_forecast["predictions"]]
+            daily_use = sum(daily_values) / len(daily_values)
+            daily_forecast = [
+                {
+                    "date": item["date"],
+                    "predicted_demand": round(float(item["predicted_demand"]), 2),
+                    "projected_quantity": round(max(0, batch.quantity - sum(daily_values[:index + 1])), 2),
+                }
+                for index, item in enumerate(ml_forecast["predictions"])
+            ]
+            data_source = "lightgbm_real_history"
+        else:
+            daily_use = base_daily_use * surveillance_multiplier
+            daily_forecast = [
+                {
+                    "date": (date.today() + timedelta(days=offset)).isoformat(),
+                    "predicted_demand": round(daily_use, 2),
+                    "projected_quantity": round(max(0, batch.quantity - (daily_use * (offset + 1))), 2),
+                }
+                for offset in range(horizon_days)
+            ]
+            data_source = "daily_usage_records" if recent_usage is not None else "inventory_batch_average"
         projected_use = daily_use * horizon_days
         days_remaining = (
             batch.quantity / daily_use
             if daily_use > 0
             else None
         )
-        daily_forecast = [
-            {
-                "date": (date.today() + timedelta(days=offset)).isoformat(),
-                "predicted_demand": round(daily_use, 2),
-                "projected_quantity": round(
-                    max(0, batch.quantity - (daily_use * (offset + 1))), 2
-                ),
-            }
-            for offset in range(horizon_days)
-        ]
         risk_level = (
             "critical_shortage"
             if days_remaining is not None and days_remaining <= 3
@@ -122,7 +185,8 @@ def inventory_forecast(
                 "current_quantity": batch.quantity,
                 "average_daily_use": round(daily_use, 2),
                 "base_daily_use": round(base_daily_use, 2),
-                "data_source": "daily_usage_records" if recent_usage is not None else "inventory_batch_average",
+                "data_source": data_source,
+                "ml_model_version": ml_forecast.get("model_version") if ml_forecast else None,
                 "surveillance_status": surveillance_status,
                 "surveillance_multiplier": surveillance_multiplier,
                 "horizon_days": horizon_days,
@@ -134,6 +198,9 @@ def inventory_forecast(
                 "expires_on": batch.expires_on.isoformat() if batch.expires_on else None,
             }
         )
+    finally:
+        if forecast_client is not None:
+            await forecast_client.aclose()
     return {"hospital_id": str(identity.hospital_id), "horizon_days": horizon_days, "forecasts": forecasts}
 
 
@@ -250,7 +317,7 @@ def request_mou_inventory(
             detail="This medicine is at critical shortage risk at the supplying hospital and cannot be requested",
         )
     protected_reserve = daily_use * 14
-    shareable = max(0, round(batch.quantity - protected_reserve))
+    shareable = max(0, round(batch.quantity - batch.reserved_quantity - protected_reserve))
     if payload.quantity > shareable:
         raise HTTPException(
             status_code=409,
@@ -261,7 +328,10 @@ def request_mou_inventory(
             TransferRequest.requesting_hospital_id == identity.hospital_id,
             TransferRequest.source_hospital_id == owner.id,
             TransferRequest.sku_code == batch.sku_code,
-            TransferRequest.status.in_(("requested", "approved", "in_transit")),
+            TransferRequest.status.in_((
+                "requested", "approved", "pending_pickup", "in_transit",
+                "arrived_awaiting_inspection", "exception",
+            )),
         )
     )
     if duplicate is not None:
@@ -328,9 +398,16 @@ def update_inventory_batch(
     db: Session = Depends(get_db),
     identity=Depends(get_current_hospital_admin),
 ):
-    batch = db.get(InventoryBatch, batch_id)
+    batch = db.scalar(
+        select(InventoryBatch).where(InventoryBatch.id == batch_id).with_for_update()
+    )
     if batch is None or batch.hospital_id != identity.hospital_id:
         raise HTTPException(status_code=404, detail="Inventory batch not found")
+    if payload.quantity < batch.reserved_quantity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot reduce stock below {batch.reserved_quantity} units reserved for active transfers",
+        )
     batch.quantity = payload.quantity
     db.commit()
     db.refresh(batch)
@@ -343,9 +420,16 @@ def _perform_delete_inventory_batch(
     db: Session,
     identity: HospitalAdminIdentity,
 ):
-    batch = db.get(InventoryBatch, batch_id)
+    batch = db.scalar(
+        select(InventoryBatch).where(InventoryBatch.id == batch_id).with_for_update()
+    )
     if batch is None or batch.hospital_id != identity.hospital_id:
         raise HTTPException(status_code=404, detail="Inventory batch not found")
+    if batch.reserved_quantity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete a batch with {batch.reserved_quantity} units reserved for an active transfer",
+        )
     db.delete(batch)
     db.commit()
 
