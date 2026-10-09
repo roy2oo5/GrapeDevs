@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,6 +45,14 @@ class TransferRead(TransferCreate):
     source_hospital_name: str | None = None
     assigned_driver_id: UUID | None = None
     assigned_vehicle_id: UUID | None = None
+    allocation_suggested_quantity: int | None = None
+    allocation_requested_quantity: int | None = None
+    allocation_supplier_shareable: int | None = None
+    allocation_recipient_need: int | None = None
+    allocation_recipient_stock_days: float | None = None
+    allocation_surge_status: str | None = None
+    allocation_supplier_surge_status: str | None = None
+    allocation_explanation: str | None = None
 
 
 class DriverCreate(BaseModel):

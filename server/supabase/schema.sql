@@ -115,8 +115,14 @@ create table if not exists public.transfer_requests (
     urgency varchar(24) not null default 'normal' check (urgency in ('critical', 'high', 'normal')),
     department varchar(120),
     notes varchar(1000),
-    status varchar(24) not null default 'requested'
-        check (status in ('requested', 'approved', 'rejected', 'in_transit', 'completed', 'canceled')),
+    status varchar(24) not null default 'requested',
+    constraint ck_transfer_status check (
+        status in (
+            'requested', 'approved', 'pending_pickup', 'in_transit',
+            'arrived_awaiting_inspection', 'completed', 'rejected',
+            'returned', 'exception', 'canceled'
+        )
+    ),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );

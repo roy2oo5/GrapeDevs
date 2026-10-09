@@ -237,8 +237,8 @@ export default function App() {
                   isLoading={dashboardLoading}
                   inventoryBatches={hospitalInventory}
                   pendingTransfers={hospitalTransfers.filter((transfer) => transfer.status === 'requested')}
-                  onResolveTransfer={async (transferId, status) => {
-                    await updateTransferStatus(transferId, status);
+                  onResolveTransfer={async (transferId, status, approvedQuantity) => {
+                    await updateTransferStatus(transferId, status, approvedQuantity);
                     await loadHospitalDashboard();
                   }}
                   onOpenEmergencyModal={() => setActionModal({ type: 'emergency-request' })}

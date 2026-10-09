@@ -67,9 +67,9 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
   }, []);
 
   const currentHospitalId = getCurrentHospitalId();
-  const move = async (transfer, nextStatus) => {
+  const move = async (transfer, nextStatus, approvedQuantity) => {
     try {
-      await updateTransferStatus(transfer.id, nextStatus);
+      await updateTransferStatus(transfer.id, nextStatus, approvedQuantity);
       await load();
       onToast?.(`Transfer moved to ${STATUS_LABELS[nextStatus].toLowerCase()}.`);
     } catch (requestError) {
@@ -123,7 +123,11 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
     const isReceivingHospital = transfer.requesting_hospital_id === currentHospitalId;
     const isSendingDirection = direction === 'sending';
     const statusAction = (
-      (transfer.status === 'requested' && isSource && { label: 'Approve request', next: 'approved' })
+      (transfer.status === 'requested' && isSource && {
+        label: `Approve ${transfer.allocation_suggested_quantity ?? 0}`,
+        next: 'approved',
+        approvedQuantity: transfer.allocation_suggested_quantity,
+      })
       || (transfer.status === 'approved' && isSource && { label: 'Prepare and send', next: 'pending_pickup' })
       || (transfer.status === 'pending_pickup' && isSource && { label: 'Dispatch shipment', next: 'in_transit' })
       || (transfer.status === 'in_transit' && isSource && { label: 'Confirm returned to source', next: 'returned' })
@@ -155,8 +159,27 @@ export function TransfersLogisticsView({ onToast, initialDraft, onInitialDraftCo
             : hospitalNames[transfer.source_hospital_id] || 'Source hospital'}
         </p>
         {transfer.notes && <p className="mt-2 text-xs text-on-surface-variant">{transfer.notes}</p>}
+        {transfer.status === 'requested' && isSource && (
+          <div className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant">
+            <p className="font-semibold text-on-surface">
+              Suggested allocation: {transfer.allocation_suggested_quantity ?? 0} {transfer.unit}
+              {transfer.allocation_recipient_stock_days !== null
+                && transfer.allocation_recipient_stock_days !== undefined
+                ? ` · ${transfer.allocation_recipient_stock_days} days of stock`
+                : ''}
+            </p>
+            <p className="mt-1">
+              {transfer.allocation_explanation || 'No verified usage data is available for this request.'}
+            </p>
+          </div>
+        )}
         {statusAction && (
-          <button type="button" onClick={() => move(transfer, statusAction.next)} className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary">
+          <button
+            type="button"
+            disabled={statusAction.next === 'approved' && !statusAction.approvedQuantity}
+            onClick={() => move(transfer, statusAction.next, statusAction.approvedQuantity)}
+            className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {statusAction.label}
           </button>
         )}

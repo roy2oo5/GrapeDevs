@@ -15,7 +15,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as fastapi_app
 from app.models import (
-    Hospital, HospitalAdminAccount, HospitalAgreement, InventoryBatch, MedicineDailyUsage,
+    Hospital, HospitalAdminAccount, HospitalAgreement, HospitalSurveillance, InventoryBatch, MedicineDailyUsage,
     TransferAuditEvent, TransferItem, TransferRequest,
 )
 from app.schemas import HospitalAdminIdentity
@@ -533,7 +533,21 @@ def test_transfer_approval_reserves_stock_after_policy_checks(authorized_client,
             unit="vials",
             status="requested",
         )
-        db.add_all([source_batch, agreement, transfer])
+        db.add_all([
+            source_batch,
+            agreement,
+            transfer,
+            *[
+                MedicineDailyUsage(
+                    hospital_id=receiver.id,
+                    sku_code=source_batch.sku_code,
+                    sku_name=source_batch.sku_name,
+                    usage_date=date.today() - timedelta(days=day),
+                    quantity_dispensed=2,
+                )
+                for day in range(7)
+            ],
+        ])
         db.commit()
         transfer_id = transfer.id
         source_batch_id = source_batch.id
@@ -1145,6 +1159,16 @@ def test_mou_inventory_shares_stock_above_seven_day_use_reserve(
             )
             for day in range(7)
         ])
+        db.add_all([
+            MedicineDailyUsage(
+                hospital_id=requester_id,
+                sku_code="MED-MOU-RESERVE-01",
+                sku_name="MOU Reserve Medicine",
+                usage_date=date.today() - timedelta(days=day),
+                quantity_dispensed=114 if day else 116,
+            )
+            for day in range(7)
+        ])
         db.commit()
         batch_id = batch.id
         owner_id = owner.id
@@ -1190,6 +1214,173 @@ def test_mou_inventory_shares_stock_above_seven_day_use_reserve(
     assert approved.status_code == 200
     with db_session_factory() as db:
         assert db.get(InventoryBatch, batch_id).reserved_quantity == 800
+
+
+def test_open_requests_receive_fair_surge_aware_allocations(
+    authorized_client, db_session_factory
+):
+    source_id = authorized_client.test_hospital_id
+    today = date.today()
+    with db_session_factory() as db:
+        source = db.get(Hospital, source_id)
+        source.settings = {"latitude": 12.9716, "longitude": 77.5946}
+        source_batch = InventoryBatch(
+            hospital_id=source_id,
+            sku_code="MED-FAIR-01",
+            sku_name="Fair Allocation Medicine",
+            quantity=120,
+            unit="packs",
+        )
+        urgent_hospital = Hospital(
+            name="Urgent Receiving Hospital",
+            administrator_name="Urgent Admin",
+            administrator_email="urgent-receiver@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+            settings={"latitude": 12.975, "longitude": 77.6},
+        )
+        surge_hospital = Hospital(
+            name="Surge Receiving Hospital",
+            administrator_name="Surge Admin",
+            administrator_email="surge-receiver@example.org",
+            classification="secondary",
+            node_role="coordinator",
+            status="active",
+            settings={"latitude": 12.9752, "longitude": 77.6002},
+        )
+        db.add_all([source_batch, urgent_hospital, surge_hospital])
+        db.flush()
+        db.add_all([
+            HospitalAgreement(
+                hospital_id=source_id,
+                partner_hospital_id=urgent_hospital.id,
+                title="Urgent supply agreement",
+                signatory="Source Admin",
+                agreement_type="emergency stock sharing",
+                terms_and_conditions="Test agreement",
+                status="active",
+            ),
+            HospitalAgreement(
+                hospital_id=source_id,
+                partner_hospital_id=surge_hospital.id,
+                title="Surge supply agreement",
+                signatory="Source Admin",
+                agreement_type="emergency stock sharing",
+                terms_and_conditions="Test agreement",
+                status="active",
+            ),
+        ])
+        db.add_all([
+            *[
+                MedicineDailyUsage(
+                    hospital_id=source_id,
+                    sku_code=source_batch.sku_code,
+                    sku_name=source_batch.sku_name,
+                    usage_date=today - timedelta(days=day),
+                    quantity_dispensed=10,
+                )
+                for day in range(7)
+            ],
+            HospitalSurveillance(
+                hospital_id=source_id,
+                report_date=today,
+                syndrome="Respiratory",
+                new_cases=30,
+                alert_level="surge",
+            ),
+            *[
+                MedicineDailyUsage(
+                    hospital_id=urgent_hospital.id,
+                    sku_code=source_batch.sku_code,
+                    sku_name=source_batch.sku_name,
+                    usage_date=today - timedelta(days=day),
+                    quantity_dispensed=10,
+                )
+                for day in range(7)
+            ],
+            *[
+                MedicineDailyUsage(
+                    hospital_id=surge_hospital.id,
+                    sku_code=source_batch.sku_code,
+                    sku_name=source_batch.sku_name,
+                    usage_date=today - timedelta(days=day),
+                    quantity_dispensed=20,
+                )
+                for day in range(7)
+            ],
+            InventoryBatch(
+                hospital_id=surge_hospital.id,
+                sku_code=source_batch.sku_code,
+                sku_name=source_batch.sku_name,
+                quantity=110,
+                unit="packs",
+                average_daily_use=20,
+            ),
+            HospitalSurveillance(
+                hospital_id=surge_hospital.id,
+                report_date=today,
+                syndrome="Respiratory",
+                new_cases=20,
+                alert_level="watch",
+            ),
+            TransferRequest(
+                requesting_hospital_id=urgent_hospital.id,
+                source_hospital_id=source_id,
+                sku_code=source_batch.sku_code,
+                sku_name=source_batch.sku_name,
+                quantity=100,
+                unit="packs",
+                urgency="critical",
+                status="requested",
+            ),
+            TransferRequest(
+                requesting_hospital_id=surge_hospital.id,
+                source_hospital_id=source_id,
+                sku_code=source_batch.sku_code,
+                sku_name=source_batch.sku_name,
+                quantity=100,
+                unit="packs",
+                urgency="normal",
+                status="requested",
+            ),
+        ])
+        db.commit()
+
+    response = authorized_client.get("/api/transfers")
+    assert response.status_code == 200
+    recommendations = [
+        row for row in response.json()
+        if row["sku_code"] == "MED-FAIR-01" and row["status"] == "requested"
+    ]
+    assert len(recommendations) == 2
+    urgent = next(row for row in recommendations if row["urgency"] == "critical")
+    surge = next(row for row in recommendations if row["allocation_surge_status"] == "watch")
+    assert urgent["allocation_supplier_surge_status"] == "surge"
+    assert urgent["allocation_supplier_shareable"] == 32
+    assert urgent["allocation_suggested_quantity"] + surge["allocation_suggested_quantity"] == 32
+    assert urgent["allocation_suggested_quantity"] > surge["allocation_suggested_quantity"] > 0
+    assert surge["allocation_recipient_stock_days"] == 5.0
+
+    over_allocation = authorized_client.patch(
+        f"/api/transfers/{surge['id']}",
+        json={"status": "approved", "approved_quantity": surge["allocation_suggested_quantity"] + 1},
+    )
+    assert over_allocation.status_code == 409
+    approved = authorized_client.patch(
+        f"/api/transfers/{urgent['id']}",
+        json={"status": "approved", "approved_quantity": urgent["allocation_suggested_quantity"]},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["quantity"] == urgent["allocation_suggested_quantity"]
+    approved_surge = authorized_client.patch(
+        f"/api/transfers/{surge['id']}",
+        json={"status": "approved", "approved_quantity": surge["allocation_suggested_quantity"]},
+    )
+    assert approved_surge.status_code == 200
+    assert approved_surge.json()["quantity"] == surge["allocation_suggested_quantity"]
+    with db_session_factory() as db:
+        assert db.get(InventoryBatch, source_batch.id).reserved_quantity == 32
 
 
 def test_hospital_settings_and_scenario_are_persisted(authorized_client):

@@ -45,6 +45,36 @@ def check_logistics_schema() -> list[str]:
                     for column_name in column_names
                     if column_name not in existing_columns
                 )
+            status_constraint = connection.execute(
+                text(
+                    """
+                    SELECT pg_get_constraintdef(oid)
+                    FROM pg_constraint
+                    WHERE conrelid = to_regclass('public.transfer_requests')
+                      AND contype = 'c'
+                      AND conname = 'ck_transfer_status'
+                    """
+                )
+            ).scalar_one_or_none()
+            required_statuses = {
+                "requested",
+                "approved",
+                "pending_pickup",
+                "in_transit",
+                "arrived_awaiting_inspection",
+                "completed",
+                "rejected",
+                "returned",
+                "exception",
+                "canceled",
+            }
+            if status_constraint is None or not all(
+                f"'{status}'" in status_constraint for status in required_statuses
+            ):
+                missing.append(
+                    "transfer_requests.status constraint "
+                    "(run 008_transfer_status_workflow.sql)"
+                )
     except (SQLAlchemyError, RuntimeError) as error:
         logger.error("Logistics schema check failed: %s", type(error).__name__)
         return ["database connection"]

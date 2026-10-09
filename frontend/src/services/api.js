@@ -198,10 +198,14 @@ export function createTransfer(transfer) {
   return request('/api/transfers', { method: 'POST', body: JSON.stringify(transfer) }, true);
 }
 
-export function updateTransferStatus(transferId, status) {
+export function updateTransferStatus(transferId, status, approvedQuantity) {
+  const payload = { status };
+  if (approvedQuantity !== undefined && approvedQuantity !== null) {
+    payload.approved_quantity = approvedQuantity;
+  }
   return request(`/api/transfers/${transferId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(payload),
   }, true);
 }
 

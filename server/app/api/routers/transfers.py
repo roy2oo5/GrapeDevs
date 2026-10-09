@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -12,7 +12,6 @@ from app.models import (
     TransferItem, TransferCustodyEvent, TransferReceipt, TransferIncident,
     TransferTrackingSession, TransferLocationPoint, Vehicle,
 )
-from app.models import MedicineDailyUsage
 from app.schemas import (
     TransferAuditRead, TransferCreate, TransferRead, TransferStatusUpdate,
     DriverCreate, VehicleCreate, LogisticsAssignment, CustodyEventCreate,
@@ -21,6 +20,7 @@ from app.schemas import (
 )
 from app.services.realtime import publish_hospital_event
 from app.services.geography import is_within_hospital_radius
+from app.services.allocation import recommend_request_allocations
 from app.services.stock import seven_day_stock_reserve
 
 
@@ -32,7 +32,11 @@ router = APIRouter(
 
 
 def allocated_unreserved_quantity(
-    db: Session, hospital_id: UUID, sku_code: str, exclude_transfer_id: UUID | None = None
+    db: Session,
+    hospital_id: UUID,
+    sku_code: str,
+    exclude_transfer_id: UUID | None = None,
+    include_pending_requests: bool = True,
 ) -> int:
     active_listed = db.scalar(
         select(func.coalesce(func.sum(SurplusListing.quantity_available), 0)).where(
@@ -44,18 +48,20 @@ def allocated_unreserved_quantity(
             ),
         )
     ) or 0
-    pending_requests_query = select(
-        func.coalesce(func.sum(TransferRequest.quantity), 0)
-    ).where(
-        TransferRequest.source_hospital_id == hospital_id,
-        TransferRequest.sku_code == sku_code,
-        TransferRequest.status == "requested",
-    )
-    if exclude_transfer_id is not None:
-        pending_requests_query = pending_requests_query.where(
-            TransferRequest.id != exclude_transfer_id
+    pending_requests = 0
+    if include_pending_requests:
+        pending_requests_query = select(
+            func.coalesce(func.sum(TransferRequest.quantity), 0)
+        ).where(
+            TransferRequest.source_hospital_id == hospital_id,
+            TransferRequest.sku_code == sku_code,
+            TransferRequest.status == "requested",
         )
-    pending_requests = db.scalar(pending_requests_query) or 0
+        if exclude_transfer_id is not None:
+            pending_requests_query = pending_requests_query.where(
+                TransferRequest.id != exclude_transfer_id
+            )
+        pending_requests = db.scalar(pending_requests_query) or 0
     return int(active_listed) + int(pending_requests)
 
 
@@ -240,10 +246,29 @@ def list_transfers(
     if status_filter:
         statement = statement.where(TransferRequest.status == status_filter)
     statement = statement.limit(limit)
-    return [
-        serialize_transfer(db, transfer, requesting_name, source_name)
-        for transfer, requesting_name, source_name in db.execute(statement)
-    ]
+    results = list(db.execute(statement))
+    open_requests = list(db.scalars(
+        select(TransferRequest).where(
+            TransferRequest.source_hospital_id == identity.hospital_id,
+            TransferRequest.status == "requested",
+        )
+    ))
+    requests_by_sku: dict[str, list[TransferRequest]] = {}
+    for transfer in open_requests:
+        requests_by_sku.setdefault(transfer.sku_code, []).append(transfer)
+    recommendations: dict[UUID, dict[str, int | float | str | None]] = {}
+    for sku_code, requests in requests_by_sku.items():
+        recommendations.update(recommend_request_allocations(
+            db, identity.hospital_id, sku_code, requests
+        ))
+
+    serialized = []
+    for transfer, requesting_name, source_name in results:
+        item = serialize_transfer(db, transfer, requesting_name, source_name)
+        if transfer.id in recommendations:
+            item.update(recommendations[transfer.id])
+        serialized.append(item)
+    return serialized
 
 
 def stop_active_tracking(db: Session, transfer_id: UUID) -> None:
@@ -307,18 +332,12 @@ def update_transfer_status(
     previous_status = transfer.status
     if payload.status == "approved" and transfer.source_hospital_id == transfer.requesting_hospital_id:
         raise HTTPException(status_code=409, detail="A hospital cannot approve a transfer to itself")
-    if payload.status == "approved" and payload.approved_quantity is not None:
-        if payload.approved_quantity > transfer.quantity:
-            raise HTTPException(status_code=422, detail="Approved quantity cannot exceed requested quantity")
-        if payload.approved_quantity < transfer.quantity:
-            restore_quantity = transfer.quantity - payload.approved_quantity
-            if transfer.surplus_listing_id:
-                listing = db.get(SurplusListing, transfer.surplus_listing_id)
-                if listing:
-                    listing.quantity_available += restore_quantity
-                    if listing.status == "filled" and (listing.expires_on is None or listing.expires_on >= datetime.now(timezone.utc).date()):
-                        listing.status = "active"
-            transfer.quantity = payload.approved_quantity
+    if (
+        payload.status == "approved"
+        and payload.approved_quantity is not None
+        and payload.approved_quantity > transfer.quantity
+    ):
+        raise HTTPException(status_code=422, detail="Approved quantity cannot exceed requested quantity")
     if payload.status == "approved" and transfer.source_hospital_id:
         locked_hospitals = list(db.scalars(
             select(Hospital)
@@ -372,17 +391,64 @@ def update_transfer_status(
                 InventoryBatch.id.asc(),
             ).with_for_update()
         ))
-        requested_quantity = payload.approved_quantity or transfer.quantity
         if not source_batches:
             raise HTTPException(status_code=409, detail="The requested medicine is no longer in the source inventory")
-        available_source_quantity = sum(
-            batch.quantity - batch.reserved_quantity for batch in source_batches
+        open_requests = list(db.scalars(
+            select(TransferRequest).where(
+                TransferRequest.source_hospital_id == transfer.source_hospital_id,
+                TransferRequest.sku_code == transfer.sku_code,
+                TransferRequest.status == "requested",
+            )
+        ))
+        recommendations = recommend_request_allocations(
+            db, transfer.source_hospital_id, transfer.sku_code, open_requests
         )
+        recommendation = recommendations.get(transfer.id)
+        suggested_quantity = (
+            int(recommendation["allocation_suggested_quantity"])
+            if recommendation else 0
+        )
+        requested_quantity = payload.approved_quantity or suggested_quantity
+        if requested_quantity <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="No quantity can be recommended until the recipient's medicine use and available stock show a need",
+            )
+        if requested_quantity > suggested_quantity:
+            raise HTTPException(
+                status_code=409,
+                detail=f"The current suggested maximum for this request is {suggested_quantity} units",
+            )
+        if requested_quantity < transfer.quantity and transfer.surplus_listing_id:
+            listing = db.get(SurplusListing, transfer.surplus_listing_id)
+            if listing:
+                listing.quantity_available += transfer.quantity - requested_quantity
+                if listing.status == "filled" and (
+                    listing.expires_on is None
+                    or listing.expires_on >= datetime.now(timezone.utc).date()
+                ):
+                    listing.status = "active"
+        transfer.quantity = requested_quantity
+        available_source_quantity = int(db.scalar(
+            select(func.coalesce(func.sum(
+                InventoryBatch.quantity - InventoryBatch.reserved_quantity
+            ), 0)).where(
+                InventoryBatch.hospital_id == transfer.source_hospital_id,
+                InventoryBatch.sku_code == transfer.sku_code,
+                InventoryBatch.quantity > 0,
+                InventoryBatch.expires_on.is_(None)
+                | (InventoryBatch.expires_on >= datetime.now(timezone.utc).date()),
+            )
+        ) or 0)
         reserve_quantity = seven_day_stock_reserve(
             db, transfer.source_hospital_id, transfer.sku_code
         )
         allocated_quantity = allocated_unreserved_quantity(
-            db, transfer.source_hospital_id, transfer.sku_code, transfer.id
+            db,
+            transfer.source_hospital_id,
+            transfer.sku_code,
+            transfer.id,
+            include_pending_requests=False,
         )
         shareable_quantity = max(
             0, available_source_quantity - reserve_quantity - allocated_quantity
@@ -401,58 +467,6 @@ def update_transfer_status(
             raise HTTPException(
                 status_code=409,
                 detail="The listed inventory batch no longer contains the requested quantity",
-            )
-        receiving_stock = db.scalar(
-            select(func.coalesce(func.sum(InventoryBatch.quantity - InventoryBatch.reserved_quantity), 0)).where(
-                InventoryBatch.hospital_id == receiving_hospital.id,
-                InventoryBatch.sku_code == transfer.sku_code,
-                InventoryBatch.quantity > 0,
-                (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= datetime.now(timezone.utc).date())),
-            )
-        )
-        incoming_quantity = db.scalar(
-            select(func.coalesce(func.sum(TransferRequest.quantity), 0)).where(
-                TransferRequest.requesting_hospital_id == receiving_hospital.id,
-                TransferRequest.sku_code == transfer.sku_code,
-                TransferRequest.id != transfer.id,
-                TransferRequest.status.in_((
-                    "approved", "pending_pickup", "in_transit",
-                    "arrived_awaiting_inspection", "exception",
-                )),
-            )
-        )
-        receiving_usage = db.scalar(
-            select(func.avg(MedicineDailyUsage.quantity_dispensed)).where(
-                MedicineDailyUsage.hospital_id == receiving_hospital.id,
-                MedicineDailyUsage.sku_code == transfer.sku_code,
-                MedicineDailyUsage.usage_date >= datetime.now(timezone.utc).date() - timedelta(days=30),
-            )
-        )
-        receiving_average_use = db.scalar(
-            select(func.avg(InventoryBatch.average_daily_use)).where(
-                InventoryBatch.hospital_id == receiving_hospital.id,
-                InventoryBatch.sku_code == transfer.sku_code,
-                (InventoryBatch.expires_on.is_(None) | (InventoryBatch.expires_on >= datetime.now(timezone.utc).date())),
-            )
-        )
-        receiving_daily_use = (
-            float(receiving_usage)
-            if receiving_usage is not None
-            else float(receiving_average_use or 0)
-        )
-        projected_receiving_stock = receiving_stock + incoming_quantity
-        receiving_days_remaining = (
-            projected_receiving_stock / receiving_daily_use if receiving_daily_use > 0 else 0
-        )
-        if projected_receiving_stock > 0 and receiving_daily_use <= 0:
-            raise HTTPException(
-                status_code=409,
-                detail="Receiving hospital need cannot be verified without a usage rate for this medicine",
-            )
-        if projected_receiving_stock > 0 and receiving_daily_use > 0 and receiving_days_remaining > 7:
-            raise HTTPException(
-                status_code=409,
-                detail="Transfer is not approved because the receiving hospital has more than 7 days of stock, including existing incoming transfers",
             )
         quantity_to_reserve = requested_quantity
         for source_batch in source_batches:

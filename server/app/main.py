@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from app.api.router import api_router
 from app.api.routers.system import router as system_router
@@ -36,6 +36,19 @@ def create_app() -> FastAPI:
     async def global_exception_handler(request, exc):
         import traceback
         traceback.print_exc()
+        if isinstance(exc, IntegrityError) and getattr(
+            getattr(exc.orig, "diag", None), "constraint_name", None
+        ) in {"transfer_requests_status_check", "ck_transfer_status"}:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": (
+                        "Supabase transfer workflow migration is required. "
+                        "Run server/supabase/migrations/008_transfer_status_workflow.sql."
+                    ),
+                    "error_type": "DatabaseMigrationRequired",
+                },
+            )
         if isinstance(exc, ProgrammingError) and (
             "undefined column" in str(exc).lower()
             or "does not exist" in str(exc).lower()
@@ -45,7 +58,7 @@ def create_app() -> FastAPI:
                 content={
                     "detail": (
                         "The database is missing the internal logistics migration. "
-                        "Run server/supabase/migrations/007_internal_logistics.sql in Supabase SQL Editor."
+                        "Run the required server/supabase/migrations/*.sql files in Supabase SQL Editor."
                     ),
                     "error_type": "DatabaseMigrationRequired",
                 },

@@ -686,6 +686,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
         unit: 'vials',
         urgency: 'critical',
         status: 'requested',
+        allocation_suggested_quantity: 240,
+        allocation_recipient_stock_days: 2.5,
+        allocation_explanation: 'Based on recorded 7-day use, normal demand, and the hospital’s 7-day stock target.',
         created_at: new Date().toISOString(),
         requesting_hospital_id: 'hospital-current',
         source_hospital_id: 'hospital-source',
@@ -702,7 +705,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<TransfersLogisticsView onToast={handleToast} />);
 
       await screen.findByText(/transfer-test-001/);
-      const approveBtn = await screen.findByRole('button', { name: 'Approve request' });
+      const approveBtn = await screen.findByRole('button', { name: 'Approve 240' });
       fireEvent.click(approveBtn);
 
       await waitFor(() => expect(handleToast).toHaveBeenCalledWith(expect.stringContaining('approved')));
@@ -710,6 +713,11 @@ describe('PulseGrid Control Tower Test Suite', () => {
         expect.stringContaining('/api/transfers/transfer-test-001'),
         expect.objectContaining({ method: 'PATCH' }),
       );
+      const approvalCall = fetch.mock.calls.find(([, options]) => options?.method === 'PATCH');
+      expect(JSON.parse(approvalCall[1].body)).toEqual({
+        status: 'approved',
+        approved_quantity: 240,
+      });
     });
   });
 

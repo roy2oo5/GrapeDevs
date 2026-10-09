@@ -18,8 +18,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         missing_columns = check_logistics_schema()
         if missing_columns:
             logger.error(
-                "Database migration 007 is incomplete. Missing: %s. "
-                "Run server/supabase/migrations/007_internal_logistics.sql.",
+                "Database migrations are incomplete. Missing: %s. "
+                "Run the required migrations in server/supabase/migrations/.",
                 ", ".join(missing_columns),
             )
     else:

@@ -48,10 +48,12 @@ export function DashboardView({
     { label: 'Active transfers', value: isLoading ? '…' : Number(dashboardData.active_transfer_count || 0).toLocaleString(), detail: 'View sent and received stock', view: 'transfers-and-logistics' },
   ];
 
-  const resolveRequest = async (transfer, status) => {
+  const resolveRequest = async (transfer, status, approvedQuantity) => {
     try {
-      await onResolveTransfer?.(transfer.id, status);
-      onToast?.(status === 'approved' ? 'Transfer request approved.' : 'Transfer request rejected.');
+      await onResolveTransfer?.(transfer.id, status, approvedQuantity);
+      onToast?.(status === 'approved'
+        ? `Transfer request approved for ${approvedQuantity} ${transfer.unit}.`
+        : 'Transfer request rejected.');
     } catch (error) {
       onToast?.(error.message || 'Could not update transfer request.');
     }
@@ -143,9 +145,28 @@ export function DashboardView({
                   <span className="text-xs font-semibold uppercase text-primary">{transfer.urgency}</span>
                 </div>
                 <p className="mt-1 text-sm text-on-surface-variant">{transfer.sku_name} · {transfer.quantity} {transfer.unit}</p>
+                <div className="mt-2 rounded-lg bg-surface-container-low p-2 text-xs text-on-surface-variant">
+                  <p className="font-semibold text-on-surface">
+                    Suggested allocation: {transfer.allocation_suggested_quantity ?? 0} {transfer.unit}
+                    {transfer.allocation_recipient_stock_days !== null
+                      && transfer.allocation_recipient_stock_days !== undefined
+                      ? ` · ${transfer.allocation_recipient_stock_days} days of stock`
+                      : ''}
+                  </p>
+                  <p className="mt-1">
+                    {transfer.allocation_explanation || 'No verified usage data is available for this request.'}
+                  </p>
+                </div>
                 <div className="mt-3 flex gap-2">
                   <button type="button" onClick={() => resolveRequest(transfer, 'rejected')} className="rounded-lg border border-outline/30 px-3 py-1.5 text-sm text-on-surface-variant">Decline</button>
-                  <button type="button" onClick={() => resolveRequest(transfer, 'approved')} className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary">Approve</button>
+                  <button
+                    type="button"
+                    disabled={!transfer.allocation_suggested_quantity}
+                    onClick={() => resolveRequest(transfer, 'approved', transfer.allocation_suggested_quantity)}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Approve {transfer.allocation_suggested_quantity ?? 0}
+                  </button>
                 </div>
               </article>
             ))}
