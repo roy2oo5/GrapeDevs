@@ -44,20 +44,30 @@ describe('PulseGrid Control Tower Test Suite', () => {
   });
 
   describe('LeftTelemetryPanel Component', () => {
-    it('renders bio-surveillance telemetry and capability badges', () => {
+    it('explains the main hospital inventory and transfer tasks', () => {
       render(<LeftTelemetryPanel />);
 
-      expect(screen.getByText('LIVE SYNC')).toBeInTheDocument();
-      expect(screen.getByText('Epidemic Defense & Logistics')).toBeInTheDocument();
-      expect(
-        screen.getByText('Predictive inventory, zero-stockout allocation.')
-      ).toBeInTheDocument();
-      expect(screen.getByText('Outbreak Spike Detection')).toBeInTheDocument();
-      expect(screen.getByText('Expiry-Aware Redistribution')).toBeInTheDocument();
-      expect(screen.getByText('Reconciliation Audit Log')).toBeInTheDocument();
-      expect(screen.getByText('System Telemetry Status')).toBeInTheDocument();
-      expect(screen.getByText('6 Hospitals Active')).toBeInTheDocument();
-      expect(screen.getByText('1,420 Monitored SKUs')).toBeInTheDocument();
+      expect(screen.getByText('Hospital stock, made easier')).toBeInTheDocument();
+      expect(screen.getByText('Track medicine stock and expiry dates')).toBeInTheDocument();
+      expect(screen.getByText('Review medicine use and forecasts')).toBeInTheDocument();
+      expect(screen.getByText('Coordinate transfers with hospitals')).toBeInTheDocument();
+      expect(screen.queryByText(/Hospitals Active|Monitored SKUs|LIVE SYNC/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('InfoModal Component', () => {
+    it('does not claim that unsupported sign-in services are active', () => {
+      render(<InfoModal modalType="sso" onClose={vi.fn()} />);
+
+      expect(screen.getByText(/Single sign-on is not set up for this hospital/)).toBeInTheDocument();
+      expect(screen.queryByText(/Kaiser|NHS|FIPS|SAML 2.0/)).not.toBeInTheDocument();
+    });
+
+    it('explains that access key recovery is unavailable without pretending to send a request', () => {
+      render(<InfoModal modalType="reset" onClose={vi.fn()} />);
+
+      expect(screen.getByText(/Access key recovery is not available here/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Send Challenge/i })).not.toBeInTheDocument();
     });
   });
 
@@ -222,11 +232,11 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       expect(screen.getByText('PulseGrid AI')).toBeInTheDocument();
       expect(screen.getByText('Supply Control Tower')).toBeInTheDocument();
-      expect(screen.getByText('Inventory & SKUs')).toBeInTheDocument();
-      expect(screen.getByText('Outbreak Surveillance')).toBeInTheDocument();
-      expect(screen.getByText('Transfers & Logistics')).toBeInTheDocument();
+      expect(screen.getByText('Inventory')).toBeInTheDocument();
+      expect(screen.getByText('Medicine forecast')).toBeInTheDocument();
+      expect(screen.getByText('Transfers')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByText('Inventory & SKUs'));
+      fireEvent.click(screen.getByText('Inventory'));
       expect(handleView).toHaveBeenCalledWith('inventory-and-skus');
     });
 
@@ -234,7 +244,9 @@ describe('PulseGrid Control Tower Test Suite', () => {
       render(<DashboardHeader currentHospital="MedCare General Hospital" onOpenSearch={vi.fn()} />);
 
       expect(screen.getAllByText('MedCare General Hospital').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('Surplus Redistribution Terminal')).not.toBeInTheDocument();
       expect(screen.queryByText('person')).not.toBeInTheDocument();
+      expect(screen.queryByText('local_hospital')).not.toBeInTheDocument();
     });
 
     it('renders real inventory risk metrics and supply priorities', () => {
@@ -260,9 +272,11 @@ describe('PulseGrid Control Tower Test Suite', () => {
         />
       );
 
-      expect(screen.getByText('Medical Supply Intelligence')).toBeInTheDocument();
-      expect(screen.getByText('113.0 units/day')).toBeInTheDocument();
-      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByText('Stock and transfers')).toBeInTheDocument();
+      expect(screen.getByText('Inventory batches')).toBeInTheDocument();
+      expect(screen.getByText('Low stock')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Low stock2Seven days of stock or less/ })).toBeInTheDocument();
+      expect(screen.queryByText(/units\/day|Safe surplus estimate/)).not.toBeInTheDocument();
       expect(screen.getByText('Priority supplies')).toBeInTheDocument();
 
       expect(screen.getByText('Paracetamol 500mg IV Infusion (100ml)')).toBeInTheDocument();
@@ -890,7 +904,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
       expect(screen.getByText('Hospital Login')).toBeInTheDocument();
       expect(screen.queryByText('Executive Command Console')).not.toBeInTheDocument();
       expect(
-        screen.getByText('Predictive inventory, zero-stockout allocation.')
+        screen.getByText('Keep medicine stock moving where it is needed.')
       ).toBeInTheDocument();
     });
 
@@ -921,7 +935,7 @@ describe('PulseGrid Control Tower Test Suite', () => {
 
       render(<App />);
 
-      expect(await screen.findByText('Medical Supply Intelligence')).toBeInTheDocument();
+      expect(await screen.findByText('Stock and transfers')).toBeInTheDocument();
       expect(screen.getAllByText('North District Hospital').length).toBeGreaterThan(0);
       const hospitalRequest = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/hospitals/me'));
       expect(hospitalRequest[1].headers.get('Authorization')).toBe('Bearer saved-hospital-token');

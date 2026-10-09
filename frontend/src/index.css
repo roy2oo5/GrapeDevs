@@ -26,16 +26,6 @@
   }
 }
 
-/* Hide scrollbar for clean telemetry dashboard aesthetics */
-::-webkit-scrollbar {
-  display: none;
-}
-
-* {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 /* Material Symbols Outlined helper */
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';

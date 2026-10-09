@@ -10,7 +10,6 @@ import { Footer } from './components/Footer';
 import { LeftTelemetryPanel } from './components/LeftTelemetryPanel';
 import { AuthFormPanel } from './components/AuthFormPanel';
 import { InfoModal } from './components/InfoModal';
-import { ApiTester } from './components/ApiTester';
 import {
   clearAccessToken,
   createTransfer,
@@ -40,7 +39,7 @@ export default function App() {
   // Modals & Interactive States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [actionModal, setActionModal] = useState(null); // { type, payload }
-  const [authModalType, setAuthModalType] = useState(null); // 'reset' | 'sso' | 'terms' | 'telemetry' | 'diagnostics'
+  const [authModalType, setAuthModalType] = useState(null);
   const [user, setUser] = useState(null);
 
   // Toasts
@@ -315,44 +314,6 @@ export default function App() {
         modalType={authModalType !== 'diagnostics' ? authModalType : null}
         onClose={() => setAuthModalType(null)}
       />
-
-      {/* Developer API Diagnostics Drawer */}
-      {authModalType === 'diagnostics' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-3xl bg-surface-container-lowest rounded-2xl shadow-2xl border border-surface-container-high overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-surface-container flex items-center justify-between bg-surface-container-low">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[22px]">developer_board</span>
-                <span className="font-semibold text-on-surface">FastAPI Backend Diagnostics</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAuthModalType(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:text-on-surface hover:bg-surface-container transition-colors"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 bg-surface-container-lowest">
-              <ApiTester onStatusChange={setBackendStatus} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Diagnostics Button */}
-      <button
-        type="button"
-        onClick={() => setAuthModalType('diagnostics')}
-        title="Open Backend API Diagnostics"
-        className="fixed bottom-4 right-4 z-40 px-3 py-1.5 rounded-full bg-surface-container text-secondary hover:text-on-surface hover:bg-surface-container-high border border-surface-container-high/80 text-xs font-medium shadow-md transition-all flex items-center gap-1.5 cursor-pointer opacity-70 hover:opacity-100"
-      >
-        <span
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: backendStatus === 'online' ? '#00855b' : '#ba1a1a' }}
-        ></span>
-        <span>API Diagnostics</span>
-      </button>
 
       {/* Interactive Toast Notifications */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">

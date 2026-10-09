@@ -14,12 +14,14 @@ export function DashboardView({
   onFindSupply,
 }) {
   const today = dateOnly(new Date().toISOString().slice(0, 10));
-  const inventoryUnits = inventoryBatches.reduce((total, batch) => total + batch.quantity, 0);
-  const predictedDailyDemand = inventoryBatches.reduce((total, batch) => total + (batch.average_daily_use || 0), 0);
   const shortageItems = inventoryBatches
     .map((batch) => {
       const dailyUse = Number(batch.average_daily_use) || 0;
-      const daysRemaining = dailyUse > 0 ? (batch.quantity - (batch.reserved_quantity || 0)) / dailyUse : null;
+      const availableQuantity = Math.max(
+        0,
+        Number(batch.quantity) - Number(batch.reserved_quantity || 0),
+      );
+      const daysRemaining = dailyUse > 0 ? availableQuantity / dailyUse : null;
       return { ...batch, daysRemaining };
     })
     .filter((batch) => batch.daysRemaining !== null && batch.daysRemaining <= 7)
@@ -39,18 +41,11 @@ export function DashboardView({
       return (priority[a.urgency] ?? 3) - (priority[b.urgency] ?? 3)
         || new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
-  const surplusUnits = inventoryBatches.reduce((total, batch) => {
-    const available = Math.max(0, batch.quantity - (batch.reserved_quantity || 0));
-    const reserve = (Number(batch.average_daily_use) || 0) * 14;
-    return total + Math.max(0, available - reserve);
-  }, 0);
   const metricCards = [
-    { label: 'Inventory on hand', value: isLoading ? 'Loading…' : `${inventoryUnits.toLocaleString()} units`, detail: `${inventoryBatches.length} inventory batches`, view: 'inventory-and-skus' },
-    { label: 'Predicted daily demand', value: isLoading ? 'Loading…' : `${predictedDailyDemand.toFixed(1)} units/day`, detail: 'From recorded average use', view: 'outbreak-surveillance' },
-    { label: 'Shortage risk', value: isLoading ? 'Loading…' : shortageItems.length.toLocaleString(), detail: 'Items with 7 or fewer days of stock', view: 'outbreak-surveillance' },
-    { label: 'Expiry risk', value: isLoading ? 'Loading…' : expiringBatches.length.toLocaleString(), detail: 'Batches expiring within 30 days', view: 'inventory-and-skus' },
-    { label: 'Safe surplus estimate', value: isLoading ? 'Loading…' : `${surplusUnits.toLocaleString()} units`, detail: 'After 14-day usage reserve', view: 'mou-partners' },
-    { label: 'Active transfers', value: isLoading ? 'Loading…' : (dashboardData.active_transfer_count || 0).toLocaleString(), detail: 'Sending and received', view: 'transfers-and-logistics' },
+    { label: 'Inventory batches', value: isLoading ? '…' : inventoryBatches.length.toLocaleString(), detail: 'View recorded stock', view: 'inventory-and-skus' },
+    { label: 'Low stock', value: isLoading ? '…' : shortageItems.length.toLocaleString(), detail: 'Seven days of stock or less', view: 'outbreak-surveillance' },
+    { label: 'Expiring soon', value: isLoading ? '…' : expiringBatches.length.toLocaleString(), detail: 'Expires within 30 days', view: 'inventory-and-skus' },
+    { label: 'Active transfers', value: isLoading ? '…' : Number(dashboardData.active_transfer_count || 0).toLocaleString(), detail: 'View sent and received stock', view: 'transfers-and-logistics' },
   ];
 
   const resolveRequest = async (transfer, status) => {
@@ -66,10 +61,10 @@ export function DashboardView({
     <div className="flex w-full flex-col gap-6 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Hospital supply overview</p>
-          <h1 className="mt-1 text-2xl font-bold text-on-surface">Medical Supply Intelligence</h1>
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Hospital overview</p>
+          <h1 className="mt-1 text-2xl font-bold text-on-surface">Stock and transfers</h1>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Inventory, demand, shortage risk, expiry risk, redistribution, and priority facilities.
+            A quick view of stock, expiry dates, and hospital requests.
           </p>
         </div>
         <button type="button" onClick={onOpenEmergencyModal} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary">
@@ -77,7 +72,7 @@ export function DashboardView({
         </button>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metricCards.map((card) => (
           <button key={card.label} type="button" onClick={() => onNavigate?.(card.view)} className="rounded-xl border border-outline/20 bg-surface-container-lowest p-4 text-left hover:border-primary/40">
             <span className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">{card.label}</span>

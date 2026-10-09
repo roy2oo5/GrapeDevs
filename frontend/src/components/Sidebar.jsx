@@ -1,14 +1,14 @@
 import React from 'react';
 
-export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'MedCare Hub' }) {
+export function Sidebar({ currentView, onViewChange, onOpenAuth }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'grid_view' },
-    { id: 'inventory-and-skus', label: 'Inventory & SKUs', icon: 'inventory_2' },
-    { id: 'forecast-data', label: 'Forecast Data', icon: 'database' },
-    { id: 'outbreak-surveillance', label: 'Outbreak Surveillance', icon: 'coronavirus' },
-    { id: 'transfers-and-logistics', label: 'Transfers & Logistics', icon: 'local_shipping' },
+    { id: 'inventory-and-skus', label: 'Inventory', icon: 'inventory_2' },
+    { id: 'forecast-data', label: 'Record usage', icon: 'database' },
+    { id: 'outbreak-surveillance', label: 'Medicine forecast', icon: 'coronavirus' },
+    { id: 'transfers-and-logistics', label: 'Transfers', icon: 'local_shipping' },
     { id: 'mou-partners', label: 'Surplus Marketplace', icon: 'storefront' },
-    { id: 'hospital-network', label: 'Collaboration & MOUs', icon: 'handshake' },
+    { id: 'hospital-network', label: 'Hospital agreements', icon: 'handshake' },
   ];
 
   return (
@@ -34,7 +34,7 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'M
         <div className="px-space-md py-space-sm">
           <div className="px-space-sm py-space-xs">
             <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">
-              Intelligence Operations
+              Hospital tools
             </span>
           </div>
 
@@ -73,7 +73,7 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'M
           }`}
         >
           <span className="material-symbols-outlined text-[18px]">settings</span>
-          <span className="font-label-md text-label-md">System Settings</span>
+          <span className="font-label-md text-label-md">Settings</span>
         </button>
 
 
@@ -86,7 +86,7 @@ export function Sidebar({ currentView, onViewChange, onOpenAuth, activeNode = 'M
             className="text-[11px] text-center text-outline hover:text-primary transition-colors py-1 flex items-center justify-center gap-1 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[14px]">lock_reset</span>
-            <span>Switch Terminal / Sign Out</span>
+            <span>Sign out</span>
           </button>
         )}
       </div>
